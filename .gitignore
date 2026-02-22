@@ -1,0 +1,27 @@
+# MATLAB Autosave files (자동 저장 파일)
+*.asv
+*.m~
+*.mlapp~
+
+# Compiled binaries / MEX files (컴파일된 바이너리)
+*.mex*
+*.mexa64
+*.mexw64
+*.mexw32
+*.mexmaci64
+
+# Simulink generated files and caches (시뮬링크 캐시 및 빌드 폴더)
+slprj/
+sfprj/
+*.slxc
+
+# MATLAB specific temporary files
+*.prj~
+*.log
+
+# (선택 사항) 용량이 큰 데이터 파일 제외
+# *.mat
+# *.fig
+
+# rawData 폴더 무시
+3_Experiments/rawData/
