@@ -13,7 +13,7 @@
 
 ```text
 Project_Root/
-├── .gitignore               # /rawData/, /processedData/ 등 대용량 데이터 및 임시 파일 배제
+├── .gitignore               # 폴더 구조 유지 및 대용량/바이너리 파일(doc, pdf 등) 추적 배제 규칙 명시
 ├── .gitattributes           # 바이너리 파일 손상 방지 규칙 명시
 ├── README.md                # 템플릿 철학 및 규격 선언문
 ├── 1_Hardware/              # 기구(CAD)/회로(PCB) 스펙 및 초기 Calibration 설정 보관
@@ -24,7 +24,11 @@ Project_Root/
 │   ├── rawData/             # 센서 원시 데이터 (절대 수정 금지, Git 추적 제외)
 │   ├── processedData/       # 분석 완료된 캐시 데이터 (Git 추적 제외)
 │   └── scripts/             # 세션별 구동용 Cell Mode 분석 스크립트 (.m)
-└── 4_Manuscript/            # 논문 작성용 원고(.tex) 및 시각화 리포트
+└── 4_Manuscript/            # 논문, 그림, 발표 자료 보관 (용량 크므로 git에서 버전관리 하지 않음)
+    ├── 01_Refs/             # 참고 문헌 (PDF, Mendeley/Zotero export 등)
+    ├── 02_Figs/             # 그림/도표 (rawFig, processedFig, finalFig 등 구조화)
+    ├── 03_Drafts/           # 논문 원고 (Word, LaTeX 등) 및 백업(archive)
+    └── 04_Presentations/    # 발표 자료 (랩미팅 PPT, 학회 포스터 등)
 
 ```
 
@@ -51,6 +55,7 @@ Project_Root/
 * 분석 코드는 반드시 `3_Experiments/scripts/` 내에 위치해야 하며, 데이터 폴더(`rawData`) 내부에 혼재 불가함.
 * 벤더 종속성(Vendor Lock-in) 방지 및 영구적 텍스트 추적을 위해 `.mlx` 대신 순수 `.m` 파일을 사용함.
 * 코드 내 `%%` (Cell Mode)를 활용해 구역별로 실행하며, 도출된 인사이트는 러닝 로그에 반영함.
+* 분석 코드로 생성된 그림이나 mat파일은 processedData 폴더 하위에 동일 세션명의 폴더를 생성하여 저장함. 세션명 폴더는 트라이얼별로 별도 생성하지 않음. (예: `processedData/S001/S001_t1.png`)
 
 ## ⚖️ License / 라이선스
 

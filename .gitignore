@@ -19,9 +19,30 @@ sfprj/
 *.prj~
 *.log
 
-# (선택 사항) 용량이 큰 데이터 파일 제외
+# 용량이 큰 데이터 파일 제외
 # *.mat
 # *.fig
+# 문서 및 발표 자료
+*.doc
+*.docx
+*.ppt
+*.pptx
+*.pdf
 
-# rawData 폴더 무시
-3_Experiments/rawData/
+# 고해상도 및 원본 이미지/그래픽 파일
+*.ai
+*.psd
+*.tif
+*.tiff
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.eps
+
+# Reference 관리 프로그램 Export
+*.enl
+*.bib
+
+# 03_Drafts/manuscript_v1.docx 무시하지 않음(예시파일)
+!4_Manuscript/03_Drafts/manuscript_v1.docx
