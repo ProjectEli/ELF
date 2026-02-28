@@ -1,4 +1,4 @@
-# Eli's Lab Framework (ELF): Base-Delta Protocol for Agile R&D biolerplate
+# Eli's Lab Framework (ELF): Base-Delta Protocol for Agile R&D boilerplate
 
 기기 개발 및 R&D 검증 단계의 빠른 피드백 루프(Agile)를 지원하기 위한 하드웨어-소프트웨어-실험 데이터 통합 기록 규격(Protocol)임. 연구자의 기록 피로도를 최소화하면서도 완벽한 데이터 추적성을 보장함.
 
