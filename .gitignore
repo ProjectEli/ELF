@@ -1,5 +1,7 @@
-# === Claude Code ===
+# === Claude Code & AI Toolkit ===
 .claude/
+.ecc/
+CLAUDE.md
 
 # === MATLAB Autosave files (자동 저장 파일) ===
 *.asv
@@ -22,34 +24,15 @@ sfprj/
 *.prj~
 *.log
 
-# === 용량이 큰 데이터 파일 제외 ===
-# *.mat
-# *.fig
-
-# === 문서 및 발표 자료 ===
-*.doc
-*.docx
-*.ppt
-*.pptx
-*.pdf
-
-# === 고해상도 및 원본 이미지/그래픽 파일 ===
-*.ai
-*.psd
-*.tif
-*.tiff
-*.png
-*.jpg
-*.jpeg
-*.svg
-*.eps
-
-# === Reference 관리 프로그램 Export ===
-*.enl
-*.bib
+# === Office autosave files (자동 저장 임시 파일) ===
+~$*.xls*
+~$*.ppt*
+~$*.doc*
 
 # === Raw Data (원본 센서 데이터 — 절대 Git 추적 제외) ===
 5_Exp/52_Empirical/Raw/
 
-# === 예시 파일 예외 (추적 허용) ===
-!6_Paper/62_Drafts/manuscript_v1.docx
+# === (선택) 용량이 큰 데이터 파일 제외 ===
+# 필요 시 아래 주석을 해제하여 대용량 파일 제외
+# *.mat
+# *.fig

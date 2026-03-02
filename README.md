@@ -109,8 +109,10 @@ AI 에이전트(Claude, Gemini 등)가 프로젝트에 참여할 때 다음 규�
 
 1. **컨텍스트 파악**: 작업 시작 전 `0_Meta/AI_Sync.md`를 읽어 이전 작업 상태 확인.
 2. **동일 규격 준수**: `0_Meta/LogConvention.md`의 로깅 규칙을 사람과 동일하게 따름.
-3. **핸드오프 기록**: 작업 완료 시 `0_Meta/AI_Sync.md`에 수행 내역, 생성/수정 파일, Next Steps 기록.
+3. **핸드오프 기록**: 작업 완료 시 `0_Meta/AI_Sync.md`에 수행 내역, 생성/수정 파일, Next Steps 기록. 최신 항목이 위에 오도록 역순 작성.
 4. **아이디어 분리**: AI가 생성한 가설/아이디어는 로그가 아닌 `1_Concept/11_Ideas/`에 별도 저장.
+5. **Communication Rules**: 객관적이고 드라이한 문체 유지. 비유/은유 금지. 결론 중심의 명확한 전달. 상세 규칙은 `0_Meta/EliRule.md` 섹션 3 참조.
+6. **Data Reusability**: 모든 Plot/Graph 생성 시 원본 Data Array를 `.mat`/`.csv`로 함께 저장. 상세 규칙은 `0_Meta/EliRule.md` 섹션 2.6 참조.
 
 ## License / 라이선스
 

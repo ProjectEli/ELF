@@ -1,38 +1,42 @@
-# AI_Sync: Agent Handoff Log
+# AI Synchronization Log (`AI_Sync.md`)
 
-AI 에이전트 간 작업 연속성을 보장하기 위한 핸드오프 로그입니다.
-새로운 에이전트가 프로젝트에 투입될 때 이 문서를 먼저 읽고 컨텍스트를 파악합니다.
+이 문서는 프로젝트에 참여하는 **다중 AI 에이전트 (e.g., Gemini, Claude Code)** 간의 컨텍스트 인수인계 및 작업 내역을 동기화하기 위한 핸드오버 공간입니다.
+
+> **작성 규칙**: 작업을 종료하는 AI 에이전트는 `[Date / Agent]` 형식으로 **최상단에** 새 항목을 추가하고, 파일 시스템을 어떻게 변경했는지, 어떤 스크립트를 작성했는지, 그리고 다음 AI가 이어서 해주어야 할 Task(Next Step)를 기술해야 합니다.
 
 ---
 
 ## 엔트리 포맷 (Template)
 
 ```markdown
-## [YYYY-MM-DD] [S###] — [작업 요약 한 줄]
-- Agent: [에이전트명 (예: Claude Code Opus 4.6)]
-- 수행한 작업:
-  - ...
-- 생성/수정 파일:
-  - ...
-- Next Steps:
-  - ...
+## [YYYY-MM-DD / {Agent Name}] {작업 제목}
+
+### 수행한 작업
+- 생성/수정/삭제한 파일 목록 (표 형태)
+- 핵심 결과 요약
+
+### Next Steps
+- 다음 에이전트가 이어서 수행할 구체적 Task
+- 필요한 파일 경로, 함수명 등 명시
 ```
 
 ---
 
-## Log
-
-(아래에 최신 엔트리를 추가하세요)
+(최신 항목을 이 아래에 추가하세요 — 역순 정렬)
 
 <!-- 예시:
-## 2026-03-02 S001 — 프로젝트 초기 구조 설정
-- Agent: Claude Code (Opus 4.6)
-- 수행한 작업:
-  - ELF v2 디렉토리 구조 생성 (0_Meta ~ 6_Paper)
-  - README.md, EliRule.md, LogConvention.md 작성
-- 생성/수정 파일:
-  - 0_Meta/EliRule.md, LogConvention.md, AI_Sync.md
-  - README.md, .gitignore
-- Next Steps:
-  - 첫 실험 세션(S001) 로그 작성 시작
+## [2026-03-02 / Claude Code (Opus 4.6)] 프로젝트 초기 구조 설정
+
+### 수행한 작업
+- ELF v2 디렉토리 구조 생성 (0_Meta ~ 6_Paper)
+
+| 파일 | 역할 |
+|------|------|
+| `0_Meta/EliRule.md` | 폴더 구조 및 운영 가이드 (신규) |
+| `0_Meta/LogConvention.md` | 로깅 표준 규칙 (신규) |
+| `README.md` | 프로젝트 개요 재작성 (수정) |
+
+### Next Steps
+- 첫 실험 세션(S001) 로그 작성 시작
+- `51_Sim/Data/S001/` 디렉토리 생성 후 시뮬 실행
 -->
