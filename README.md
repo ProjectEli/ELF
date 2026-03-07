@@ -116,6 +116,17 @@ AI 에이전트(Claude, Gemini 등)가 프로젝트에 참여할 때 다음 규�
 6. **Communication Rules**: 객관적이고 드라이한 문체 유지. 비유/은유 금지. 결론 중심의 명확한 전달. 과장 및 감정적 수식어 금지. 상세 규칙은 `0_Meta/EliRule.md` 섹션 3 참조.
 7. **Data Reusability**: 모든 Plot/Graph 생성 시 원본 Data Array를 `.mat`/`.csv`로 함께 저장. 상세 규칙은 `0_Meta/EliRule.md` 섹션 2.6 참조.
 
+## Quick Start
+
+새 프로젝트를 ELF v2 구조로 생성하려면 `0_Meta/ELF_generator.bat`을 실행합니다.
+
+```
+cd 원하는_상위_디렉토리
+D:\...\ELF\0_Meta\ELF_generator.bat
+```
+
+프로젝트 이름을 입력하면 0~6 폴더 체계, 메타 문서, `.gitignore`, Git 초기화까지 자동 완료됩니다.
+
 ## License / 라이선스
 
 이 프로젝트는 '구동 코드'와 '데이터 구조 규격(Protocol)'의 성격이 다르므로, 이중 라이선스(Dual License) 정책을 적용함.
