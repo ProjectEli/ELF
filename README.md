@@ -18,6 +18,7 @@ Project_Root/
 ├── 0_Meta/                          # 프로젝트 거버넌스 & 규칙
 │   ├── EliRule.md                   # 폴더 구조 및 운영 가이드
 │   ├── LogConvention.md             # 로깅 표준 규칙
+│   ├── AI_PARA_Framework.md         # AI 컨텍스트 관리 & 아카이빙 규칙
 │   └── AI_Sync.md                   # AI 에이전트 핸드오프 로그
 │
 ├── 1_Concept/                       # 연구 기획, 문헌, 아이디어
@@ -111,8 +112,9 @@ AI 에이전트(Claude, Gemini 등)가 프로젝트에 참여할 때 다음 규�
 2. **동일 규격 준수**: `0_Meta/LogConvention.md`의 로깅 규칙을 사람과 동일하게 따름.
 3. **핸드오프 기록**: 작업 완료 시 `0_Meta/AI_Sync.md`에 수행 내역, 생성/수정 파일, Next Steps 기록. 최신 항목이 위에 오도록 역순 작성.
 4. **아이디어 분리**: AI가 생성한 가설/아이디어는 로그가 아닌 `1_Concept/11_Ideas/`에 별도 저장.
-5. **Communication Rules**: 객관적이고 드라이한 문체 유지. 비유/은유 금지. 결론 중심의 명확한 전달. 상세 규칙은 `0_Meta/EliRule.md` 섹션 3 참조.
-6. **Data Reusability**: 모든 Plot/Graph 생성 시 원본 Data Array를 `.mat`/`.csv`로 함께 저장. 상세 규칙은 `0_Meta/EliRule.md` 섹션 2.6 참조.
+5. **PARA 기반 컨텍스트 관리**: `9_Archive/` 폴더와 `.claudeignore`를 활용하여 AI의 컨텍스트 오염을 방지. 상세 규칙은 `0_Meta/AI_PARA_Framework.md` 참조.
+6. **Communication Rules**: 객관적이고 드라이한 문체 유지. 비유/은유 금지. 결론 중심의 명확한 전달. 과장 및 감정적 수식어 금지. 상세 규칙은 `0_Meta/EliRule.md` 섹션 3 참조.
+7. **Data Reusability**: 모든 Plot/Graph 생성 시 원본 Data Array를 `.mat`/`.csv`로 함께 저장. 상세 규칙은 `0_Meta/EliRule.md` 섹션 2.6 참조.
 
 ## License / 라이선스
 

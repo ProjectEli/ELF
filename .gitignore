@@ -2,6 +2,7 @@
 .claude/
 .ecc/
 CLAUDE.md
+.claudeignore
 
 # === MATLAB Autosave files (자동 저장 파일) ===
 *.asv
@@ -27,6 +28,7 @@ sfprj/
 # === Office autosave files (자동 저장 임시 파일) ===
 ~$*.xls*
 ~$*.ppt*
+~$*.doc*
 ~$*.doc*
 
 # === Raw Data (원본 센서 데이터 — 절대 Git 추적 제외) ===

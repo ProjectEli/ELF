@@ -4,14 +4,17 @@
 
 ---
 
-## 1. 로그 파일 위치 및 명명
+## 1. 로그 파일 위치 및 명명 (PARA 워크플로우 적용)
+
+모든 연구 및 기획 진행은 PARA(Projects, Areas, Resources, Archives) 관리 체계와 `.claudeignore` 룰을 따릅니다. 자세한 원칙은 `0_Meta/AI_PARA_Framework.md`를 참조하십시오.
 
 | 항목 | 규칙 |
 |------|------|
-| **위치** | `5_Exp/53_Analysis/Logs/S{NNN}_log.md` |
-| **번호** | 3자리 zero-padding (S001, S007, S010, ...) |
-| **내용** | 실험 파라미터, 실행 결과, 에러/해결 등 **순수 Metadata (Fact-Sheet)** |
-| **금지** | 아이디어, 기획, 방향성 논의 → `1_Concept/`로 분리 (EliRule.md 참조) |
+| **진행 중 (Active Sandbox)** | 새로운 세션(S{NNN})을 시작할 때는 무조건 **현재 폴더(예: `53_Analysis/Logs/`)의 최상단(Root)**에 로그(`S{NNN}_log.md`)를 생성하여 작성합니다. |
+| **결론 요약 (Wiki)** | 세션이 완료되면 핵심 교훈이나 산출된 파라미터를 `2_Wiki/` 폴더 내의 지식 문서에 한두 줄로 요약합니다. 이 때 반드시 원본 Archive 로그 파일의 절대/상대 경로 링크를 포함합니다. |
+| **보관 (Archive)** | 세션이 종료되면 전체 원본 로그 파일은 **반드시** `9_Archive/` 폴더로 이동시킵니다. (예: `9_Archive/[Archived]_S{NNN}_log.md`) |
+| **내용 규칙** | 시뮬레이션 파라미터, 실행 결과, 에러/해결 등 **순수 Metadata (Fact-Sheet)**만을 기록합니다. |
+| **금지 사항** | 아이디어, 논문 기획, 방향성 논의는 `5_Exp/`에 기록하지 말고 `1_Concept/13_Planning/`의 기획 문서로 분리합니다. |
 
 ---
 
@@ -128,5 +131,8 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 - [ ] 시뮬/실험 스크립트 `51_Sim/Scripts/S{NNN}_*.m` 작성
 - [ ] 실행 후 결과 .mat + .png 저장
 - [ ] Log에 ticket (t{NN}) 추가: 파라미터, 결과, 이미지 경로
+- [ ] 작업 완료 시: 얻은 지식을 `2_Wiki`에 요약하고, `S{NNN}_log.md`는 `9_Archive/`로 이동
+- [ ] 스크립트 완료 시: 1회용 스크립트는 `Scripts/9_Archive/`로 이동, 범용은 Root 유지
+- [ ] `53_Analysis/Logs/2_Wiki/Session_Registry.tsv`에 해당 세션 항목 추가 업데이트
 - [ ] `AI_Sync.md` 업데이트
 - [ ] Planning 내용이 포함된 경우 → `1_Concept/`로 분리 + cross-reference
