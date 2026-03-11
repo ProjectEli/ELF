@@ -21,9 +21,56 @@ if exist "%PROJECT_NAME%" (
     goto INPUT_LOOP
 )
 
+REM 1-b. 프로젝트 언어 선택
+echo.
+echo  Select project language (AI agent response language):
+echo   [1] 한국어 (Korean)
+echo   [2] English
+echo   [3] 日本語 (Japanese)
+echo   [4] 中文简体 (Simplified Chinese)
+echo   [5] 中文繁體 (Traditional Chinese)
+echo   [6] Français (French)
+echo   [7] Deutsch (German)
+echo   [8] Español (Spanish)
+echo   [9] Italiano (Italian)
+echo   [10] Português (Portuguese)
+echo   [11] Русский (Russian)
+echo   [12] العربية (Arabic)
+echo   [13] हिन्दी (Hindi)
+echo   [14] Türkçe (Turkish)
+echo   [15] Tiếng Việt (Vietnamese)
+echo   [16] ภาษาไทย (Thai)
+echo   [17] Nederlands (Dutch)
+echo   [18] Polski (Polish)
+echo   [19] Bahasa Indonesia (Indonesian)
+echo.
+set /p LANG_CHOICE="Enter number [default: 1 (한국어)]: "
+
+if "%LANG_CHOICE%"=="" set LANG_CHOICE=1
+if "%LANG_CHOICE%"=="1" set PROJECT_LANG=한국어
+if "%LANG_CHOICE%"=="2" set PROJECT_LANG=English
+if "%LANG_CHOICE%"=="3" set PROJECT_LANG=日本語
+if "%LANG_CHOICE%"=="4" set PROJECT_LANG=中文简体
+if "%LANG_CHOICE%"=="5" set PROJECT_LANG=中文繁體
+if "%LANG_CHOICE%"=="6" set PROJECT_LANG=Français
+if "%LANG_CHOICE%"=="7" set PROJECT_LANG=Deutsch
+if "%LANG_CHOICE%"=="8" set PROJECT_LANG=Español
+if "%LANG_CHOICE%"=="9" set PROJECT_LANG=Italiano
+if "%LANG_CHOICE%"=="10" set PROJECT_LANG=Português
+if "%LANG_CHOICE%"=="11" set PROJECT_LANG=Русский
+if "%LANG_CHOICE%"=="12" set PROJECT_LANG=العربية
+if "%LANG_CHOICE%"=="13" set PROJECT_LANG=हिन्दी
+if "%LANG_CHOICE%"=="14" set PROJECT_LANG=Türkçe
+if "%LANG_CHOICE%"=="15" set "PROJECT_LANG=Tiếng Việt"
+if "%LANG_CHOICE%"=="16" set PROJECT_LANG=ภาษาไทย
+if "%LANG_CHOICE%"=="17" set PROJECT_LANG=Nederlands
+if "%LANG_CHOICE%"=="18" set PROJECT_LANG=Polski
+if "%LANG_CHOICE%"=="19" set "PROJECT_LANG=Bahasa Indonesia"
+if not defined PROJECT_LANG set PROJECT_LANG=한국어
+
 mkdir "%PROJECT_NAME%"
 cd "%PROJECT_NAME%"
-echo [1/6] 프로젝트 루트 '%PROJECT_NAME%' 생성 완료.
+echo [1/6] 프로젝트 루트 '%PROJECT_NAME%' 생성 완료 (언어: %PROJECT_LANG%).
 
 REM 2. 디렉토리 구조 생성 (ELF v2: 0~6 체계)
 mkdir "0_Meta"
@@ -113,6 +160,8 @@ exit /b
 #__PS_START__
 $utf8 = [System.Text.UTF8Encoding]::new($false)
 $projName = $env:PROJECT_NAME
+$projLang = $env:PROJECT_LANG
+if (-not $projLang) { $projLang = "한국어" }
 $dateStr = Get-Date -Format "yyyy-MM-dd"
 
 # ================================================================
@@ -171,7 +220,7 @@ sfprj/
 # ================================================================
 # 0_Meta\EliRule.md
 # ================================================================
-[IO.File]::WriteAllText("0_Meta\EliRule.md", @'
+$eliRuleContent = @'
 # EliRule: Project Structure & Operational Guide
 
 ELF(Eli's Lab Framework) 프로젝트의 폴더 구조와 운영 규칙을 정의합니다.
@@ -269,14 +318,22 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 
 ## 3. AI Communication Rules
 
+**PROJECT_LANG**: `__PROJECT_LANG__`
+
+> 이 값은 프로젝트 생성 시 `ELF_generator.bat`에서 선택한 언어로 자동 설정됩니다.
+> AI 에이전트는 이 값을 참조하여 응답 언어를 결정합니다.
+
 프로젝트 내 모든 AI Agent는 사용자와 소통하고 문서를 작성할 때 다음 원칙을 준수합니다:
 
-1. **객관적이고 드라이한 문체 유지**: 불필요한 인삿말, 과도한 칭찬, 주관적 감정 표현, 과장된 형용사 사용을 금지합니다.
-2. **비유 금지**: 비유나 은유를 금지하고, 직관적이고 객관적인 학술/엔지니어링 용어로만 사실을 전달합니다.
-3. **결론 중심의 명확한 전달**: 분석 결과와 Action Item을 간결하고 명확하게 제시하며, 논리적이고 정교한 엔지니어링 팩트만을 다룹니다.
-4. **Data Reusability**: 위 2.6 항목을 엄격히 준수합니다.
-5. **과장 및 감정적 수식어 금지 (No Embellishment)**: 정량적 수치와 물리적 인과관계로만 장단점을 서술합니다.
-'@, $utf8)
+1. **응답 언어 (Response Language)**: AI 에이전트는 `PROJECT_LANG`에 지정된 언어와 English 두 가지로 응답합니다. 로그, 문서 작성 시에도 동일하게 `PROJECT_LANG` 언어를 사용합니다. 기술 용어는 English 원문을 병기할 수 있습니다.
+2. **객관적이고 드라이한 문체 유지**: 불필요한 인삿말, 과도한 칭찬, 주관적 감정 표현, 과장된 형용사 사용을 금지합니다.
+3. **비유 금지**: 비유나 은유를 금지하고, 직관적이고 객관적인 학술/엔지니어링 용어로만 사실을 전달합니다.
+4. **결론 중심의 명확한 전달**: 분석 결과와 Action Item을 간결하고 명확하게 제시하며, 논리적이고 정교한 엔지니어링 팩트만을 다룹니다.
+5. **Data Reusability**: 위 2.6 항목을 엄격히 준수합니다.
+6. **과장 및 감정적 수식어 금지 (No Embellishment)**: 정량적 수치와 물리적 인과관계로만 장단점을 서술합니다.
+'@
+$eliRuleContent = $eliRuleContent.Replace('__PROJECT_LANG__', $projLang)
+[IO.File]::WriteAllText("0_Meta\EliRule.md", $eliRuleContent, $utf8)
 
 # ================================================================
 # 0_Meta\LogConvention.md
@@ -324,6 +381,7 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 ```
 
 ### 규칙
+- **작성 언어**: 로그는 `0_Meta/EliRule.md`의 `PROJECT_LANG` 설정에 따른 언어로 작성합니다. 기술 용어는 English 원문을 병기할 수 있습니다.
 - **ticket 번호**: `t01`, `t02`, ... 순서대로. 중복 금지
 - **이미지 경로**: `![alt text](../../51_Sim/Data/S{NNN}/filename.png)` (Logs 기준 상대경로)
 - **Figure 인라인 임베딩 필수**: 분석 결과로 생성된 Figure는 반드시 로그 본문의 **해당 결과 섹션에 인라인으로 삽입**하고, alt text에 Figure 번호와 1줄 설명(축, 핵심 관찰)을 기재한다. 파일 목록 테이블에만 나열하고 본문에 임베딩하지 않는 것은 금지. 향후 사람이 로그만 읽고도 결과를 시각적으로 파악할 수 있어야 한다.
