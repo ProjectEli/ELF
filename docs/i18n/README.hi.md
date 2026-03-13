@@ -120,14 +120,16 @@ Project_Root/
 
 ## त्वरित प्रारंभ
 
-ELF v2 संरचना के साथ एक नई परियोजना बनाने के लिए, `0_Meta/ELF_generator.ps1` चलाएं।
+ELF v2 संरचना के साथ एक नई परियोजना बनाने के लिए, `0_Meta/ELF_generator.sh` चलाएं।
 
-```
+```bash
 cd desired_parent_directory
-D:\...\ELF\0_Meta\ELF_generator.ps1
+bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-एक परियोजना नाम दर्ज करें और 0–6 फ़ोल्डर संरचना, मेटा दस्तावेज़, `.gitignore`, और Git आरंभीकरण सभी स्वचालित रूप से पूरे हो जाएंगे।
+> Windows पर, Git Bash का उपयोग करें ([Git for Windows](https://git-scm.com/) के साथ शामिल)।
+
+एक परियोजना नाम दर्ज करें और 0–6 फ़ोल्डर संरचना, मेटा दस्तावेज़ और `.gitignore` स्वचालित रूप से बनाए जाएंगे। Git आरंभीकरण वैकल्पिक है और केवल Git उपलब्ध होने पर पूछा जाता है।
 
 ## लाइसेंस
 

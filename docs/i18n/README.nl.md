@@ -120,14 +120,16 @@ Wanneer AI-agenten (Claude, Gemini, enz.) aan het project deelnemen, gelden de v
 
 ## Snel Starten
 
-Om een nieuw project met de ELF v2 structuur te creëren, voer `0_Meta/ELF_generator.ps1` uit.
+Om een nieuw project met de ELF v2 structuur te creëren, voer `0_Meta/ELF_generator.sh` uit.
 
-```
+```bash
 cd desired_parent_directory
-D:\...\ELF\0_Meta\ELF_generator.ps1
+bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-Voer een projectnaam in en de mappenstructuur 0–6, metadocumenten, `.gitignore` en Git-initialisatie zullen allemaal automatisch worden voltooid.
+> Op Windows, gebruik Git Bash (meegeleverd met [Git for Windows](https://git-scm.com/)).
+
+Voer een projectnaam in en de mappenstructuur 0–6, metadocumenten en `.gitignore` worden automatisch aangemaakt. Git-initialisatie is optioneel en wordt alleen gevraagd wanneer Git beschikbaar is.
 
 ## Licentie
 

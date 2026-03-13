@@ -120,14 +120,16 @@ Khi các đại lý AI (Claude, Gemini, v.v.) tham gia vào dự án, các quy t
 
 ## Bắt Đầu Nhanh
 
-Để tạo dự án mới với cấu trúc ELF v2, chạy `0_Meta/ELF_generator.ps1`.
+Để tạo dự án mới với cấu trúc ELF v2, chạy `0_Meta/ELF_generator.sh`.
 
-```
+```bash
 cd desired_parent_directory
-D:\...\ELF\0_Meta\ELF_generator.ps1
+bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-Nhập tên dự án và cấu trúc thư mục 0–6, tài liệu meta, `.gitignore` và khởi tạo Git sẽ được hoàn thành tự động.
+> Trên Windows, sử dụng Git Bash (đi kèm với [Git for Windows](https://git-scm.com/)).
+
+Nhập tên dự án và cấu trúc thư mục 0–6, tài liệu meta và `.gitignore` sẽ được tạo tự động. Khởi tạo Git là tùy chọn và chỉ được hỏi khi Git khả dụng.
 
 ## Giấy Phép
 

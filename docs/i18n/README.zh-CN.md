@@ -120,14 +120,16 @@ Project_Root/
 
 ## 快速开始
 
-如需以 ELF v2 结构创建新项目，请运行 `0_Meta/ELF_generator.ps1`。
+如需以 ELF v2 结构创建新项目，请运行 `0_Meta/ELF_generator.sh`。
 
-```
+```bash
 cd your_target_directory
-D:\...\ELF\0_Meta\ELF_generator.ps1
+bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-输入项目名称后，0~6 文件夹层级、元文档、`.gitignore` 及 Git 初始化将自动完成。
+> 在 Windows 上，请使用 Git Bash（包含在 [Git for Windows](https://git-scm.com/) 中）。
+
+输入项目名称后，0~6 文件夹层级、元文档和 `.gitignore` 将自动创建。Git 初始化为可选项，仅在 Git 可用时提示。
 
 ## 许可证
 

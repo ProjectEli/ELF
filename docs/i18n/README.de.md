@@ -120,14 +120,16 @@ Regeln für KI-Agenten (Claude, Gemini usw.), die am Projekt teilnehmen:
 
 ## Schnellstart
 
-Um ein neues Projekt mit der ELF-v2-Struktur zu erstellen, führe `0_Meta/ELF_generator.ps1` aus.
+Um ein neues Projekt mit der ELF-v2-Struktur zu erstellen, führe `0_Meta/ELF_generator.sh` aus.
 
-```
+```bash
 cd your_target_directory
-D:\...\ELF\0_Meta\ELF_generator.ps1
+bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-Gib einen Projektnamen ein, und die 0~6-Ordnerhierarchie, Meta-Dokumente, `.gitignore` und Git-Initialisierung werden automatisch abgeschlossen.
+> Unter Windows verwende Git Bash (enthalten in [Git for Windows](https://git-scm.com/)).
+
+Gib einen Projektnamen ein, und die 0~6-Ordnerhierarchie, Meta-Dokumente und `.gitignore` werden automatisch erstellt. Die Git-Initialisierung ist optional und wird nur abgefragt, wenn Git verfügbar ist.
 
 ## Lizenz
 

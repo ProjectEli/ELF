@@ -120,14 +120,16 @@ AI aracıları (Claude, Gemini vb.) projeye katıldığında aşağıdaki kurall
 
 ## Hızlı Başlangıç
 
-ELF v2 yapısı ile yeni bir proje oluşturmak için `0_Meta/ELF_generator.ps1`'i çalıştırın.
+ELF v2 yapısı ile yeni bir proje oluşturmak için `0_Meta/ELF_generator.sh` dosyasını çalıştırın.
 
-```
+```bash
 cd istenen_parent_directory
-D:\...\ELF\0_Meta\ELF_generator.ps1
+bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-Bir proje adı girin ve 0–6 klasör yapısı, meta belgeler, `.gitignore` ve Git başlatması otomatik olarak tamamlanacaktır.
+> Windows'ta Git Bash kullanın ([Git for Windows](https://git-scm.com/) ile birlikte gelir).
+
+Bir proje adı girin ve 0–6 klasör yapısı, meta belgeler ve `.gitignore` otomatik olarak oluşturulacaktır. Git başlatması isteğe bağlıdır ve yalnızca Git kullanılabilir olduğunda sorulur.
 
 ## Lisans
 

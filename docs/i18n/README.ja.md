@@ -120,14 +120,16 @@ Project_Root/
 
 ## クイックスタート
 
-ELF v2構造で新しいプロジェクトを作成するには、`0_Meta/ELF_generator.ps1` を実行してください。
+ELF v2構造で新しいプロジェクトを作成するには、`0_Meta/ELF_generator.sh` を実行してください。
 
-```
+```bash
 cd your_target_directory
-D:\...\ELF\0_Meta\ELF_generator.ps1
+bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-プロジェクト名を入力すると、0〜6のフォルダ階層、メタドキュメント、`.gitignore`、Gitの初期化が自動的に完了します。
+> Windowsでは、Git Bash（[Git for Windows](https://git-scm.com/) に同梱）を使用してください。
+
+プロジェクト名を入力すると、0〜6のフォルダ階層、メタドキュメント、`.gitignore`が自動的に作成されます。Gitの初期化はオプションであり、Gitが利用可能な場合にのみ確認されます。
 
 ## ライセンス
 

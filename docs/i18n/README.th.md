@@ -120,14 +120,16 @@ Project_Root/
 
 ## เริ่มต้นอย่างรวดเร็ว
 
-หากต้องการสร้างโครงการใหม่ที่มีโครงสร้าง ELF v2 ให้รัน `0_Meta/ELF_generator.ps1`
+หากต้องการสร้างโครงการใหม่ที่มีโครงสร้าง ELF v2 ให้รัน `0_Meta/ELF_generator.sh`
 
-```
+```bash
 cd desired_parent_directory
-D:\...\ELF\0_Meta\ELF_generator.ps1
+bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-ป้อนชื่อโครงการและโครงสร้างโฟลเดอร์ 0–6 เอกสารเมตา `.gitignore` และการเริ่มต้น Git จะเสร็จสิ้นโดยอัตโนมัติ
+> บน Windows ให้ใช้ Git Bash (รวมอยู่ใน [Git for Windows](https://git-scm.com/))
+
+ป้อนชื่อโครงการและโครงสร้างโฟลเดอร์ 0–6 เอกสารเมตา และ `.gitignore` จะถูกสร้างโดยอัตโนมัติ การเริ่มต้น Git เป็นทางเลือกและจะถูกถามเฉพาะเมื่อ Git พร้อมใช้งาน
 
 ## ใบอนุญาต
 

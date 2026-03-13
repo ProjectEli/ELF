@@ -120,14 +120,16 @@ Ketika agen AI (Claude, Gemini, dll.) berpartisipasi dalam proyek, aturan beriku
 
 ## Quick Start
 
-Untuk membuat proyek baru dengan struktur ELF v2, jalankan `0_Meta/ELF_generator.ps1`.
+Untuk membuat proyek baru dengan struktur ELF v2, jalankan `0_Meta/ELF_generator.sh`.
 
-```
+```bash
 cd desired_parent_directory
-D:\...\ELF\0_Meta\ELF_generator.ps1
+bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-Masukkan nama proyek dan struktur folder 0–6, dokumen meta, `.gitignore`, dan inisialisasi Git semuanya akan diselesaikan secara otomatis.
+> Di Windows, gunakan Git Bash (termasuk dalam [Git for Windows](https://git-scm.com/)).
+
+Masukkan nama proyek dan struktur folder 0–6, dokumen meta, dan `.gitignore` akan dibuat secara otomatis. Inisialisasi Git bersifat opsional dan hanya ditanyakan ketika Git tersedia.
 
 ## Lisensi
 

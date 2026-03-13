@@ -120,14 +120,16 @@ Gdy agenci AI (Claude, Gemini, itp.) uczestniczą w projekcie, obowiązują nast
 
 ## Szybki Start
 
-Aby utworzyć nowy projekt ze strukturą ELF v2, uruchom `0_Meta/ELF_generator.ps1`.
+Aby utworzyć nowy projekt ze strukturą ELF v2, uruchom `0_Meta/ELF_generator.sh`.
 
-```
+```bash
 cd desired_parent_directory
-D:\...\ELF\0_Meta\ELF_generator.ps1
+bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-Wpisz nazwę projektu, a struktura folderów 0–6, dokumenty meta, `.gitignore` i inicjalizacja Git zostaną wykonane automatycznie.
+> W systemie Windows użyj Git Bash (dołączony do [Git for Windows](https://git-scm.com/)).
+
+Wpisz nazwę projektu, a struktura folderów 0–6, dokumenty meta i `.gitignore` zostaną utworzone automatycznie. Inicjalizacja Git jest opcjonalna i proponowana tylko wtedy, gdy Git jest dostępny.
 
 ## Licencja
 

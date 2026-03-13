@@ -120,14 +120,16 @@ AI 에이전트(Claude, Gemini 등)가 프로젝트에 참여할 때 다음 규�
 
 ## Quick Start
 
-새 프로젝트를 ELF v2 구조로 생성하려면 `0_Meta/ELF_generator.ps1`을 실행합니다.
+새 프로젝트를 ELF v2 구조로 생성하려면 `0_Meta/ELF_generator.sh`를 실행합니다.
 
-```
+```bash
 cd 원하는_상위_디렉토리
-D:\...\ELF\0_Meta\ELF_generator.ps1
+bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-프로젝트 이름을 입력하면 0~6 폴더 체계, 메타 문서, `.gitignore`, Git 초기화까지 자동 완료됩니다.
+> Windows에서는 Git Bash([Git for Windows](https://git-scm.com/) 포함)를 사용합니다.
+
+프로젝트 이름을 입력하면 0~6 폴더 체계, 메타 문서, `.gitignore`가 자동 생성됩니다. Git 초기화는 Git이 설치된 경우에만 선택적으로 수행됩니다.
 
 ## 라이선스 (License)
 

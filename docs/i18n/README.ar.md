@@ -120,14 +120,16 @@ Project_Root/
 
 ## البدء السريع
 
-لإنشاء مشروع جديد بهيكل ELF v2، قم بتشغيل `0_Meta/ELF_generator.ps1`.
+لإنشاء مشروع جديد بهيكل ELF v2، قم بتشغيل `0_Meta/ELF_generator.sh`.
 
-```
+```bash
 cd desired_parent_directory
-D:\...\ELF\0_Meta\ELF_generator.ps1
+bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-أدخل اسم المشروع وسيتم إكمال هيكل المجلدات 0–6 والمستندات الوصفية و `.gitignore` وتهيئة Git تلقائياً.
+> في Windows، استخدم Git Bash (مضمّن مع [Git for Windows](https://git-scm.com/)).
+
+أدخل اسم المشروع وسيتم إنشاء هيكل المجلدات 0–6 والمستندات الوصفية و `.gitignore` تلقائياً. تهيئة Git اختيارية ويتم طلبها فقط عند توفر Git.
 
 ## الترخيص
 
