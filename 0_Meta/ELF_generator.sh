@@ -81,7 +81,7 @@ DIRS=(
     '0_Meta'
     '1_Concept/11_Ideas'
     '1_Concept/12_Literature'
-    '1_Concept/13_Planning'
+    '1_Concept/13_Planning/2_Wiki'
     '2_HW/21_Component/Design'
     '2_HW/21_Component/Calibration'
     '2_HW/22_System'
@@ -91,17 +91,18 @@ DIRS=(
     '4_SW/41_FW'
     '4_SW/42_DAQ'
     '4_SW/43_Libs'
-    '5_Exp/51_Sim/Scripts'
+    '5_Exp/51_Sim/Scripts/9_Archive'
     '5_Exp/51_Sim/Data'
     '5_Exp/52_Empirical/Raw'
     '5_Exp/52_Empirical/Processed'
-    '5_Exp/53_Analysis/Scripts'
+    '5_Exp/53_Analysis/Scripts/9_Archive'
     '5_Exp/53_Analysis/Logs/2_Wiki'
+    '5_Exp/53_Analysis/Logs/9_Archive'
     '5_Exp/54_Viz'
-    '6_Paper/61_Figs/rawFig'
-    '6_Paper/61_Figs/processedFig'
-    '6_Paper/61_Figs/finalFig'
-    '6_Paper/62_Drafts'
+    '6_Paper/61_Figs/Raw'
+    '6_Paper/61_Figs/Processed'
+    '6_Paper/61_Figs/Final'
+    '6_Paper/62_Drafts/9_Archive'
     '6_Paper/63_Presentations'
 )
 
@@ -205,6 +206,7 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 - **\`12_Literature/\`**: 논문 PDF, 서지 정보, 기반 공식 정리
 - **\`13_Planning/\`**: 연구 로드맵, Figure 구성 스토리보드, 실험 계획서
   - Planning 문서는 \`P###_제목.md\` 형식으로 넘버링 (예: \`P001_wavelength_optimization.md\`)
+  - \`2_Wiki/\`: 기획 단계 결론 및 핵심 규칙 요약
 
 ### \`2_HW/\` — 하드웨어 설계
 장치의 물리적 설계를 컴포넌트와 통합 시스템으로 분리합니다.
@@ -227,20 +229,20 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 ### \`5_Exp/\` — 실험 (Sim + Empirical + Analysis)
 시뮬레이션과 실측 데이터를 1:1 비교 검증할 수 있는 구조입니다.
 - **\`51_Sim/\`**: 시뮬레이션
-  - \`Scripts/\`: 시뮬레이션 코드 (\`S###_sim.m\` 등)
+  - \`Scripts/\`: 시뮬레이션 코드 (\`S###_sim.m\` 등), \`9_Archive/\`: 폐기 스크립트 보관
   - \`Data/\`: 시뮬레이션 결과 (\`Data/S###/\`)
 - **\`52_Empirical/\`**: 실측 데이터
   - \`Raw/\`: 원본 센서 데이터 (**Read-Only, Git 추적 제외**)
   - \`Processed/\`: 1차 가공 데이터
 - **\`53_Analysis/\`**: 통합 분석
-  - \`Scripts/\`: 비교/검증 포스트프로세싱 코드
-  - \`Logs/\`: 세션 로그 (\`S###_log.md\`), \`2_Wiki/\` 요약, \`9_Archive/\` 보관
+  - \`Scripts/\`: 비교/검증 포스트프로세싱 코드, \`9_Archive/\`: 폐기 스크립트 보관
+  - \`Logs/\`: 세션 로그 (\`S###_log.md\`), \`2_Wiki/\` 요약, \`9_Archive/\` 완료 로그 보관
 - **\`54_Viz/\`**: 자동 생성된 시각화 추출물 (Figure PNG 등)
 
 ### \`6_Paper/\` — 논문 & 발표
 - **\`61_Figs/\`**: 논문용 Figure
-  - \`rawFig/\` → \`processedFig/\` → \`finalFig/\` (3단계 파이프라인)
-- **\`62_Drafts/\`**: 원고 (Word, LaTeX)
+  - \`Raw/\` → \`Processed/\` → \`Final/\` (3단계 파이프라인)
+- **\`62_Drafts/\`**: 원고 (Word, LaTeX), \`9_Archive/\`: 이전 버전 보관
 - **\`63_Presentations/\`**: 발표 자료 (PPT, 포스터)
 
 ---

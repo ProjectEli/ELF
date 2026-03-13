@@ -27,6 +27,7 @@ Project_Root/
 │   ├── 11_Ideas/                    # 러프 스케치, 가설 제안록
 │   ├── 12_Literature/               # 논문 PDF, 서지 정보, 기반 공식
 │   └── 13_Planning/                 # 연구 로드맵, Figure 구성 스토리보드
+│       └── 2_Wiki/                  # 기획 단계 결론 및 핵심 규칙 요약
 │
 ├── 2_HW/                            # 하드웨어 설계
 │   ├── 21_Component/                # 개별 부품 사양서, 단위 소자 설계
@@ -47,22 +48,26 @@ Project_Root/
 ├── 5_Exp/                           # 실험: 시뮬레이션 + 실측 + 분석
 │   ├── 51_Sim/                      # 시뮬레이션
 │   │   ├── Scripts/                 # 시뮬레이션 코드 (S###_sim.m)
+│   │   │   └── 9_Archive/          # 폐기 스크립트
 │   │   └── Data/                    # 시뮬레이션 결과 (Data/S###/)
 │   ├── 52_Empirical/                # 실측 데이터
 │   │   ├── Raw/                     # 원본 센서 데이터 (Read-Only, Git 제외)
 │   │   └── Processed/               # 1차 가공 데이터
 │   ├── 53_Analysis/                 # 통합 분석
 │   │   ├── Scripts/                 # 비교/검증 포스트프로세싱 코드
+│   │   │   └── 9_Archive/          # 폐기 스크립트
 │   │   └── Logs/                    # 세션 로그 (S###_log.md)
+│   │       ├── 2_Wiki/              # 핵심 발견 요약 및 세션 레지스트리
+│   │       └── 9_Archive/           # 완료된 세션 로그
 │   └── 54_Viz/                      # 시각화 추출물 (자동 생성 Figure)
 │
 └── 6_Paper/                         # 논문 & 발표
     ├── 61_Figs/                     # 논문용 Figure
-    │   ├── rawFig/
-    │   ├── processedFig/
-    │   └── finalFig/
+    │   ├── Raw/
+    │   ├── Processed/
+    │   └── Final/
     ├── 62_Drafts/                   # 원고 (Word, LaTeX)
-    │   └── archive/
+    │   └── 9_Archive/               # 이전 버전 보관
     └── 63_Presentations/            # 발표 자료 (PPT, 포스터)
 ```
 

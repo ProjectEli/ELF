@@ -27,6 +27,7 @@ Project_Root/
 │   ├── 11_Ideas/                    # Rough sketches, hypothesis proposals
 │   ├── 12_Literature/               # Paper PDFs, bibliographic info, base formulas
 │   └── 13_Planning/                 # Research roadmaps, figure composition storyboards
+│       └── 2_Wiki/                  # Distilled planning conclusions & key rules
 │
 ├── 2_HW/                            # Hardware design
 │   ├── 21_Component/                # Individual component specs, unit device design
@@ -47,22 +48,26 @@ Project_Root/
 ├── 5_Exp/                           # Experiments: simulation + empirical + analysis
 │   ├── 51_Sim/                      # Simulation
 │   │   ├── Scripts/                 # Simulation code (S###_sim.m)
+│   │   │   └── 9_Archive/          # Retired scripts
 │   │   └── Data/                    # Simulation results (Data/S###/)
 │   ├── 52_Empirical/                # Empirical data
 │   │   ├── Raw/                     # Raw sensor data (Read-Only, excluded from Git)
 │   │   └── Processed/               # Primary processed data
 │   ├── 53_Analysis/                 # Integrated analysis
 │   │   ├── Scripts/                 # Comparison/validation post-processing code
+│   │   │   └── 9_Archive/          # Retired scripts
 │   │   └── Logs/                    # Session logs (S###_log.md)
+│   │       ├── 2_Wiki/              # Distilled findings & session registry
+│   │       └── 9_Archive/           # Completed session logs
 │   └── 54_Viz/                      # Visualization outputs (auto-generated figures)
 │
 └── 6_Paper/                         # Papers & presentations
     ├── 61_Figs/                     # Figures for papers
-    │   ├── rawFig/
-    │   ├── processedFig/
-    │   └── finalFig/
+    │   ├── Raw/
+    │   ├── Processed/
+    │   └── Final/
     ├── 62_Drafts/                   # Manuscripts (Word, LaTeX)
-    │   └── archive/
+    │   └── 9_Archive/               # Previous versions
     └── 63_Presentations/            # Presentation materials (PPT, posters)
 ```
 

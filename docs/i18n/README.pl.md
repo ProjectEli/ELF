@@ -27,6 +27,7 @@ Project_Root/
 │   ├── 11_Ideas/                    # Rough sketches, propozycje hipotez
 │   ├── 12_Literature/               # PDF-y artykułów, informacje bibliograficzne, formuły bazowe
 │   └── 13_Planning/                 # Plany badawcze, storyboardy kompozycji figur
+│       └── 2_Wiki/                  # Destylowane wnioski planistyczne i kluczowe zasady
 │
 ├── 2_HW/                            # Projekt sprzętu
 │   ├── 21_Component/                # Specyfikacje poszczególnych komponentów, projekt urządzenia jednostkowego
@@ -47,22 +48,26 @@ Project_Root/
 ├── 5_Exp/                           # Eksperymenty: symulacja + empiryczne + analiza
 │   ├── 51_Sim/                      # Symulacja
 │   │   ├── Scripts/                 # Kod symulacji (S###_sim.m)
+│   │   │   └── 9_Archive/          # Wycofane skrypty
 │   │   └── Data/                    # Wyniki symulacji (Data/S###/)
 │   ├── 52_Empirical/                # Dane empiryczne
 │   │   ├── Raw/                     # Surowe dane sensorowe (Tylko do odczytu, wykluczone z Git)
 │   │   └── Processed/               # Dane pierwotnie przetwarzane
 │   ├── 53_Analysis/                 # Zintegrowana analiza
 │   │   ├── Scripts/                 # Kod porównania/walidacji przetwarzania końcowego
+│   │   │   └── 9_Archive/          # Wycofane skrypty
 │   │   └── Logs/                    # Dzienniki sesji (S###_log.md)
+│   │       ├── 2_Wiki/              # Destylowane ustalenia i rejestr sesji
+│   │       └── 9_Archive/           # Ukończone dzienniki sesji
 │   └── 54_Viz/                      # Wyniki wizualizacji (figury generowane automatycznie)
 │
 └── 6_Paper/                         # Artykuły i prezentacje
     ├── 61_Figs/                     # Figury dla artykułów
-    │   ├── rawFig/
-    │   ├── processedFig/
-    │   └── finalFig/
+    │   ├── Raw/
+    │   ├── Processed/
+    │   └── Final/
     ├── 62_Drafts/                   # Rękopisy (Word, LaTeX)
-    │   └── archive/
+    │   └── 9_Archive/                # Poprzednie wersje
     └── 63_Presentations/            # Materiały prezentacyjne (PPT, plakaty)
 ```
 

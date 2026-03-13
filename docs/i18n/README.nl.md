@@ -27,6 +27,7 @@ Project_Root/
 │   ├── 11_Ideas/                    # Ruwe schetsen, hypothesestelling
 │   ├── 12_Literature/               # PDF's van artikelen, bibliografische info, basisformules
 │   └── 13_Planning/                 # Onderzoeksplattegronden, figuurcompositiestoryboards
+│       └── 2_Wiki/                  # Gedestilleerde planningsconclusies & sleutelregels
 │
 ├── 2_HW/                            # Hardware-ontwerp
 │   ├── 21_Component/                # Individuele componentspecs, eenheid-apparaatontwerp
@@ -47,22 +48,26 @@ Project_Root/
 ├── 5_Exp/                           # Experimenten: simulatie + empirisch + analyse
 │   ├── 51_Sim/                      # Simulatie
 │   │   ├── Scripts/                 # Simulatiecode (S###_sim.m)
+│   │   │   └── 9_Archive/          # Gepensioneerde scripts
 │   │   └── Data/                    # Simulatieresultaten (Data/S###/)
 │   ├── 52_Empirical/                # Empirische gegevens
 │   │   ├── Raw/                     # Onbewerkte sensorgegevens (Alleen-lezen, uitgesloten van Git)
 │   │   └── Processed/               # Primair verwerkte gegevens
 │   ├── 53_Analysis/                 # Geïntegreerde analyse
 │   │   ├── Scripts/                 # Vergelijkings-/validatie naverwerking code
+│   │   │   └── 9_Archive/          # Gepensioneerde scripts
 │   │   └── Logs/                    # Sessielogboeken (S###_log.md)
+│   │       ├── 2_Wiki/              # Gedestilleerde bevindingen & sessieregister
+│   │       └── 9_Archive/           # Voltooide sessielogboeken
 │   └── 54_Viz/                      # Visualisatie-uitvoer (automatisch gegenereerde figuren)
 │
 └── 6_Paper/                         # Papers & presentaties
     ├── 61_Figs/                     # Figuren voor papers
-    │   ├── rawFig/
-    │   ├── processedFig/
-    │   └── finalFig/
+    │   ├── Raw/
+    │   ├── Processed/
+    │   └── Final/
     ├── 62_Drafts/                   # Manuscripten (Word, LaTeX)
-    │   └── archive/
+    │   └── 9_Archive/                # Vorige versies
     └── 63_Presentations/            # Presentatiematerialen (PPT, posters)
 ```
 

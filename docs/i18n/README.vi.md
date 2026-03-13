@@ -27,6 +27,7 @@ Project_Root/
 │   ├── 11_Ideas/                    # Phác thảo sơ khai, đề xuất giả thuyết
 │   ├── 12_Literature/               # PDF bài báo, thông tin tài liệu tham khảo, công thức cơ bản
 │   └── 13_Planning/                 # Lộ trình nghiên cứu, sơ đồ thành phần hình ảnh
+│       └── 2_Wiki/                  # Kết luận kế hoạch chưng cất và quy tắc chính
 │
 ├── 2_HW/                            # Thiết kế phần cứng
 │   ├── 21_Component/                # Thông số kỹ thuật thành phần riêng lẻ, thiết kế thiết bị đơn vị
@@ -47,22 +48,26 @@ Project_Root/
 ├── 5_Exp/                           # Thí nghiệm: mô phỏng + thực nghiệm + phân tích
 │   ├── 51_Sim/                      # Mô phỏng
 │   │   ├── Scripts/                 # Mã mô phỏng (S###_sim.m)
+│   │   │   └── 9_Archive/          # Kịch bản đã ngừng sử dụng
 │   │   └── Data/                    # Kết quả mô phỏng (Data/S###/)
 │   ├── 52_Empirical/                # Dữ liệu thực nghiệm
 │   │   ├── Raw/                     # Dữ liệu cảm biến thô (Chỉ đọc, loại trừ khỏi Git)
 │   │   └── Processed/               # Dữ liệu xử lý chính
 │   ├── 53_Analysis/                 # Phân tích tích hợp
 │   │   ├── Scripts/                 # Mã xử lý hậu kỳ so sánh/xác thực
+│   │   │   └── 9_Archive/          # Kịch bản đã ngừng sử dụng
 │   │   └── Logs/                    # Nhật ký phiên (S###_log.md)
+│   │       ├── 2_Wiki/              # Phát hiện chưng cất và sổ đăng ký phiên
+│   │       └── 9_Archive/           # Nhật ký phiên đã hoàn thành
 │   └── 54_Viz/                      # Kết quả hình ảnh (tự động tạo hình)
 │
 └── 6_Paper/                         # Bài báo & bài thuyết trình
     ├── 61_Figs/                     # Hình cho bài báo
-    │   ├── rawFig/
-    │   ├── processedFig/
-    │   └── finalFig/
+    │   ├── Raw/
+    │   ├── Processed/
+    │   └── Final/
     ├── 62_Drafts/                   # Bản thảo (Word, LaTeX)
-    │   └── archive/
+    │   └── 9_Archive/                # Phiên bản trước
     └── 63_Presentations/            # Tài liệu trình bày (PPT, áp phích)
 ```
 

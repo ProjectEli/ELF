@@ -27,6 +27,7 @@ Project_Root/
 │   ├── 11_Ideas/                    # Sketsa kasar, proposal hipotesis
 │   ├── 12_Literature/               # PDF makalah, info bibliografi, rumus dasar
 │   └── 13_Planning/                 # Roadmap penelitian, storyboard komposisi gambar
+│       └── 2_Wiki/                  # Kesimpulan perencanaan yang disaring & aturan utama
 │
 ├── 2_HW/                            # Desain hardware
 │   ├── 21_Component/                # Spesifikasi komponen individual, desain perangkat unit
@@ -47,22 +48,26 @@ Project_Root/
 ├── 5_Exp/                           # Eksperimen: simulasi + empiris + analisis
 │   ├── 51_Sim/                      # Simulasi
 │   │   ├── Scripts/                 # Kode simulasi (S###_sim.m)
+│   │   │   └── 9_Archive/          # Skrip yang sudah pensiun
 │   │   └── Data/                    # Hasil simulasi (Data/S###/)
 │   ├── 52_Empirical/                # Data empiris
 │   │   ├── Raw/                     # Data sensor mentah (Read-Only, dikecualikan dari Git)
 │   │   └── Processed/               # Data yang sudah diproses utama
 │   ├── 53_Analysis/                 # Analisis terintegrasi
 │   │   ├── Scripts/                 # Kode post-processing perbandingan/validasi
+│   │   │   └── 9_Archive/          # Skrip yang sudah pensiun
 │   │   └── Logs/                    # Log sesi (S###_log.md)
+│   │       ├── 2_Wiki/              # Temuan yang disaring & registrasi sesi
+│   │       └── 9_Archive/           # Log sesi yang telah selesai
 │   └── 54_Viz/                      # Output visualisasi (gambar yang dibuat secara otomatis)
 │
 └── 6_Paper/                         # Makalah & presentasi
     ├── 61_Figs/                     # Gambar untuk makalah
-    │   ├── rawFig/
-    │   ├── processedFig/
-    │   └── finalFig/
+    │   ├── Raw/
+    │   ├── Processed/
+    │   └── Final/
     ├── 62_Drafts/                   # Naskah (Word, LaTeX)
-    │   └── archive/
+    │   └── 9_Archive/                # Versi sebelumnya
     └── 63_Presentations/            # Materi presentasi (PPT, poster)
 ```
 

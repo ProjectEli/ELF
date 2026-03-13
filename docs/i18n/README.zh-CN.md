@@ -27,6 +27,7 @@ Project_Root/
 │   ├── 11_Ideas/                    # 草图、假设提案
 │   ├── 12_Literature/               # 论文 PDF、参考文献信息、公式
 │   └── 13_Planning/                 # 研究路线图、图表故事板
+│       └── 2_Wiki/                  # 提炼后的规划结论与关键规则
 │
 ├── 2_HW/                            # 硬件设计
 │   ├── 21_Component/                # 元器件规格、单元设备设计
@@ -47,22 +48,26 @@ Project_Root/
 ├── 5_Exp/                           # 实验：仿真 + 实测 + 分析
 │   ├── 51_Sim/                      # 仿真
 │   │   ├── Scripts/                 # 仿真代码（S###_sim.m）
+│   │   │   └── 9_Archive/          # 已退役脚本
 │   │   └── Data/                    # 仿真结果（Data/S###/）
 │   ├── 52_Empirical/                # 实测数据
 │   │   ├── Raw/                     # 原始传感器数据（只读，Git 排除）
 │   │   └── Processed/               # 预处理数据
 │   ├── 53_Analysis/                 # 综合分析
 │   │   ├── Scripts/                 # 比较/验证后处理代码
+│   │   │   └── 9_Archive/          # 已退役脚本
 │   │   └── Logs/                    # 会话日志（S###_log.md）
+│   │       ├── 2_Wiki/              # 提炼后的发现与会话注册表
+│   │       └── 9_Archive/           # 已完成的会话日志
 │   └── 54_Viz/                      # 可视化导出（自动生成的图表）
 │
 └── 6_Paper/                         # 论文与演示
     ├── 61_Figs/                     # 论文图表
-    │   ├── rawFig/
-    │   ├── processedFig/
-    │   └── finalFig/
+    │   ├── Raw/
+    │   ├── Processed/
+    │   └── Final/
     ├── 62_Drafts/                   # 手稿（Word、LaTeX）
-    │   └── archive/
+    │   └── 9_Archive/                # 以前的版本
     └── 63_Presentations/            # 演示材料（PPT、海报）
 ```
 

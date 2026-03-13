@@ -27,6 +27,7 @@ Project_Root/
 │   ├── 11_Ideas/                    # 草圖、假設提案
 │   ├── 12_Literature/               # 論文 PDF、參考文獻信息、公式
 │   └── 13_Planning/                 # 研究路線圖、圖表故事板
+│       └── 2_Wiki/                  # 精煉後的規劃結論與關鍵規則
 │
 ├── 2_HW/                            # 硬體設計
 │   ├── 21_Component/                # 元器件規格、單元設備設計
@@ -47,22 +48,26 @@ Project_Root/
 ├── 5_Exp/                           # 實驗：仿真 + 實測 + 分析
 │   ├── 51_Sim/                      # 仿真
 │   │   ├── Scripts/                 # 仿真代碼（S###_sim.m）
+│   │   │   └── 9_Archive/          # 已退役腳本
 │   │   └── Data/                    # 仿真結果（Data/S###/）
 │   ├── 52_Empirical/                # 實測數據
 │   │   ├── Raw/                     # 原始傳感器數據（只讀，Git 排除）
 │   │   └── Processed/               # 預處理數據
 │   ├── 53_Analysis/                 # 綜合分析
 │   │   ├── Scripts/                 # 比較/驗證後處理代碼
+│   │   │   └── 9_Archive/          # 已退役腳本
 │   │   └── Logs/                    # 會話日誌（S###_log.md）
+│   │       ├── 2_Wiki/              # 精煉後的發現與會話登錄簿
+│   │       └── 9_Archive/           # 已完成的會話日誌
 │   └── 54_Viz/                      # 可視化導出（自動生成的圖表）
 │
 └── 6_Paper/                         # 論文與演示
     ├── 61_Figs/                     # 論文圖表
-    │   ├── rawFig/
-    │   ├── processedFig/
-    │   └── finalFig/
+    │   ├── Raw/
+    │   ├── Processed/
+    │   └── Final/
     ├── 62_Drafts/                   # 手稿（Word、LaTeX）
-    │   └── archive/
+    │   └── 9_Archive/                # 以前的版本
     └── 63_Presentations/            # 演示材料（PPT、海報）
 ```
 

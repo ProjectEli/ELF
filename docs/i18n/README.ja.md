@@ -27,6 +27,7 @@ Project_Root/
 │   ├── 11_Ideas/                    # ラフスケッチ、仮説提案
 │   ├── 12_Literature/               # 論文PDF、文献情報、数式
 │   └── 13_Planning/                 # 研究ロードマップ、図のストーリーボード
+│       └── 2_Wiki/                  # 精製された計画結論＆主要ルール
 │
 ├── 2_HW/                            # ハードウェア設計
 │   ├── 21_Component/                # コンポーネント仕様、単体デバイス設計
@@ -47,22 +48,26 @@ Project_Root/
 ├── 5_Exp/                           # 実験：シミュレーション＋実験的＋解析
 │   ├── 51_Sim/                      # シミュレーション
 │   │   ├── Scripts/                 # シミュレーションコード (S###_sim.m)
+│   │   │   └── 9_Archive/          # 引退済みスクリプト
 │   │   └── Data/                    # シミュレーション結果 (Data/S###/)
 │   ├── 52_Empirical/                # 実験データ
 │   │   ├── Raw/                     # 元のセンサーデータ（読み取り専用、Git除外）
 │   │   └── Processed/               # 前処理済みデータ
 │   ├── 53_Analysis/                 # 統合解析
 │   │   ├── Scripts/                 # 比較/検証後処理コード
+│   │   │   └── 9_Archive/          # 引退済みスクリプト
 │   │   └── Logs/                    # セッションログ (S###_log.md)
+│   │       ├── 2_Wiki/              # 精製された知見＆セッション登録簿
+│   │       └── 9_Archive/           # 完了したセッションログ
 │   └── 54_Viz/                      # 可視化エクスポート（自動生成図）
 │
 └── 6_Paper/                         # 論文＆プレゼンテーション
     ├── 61_Figs/                     # 論文図版
-    │   ├── rawFig/
-    │   ├── processedFig/
-    │   └── finalFig/
+    │   ├── Raw/
+    │   ├── Processed/
+    │   └── Final/
     ├── 62_Drafts/                   # 原稿（Word、LaTeX）
-    │   └── archive/
+    │   └── 9_Archive/                # 以前のバージョン
     └── 63_Presentations/            # プレゼンテーション資料（PPT、ポスター）
 ```
 

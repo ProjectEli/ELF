@@ -27,6 +27,7 @@ Project_Root/
 │   ├── 11_Ideas/                    # Kaba taslaklar, hipotez önerileri
 │   ├── 12_Literature/               # Makale PDF'leri, kaynakça bilgisi, temel formüller
 │   └── 13_Planning/                 # Araştırma yol haritaları, şekil oluşturma storyboard'ları
+│       └── 2_Wiki/                  # Damıtılmış planlama sonuçları ve temel kurallar
 │
 ├── 2_HW/                            # Donanım tasarımı
 │   ├── 21_Component/                # Bireysel bileşen özellikleri, birim cihaz tasarımı
@@ -47,22 +48,26 @@ Project_Root/
 ├── 5_Exp/                           # Deneyleme: simülasyon + ampirik + analiz
 │   ├── 51_Sim/                      # Simülasyon
 │   │   ├── Scripts/                 # Simülasyon kodu (S###_sim.m)
+│   │   │   └── 9_Archive/          # Emekli edilmiş betikler
 │   │   └── Data/                    # Simülasyon sonuçları (Data/S###/)
 │   ├── 52_Empirical/                # Ampirik veriler
 │   │   ├── Raw/                     # Ham sensör verisi (Salt Okunur, Git'ten Hariç)
 │   │   └── Processed/               # Birincil işlenmiş veriler
 │   ├── 53_Analysis/                 # Entegre analiz
 │   │   ├── Scripts/                 # Karşılaştırma/doğrulama son işleme kodu
+│   │   │   └── 9_Archive/          # Emekli edilmiş betikler
 │   │   └── Logs/                    # Oturum günlükleri (S###_log.md)
+│   │       ├── 2_Wiki/              # Damıtılmış bulgular ve oturum kaydı
+│   │       └── 9_Archive/           # Tamamlanmış oturum günlükleri
 │   └── 54_Viz/                      # Görselleştirme çıktıları (otomatik oluşturulan şekiller)
 │
 └── 6_Paper/                         # Makaleler & sunumlar
     ├── 61_Figs/                     # Makaleler için şekiller
-    │   ├── rawFig/
-    │   ├── processedFig/
-    │   └── finalFig/
+    │   ├── Raw/
+    │   ├── Processed/
+    │   └── Final/
     ├── 62_Drafts/                   # Yazılı eserler (Word, LaTeX)
-    │   └── archive/
+    │   └── 9_Archive/                # Önceki sürümler
     └── 63_Presentations/            # Sunum materyalleri (PPT, posterler)
 ```
 

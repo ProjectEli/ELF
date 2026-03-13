@@ -27,6 +27,7 @@ Project_Root/
 │   ├── 11_Ideas/                    # Bocetos preliminares, propuestas de hipótesis
 │   ├── 12_Literature/               # PDFs de artículos, referencias bibliográficas, fórmulas
 │   └── 13_Planning/                 # Hoja de ruta de investigación, guiones gráficos de figuras
+│       └── 2_Wiki/                  # Conclusiones de planificación destiladas y reglas clave
 │
 ├── 2_HW/                            # Diseño de hardware
 │   ├── 21_Component/                # Especificaciones de componentes, diseño de dispositivos unitarios
@@ -47,22 +48,26 @@ Project_Root/
 ├── 5_Exp/                           # Experimentos: simulación + empírico + análisis
 │   ├── 51_Sim/                      # Simulación
 │   │   ├── Scripts/                 # Código de simulación (S###_sim.m)
+│   │   │   └── 9_Archive/          # Scripts retirados
 │   │   └── Data/                    # Resultados de simulación (Data/S###/)
 │   ├── 52_Empirical/                # Datos empíricos
 │   │   ├── Raw/                     # Datos brutos del sensor (solo lectura, excluido de Git)
 │   │   └── Processed/               # Datos preprocesados
 │   ├── 53_Analysis/                 # Análisis integrado
 │   │   ├── Scripts/                 # Código de postprocesamiento para comparación/validación
+│   │   │   └── 9_Archive/          # Scripts retirados
 │   │   └── Logs/                    # Registros de sesión (S###_log.md)
+│   │       ├── 2_Wiki/              # Hallazgos destilados y registro de sesiones
+│   │       └── 9_Archive/           # Registros de sesión completados
 │   └── 54_Viz/                      # Exportaciones de visualización (figuras generadas automáticamente)
 │
 └── 6_Paper/                         # Artículos y presentaciones
     ├── 61_Figs/                     # Figuras del artículo
-    │   ├── rawFig/
-    │   ├── processedFig/
-    │   └── finalFig/
+    │   ├── Raw/
+    │   ├── Processed/
+    │   └── Final/
     ├── 62_Drafts/                   # Manuscritos (Word, LaTeX)
-    │   └── archive/
+    │   └── 9_Archive/                # Versiones anteriores
     └── 63_Presentations/            # Materiales de presentación (PPT, pósteres)
 ```
 
