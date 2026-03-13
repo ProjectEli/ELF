@@ -1,4 +1,4 @@
-[English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [中文简体](README.zh-CN.md) | [中文繁體](README.zh-TW.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Italiano](README.it.md) | [Português](README.pt-BR.md) | [Русский](README.ru.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md) | [ภาษาไทย](README.th.md) | [Nederlands](README.nl.md) | [Polski](README.pl.md) | [Bahasa Indonesia](README.id.md)
+[English](../../README.md) | [한국어](../../README.ko.md) | [日本語](README.ja.md) | [中文简体](README.zh-CN.md) | [中文繁體](README.zh-TW.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Italiano](README.it.md) | [Português](README.pt-BR.md) | [Русский](README.ru.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md) | [ภาษาไทย](README.th.md) | [Nederlands](README.nl.md) | [Polski](README.pl.md) | [Bahasa Indonesia](README.id.md)
 
 # Eli's Lab Framework (ELF): โปรโตคอล Base-Delta สำหรับ Agile R&D
 
@@ -120,11 +120,11 @@ Project_Root/
 
 ## เริ่มต้นอย่างรวดเร็ว
 
-หากต้องการสร้างโครงการใหม่ที่มีโครงสร้าง ELF v2 ให้รัน `0_Meta/ELF_generator.bat`
+หากต้องการสร้างโครงการใหม่ที่มีโครงสร้าง ELF v2 ให้รัน `0_Meta/ELF_generator.ps1`
 
 ```
 cd desired_parent_directory
-D:\...\ELF\0_Meta\ELF_generator.bat
+D:\...\ELF\0_Meta\ELF_generator.ps1
 ```
 
 ป้อนชื่อโครงการและโครงสร้างโฟลเดอร์ 0–6 เอกสารเมตา `.gitignore` และการเริ่มต้น Git จะเสร็จสิ้นโดยอัตโนมัติ

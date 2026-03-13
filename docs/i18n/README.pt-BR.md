@@ -1,4 +1,4 @@
-[English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [中文简体](README.zh-CN.md) | [中文繁體](README.zh-TW.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Italiano](README.it.md) | [Português](README.pt-BR.md) | [Русский](README.ru.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md) | [ภาษาไทย](README.th.md) | [Nederlands](README.nl.md) | [Polski](README.pl.md) | [Bahasa Indonesia](README.id.md)
+[English](../../README.md) | [한국어](../../README.ko.md) | [日本語](README.ja.md) | [中文简体](README.zh-CN.md) | [中文繁體](README.zh-TW.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Italiano](README.it.md) | [Português](README.pt-BR.md) | [Русский](README.ru.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md) | [ภาษาไทย](README.th.md) | [Nederlands](README.nl.md) | [Polski](README.pl.md) | [Bahasa Indonesia](README.id.md)
 
 # Eli's Lab Framework (ELF): Protocolo Base-Delta para P&D Ágil
 
@@ -120,11 +120,11 @@ Quando agentes de IA (Claude, Gemini, etc.) participam do projeto, as seguintes 
 
 ## Início Rápido
 
-Para criar um novo projeto com a estrutura ELF v2, execute `0_Meta/ELF_generator.bat`.
+Para criar um novo projeto com a estrutura ELF v2, execute `0_Meta/ELF_generator.ps1`.
 
 ```
 cd desired_parent_directory
-D:\...\ELF\0_Meta\ELF_generator.bat
+D:\...\ELF\0_Meta\ELF_generator.ps1
 ```
 
 Digite um nome de projeto e a estrutura de pastas 0–6, documentos meta, `.gitignore` e inicialização de Git serão todos completados automaticamente.

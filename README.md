@@ -1,4 +1,4 @@
-[English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [中文简体](README.zh-CN.md) | [中文繁體](README.zh-TW.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Italiano](README.it.md) | [Português](README.pt-BR.md) | [Русский](README.ru.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md) | [ภาษาไทย](README.th.md) | [Nederlands](README.nl.md) | [Polski](README.pl.md) | [Bahasa Indonesia](README.id.md)
+[English](README.md) | [한국어](README.ko.md) | [日本語](docs/i18n/README.ja.md) | [中文简体](docs/i18n/README.zh-CN.md) | [中文繁體](docs/i18n/README.zh-TW.md) | [Français](docs/i18n/README.fr.md) | [Deutsch](docs/i18n/README.de.md) | [Español](docs/i18n/README.es.md) | [Italiano](docs/i18n/README.it.md) | [Português](docs/i18n/README.pt-BR.md) | [Русский](docs/i18n/README.ru.md) | [العربية](docs/i18n/README.ar.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [ภาษาไทย](docs/i18n/README.th.md) | [Nederlands](docs/i18n/README.nl.md) | [Polski](docs/i18n/README.pl.md) | [Bahasa Indonesia](docs/i18n/README.id.md)
 
 # Eli's Lab Framework (ELF): Base-Delta Protocol for Agile R&D
 
@@ -120,11 +120,11 @@ When AI agents (Claude, Gemini, etc.) participate in the project, the following 
 
 ## Quick Start
 
-To create a new project with the ELF v2 structure, run `0_Meta/ELF_generator.bat`.
+To create a new project with the ELF v2 structure, run `0_Meta/ELF_generator.ps1`.
 
 ```
 cd desired_parent_directory
-D:\...\ELF\0_Meta\ELF_generator.bat
+D:\...\ELF\0_Meta\ELF_generator.ps1
 ```
 
 Enter a project name and the 0–6 folder structure, meta documents, `.gitignore`, and Git initialization will all be completed automatically.

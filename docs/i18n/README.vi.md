@@ -1,4 +1,4 @@
-[English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [中文简体](README.zh-CN.md) | [中文繁體](README.zh-TW.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Italiano](README.it.md) | [Português](README.pt-BR.md) | [Русский](README.ru.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md) | [ภาษาไทย](README.th.md) | [Nederlands](README.nl.md) | [Polski](README.pl.md) | [Bahasa Indonesia](README.id.md)
+[English](../../README.md) | [한국어](../../README.ko.md) | [日本語](README.ja.md) | [中文简体](README.zh-CN.md) | [中文繁體](README.zh-TW.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Italiano](README.it.md) | [Português](README.pt-BR.md) | [Русский](README.ru.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md) | [ภาษาไทย](README.th.md) | [Nederlands](README.nl.md) | [Polski](README.pl.md) | [Bahasa Indonesia](README.id.md)
 
 # Eli's Lab Framework (ELF): Giao Thức Base-Delta cho Nghiên Cứu Agile
 
@@ -120,11 +120,11 @@ Khi các đại lý AI (Claude, Gemini, v.v.) tham gia vào dự án, các quy t
 
 ## Bắt Đầu Nhanh
 
-Để tạo dự án mới với cấu trúc ELF v2, chạy `0_Meta/ELF_generator.bat`.
+Để tạo dự án mới với cấu trúc ELF v2, chạy `0_Meta/ELF_generator.ps1`.
 
 ```
 cd desired_parent_directory
-D:\...\ELF\0_Meta\ELF_generator.bat
+D:\...\ELF\0_Meta\ELF_generator.ps1
 ```
 
 Nhập tên dự án và cấu trúc thư mục 0–6, tài liệu meta, `.gitignore` và khởi tạo Git sẽ được hoàn thành tự động.

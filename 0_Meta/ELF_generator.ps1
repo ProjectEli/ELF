@@ -1,173 +1,139 @@
-@echo off
-chcp 65001 > nul
-echo ============================================
-echo   ELF v2 Project Structure Generator
-echo   (0~6 Hierarchy + PARA Framework)
-echo ============================================
-echo.
+﻿# ============================================
+#   ELF v2 Project Structure Generator
+#   (0~6 Hierarchy + PARA Framework)
+# ============================================
+#
+#   Usage:
+#     powershell -ExecutionPolicy Bypass -File ELF_generator.ps1
+#
+# ============================================
 
-REM 1. 프로젝트 이름 입력 및 중복 검사
-:INPUT_LOOP
-set /p PROJECT_NAME="생성할 프로젝트 폴더 이름을 입력: "
+$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$utf8 = [System.Text.UTF8Encoding]::new($false)   # UTF-8 without BOM
 
-if "%PROJECT_NAME%"=="" (
-    echo [알림] 이름이 입력되지 않아 기본값 'New_ELF_Project'를 시도함.
-    set PROJECT_NAME=New_ELF_Project
-)
-
-if exist "%PROJECT_NAME%" (
-    echo [오류] '%PROJECT_NAME%' 폴더가 이미 존재함. 다른 이름을 입력하기 바람.
-    echo.
-    goto INPUT_LOOP
-)
-
-REM 1-b. 프로젝트 언어 선택
-echo.
-echo  Select project language (AI agent response language):
-echo   [1] 한국어 (Korean)
-echo   [2] English
-echo   [3] 日本語 (Japanese)
-echo   [4] 中文简体 (Simplified Chinese)
-echo   [5] 中文繁體 (Traditional Chinese)
-echo   [6] Français (French)
-echo   [7] Deutsch (German)
-echo   [8] Español (Spanish)
-echo   [9] Italiano (Italian)
-echo   [10] Português (Portuguese)
-echo   [11] Русский (Russian)
-echo   [12] العربية (Arabic)
-echo   [13] हिन्दी (Hindi)
-echo   [14] Türkçe (Turkish)
-echo   [15] Tiếng Việt (Vietnamese)
-echo   [16] ภาษาไทย (Thai)
-echo   [17] Nederlands (Dutch)
-echo   [18] Polski (Polish)
-echo   [19] Bahasa Indonesia (Indonesian)
-echo.
-set /p LANG_CHOICE="Enter number [default: 1 (한국어)]: "
-
-if "%LANG_CHOICE%"=="" set LANG_CHOICE=1
-if "%LANG_CHOICE%"=="1" set PROJECT_LANG=한국어
-if "%LANG_CHOICE%"=="2" set PROJECT_LANG=English
-if "%LANG_CHOICE%"=="3" set PROJECT_LANG=日本語
-if "%LANG_CHOICE%"=="4" set PROJECT_LANG=中文简体
-if "%LANG_CHOICE%"=="5" set PROJECT_LANG=中文繁體
-if "%LANG_CHOICE%"=="6" set PROJECT_LANG=Français
-if "%LANG_CHOICE%"=="7" set PROJECT_LANG=Deutsch
-if "%LANG_CHOICE%"=="8" set PROJECT_LANG=Español
-if "%LANG_CHOICE%"=="9" set PROJECT_LANG=Italiano
-if "%LANG_CHOICE%"=="10" set PROJECT_LANG=Português
-if "%LANG_CHOICE%"=="11" set PROJECT_LANG=Русский
-if "%LANG_CHOICE%"=="12" set PROJECT_LANG=العربية
-if "%LANG_CHOICE%"=="13" set PROJECT_LANG=हिन्दी
-if "%LANG_CHOICE%"=="14" set PROJECT_LANG=Türkçe
-if "%LANG_CHOICE%"=="15" set "PROJECT_LANG=Tiếng Việt"
-if "%LANG_CHOICE%"=="16" set PROJECT_LANG=ภาษาไทย
-if "%LANG_CHOICE%"=="17" set PROJECT_LANG=Nederlands
-if "%LANG_CHOICE%"=="18" set PROJECT_LANG=Polski
-if "%LANG_CHOICE%"=="19" set "PROJECT_LANG=Bahasa Indonesia"
-if not defined PROJECT_LANG set PROJECT_LANG=한국어
-
-mkdir "%PROJECT_NAME%"
-cd "%PROJECT_NAME%"
-echo [1/6] 프로젝트 루트 '%PROJECT_NAME%' 생성 완료 (언어: %PROJECT_LANG%).
-
-REM 2. 디렉토리 구조 생성 (ELF v2: 0~6 체계)
-mkdir "0_Meta"
-mkdir "1_Concept\11_Ideas"
-mkdir "1_Concept\12_Literature"
-mkdir "1_Concept\13_Planning"
-mkdir "2_HW\21_Component\Design"
-mkdir "2_HW\21_Component\Calibration"
-mkdir "2_HW\22_System"
-mkdir "2_HW\23_Elec"
-mkdir "3_Fab\31_Recipes"
-mkdir "3_Fab\32_Eval"
-mkdir "4_SW\41_FW"
-mkdir "4_SW\42_DAQ"
-mkdir "4_SW\43_Libs"
-mkdir "5_Exp\51_Sim\Scripts"
-mkdir "5_Exp\51_Sim\Data"
-mkdir "5_Exp\52_Empirical\Raw"
-mkdir "5_Exp\52_Empirical\Processed"
-mkdir "5_Exp\53_Analysis\Scripts"
-mkdir "5_Exp\53_Analysis\Logs\2_Wiki"
-mkdir "5_Exp\54_Viz"
-mkdir "6_Paper\61_Figs\rawFig"
-mkdir "6_Paper\61_Figs\processedFig"
-mkdir "6_Paper\61_Figs\finalFig"
-mkdir "6_Paper\62_Drafts"
-mkdir "6_Paper\63_Presentations"
-echo [2/6] 디렉토리 구조 생성 완료 (0_Meta ~ 6_Paper).
-
-REM 3. 빈 폴더 Git 추적용 .gitignore 생성
-for %%D in (
-    "1_Concept\11_Ideas"
-    "1_Concept\12_Literature"
-    "1_Concept\13_Planning"
-    "2_HW\21_Component\Design"
-    "2_HW\21_Component\Calibration"
-    "2_HW\22_System"
-    "2_HW\23_Elec"
-    "3_Fab\31_Recipes"
-    "3_Fab\32_Eval"
-    "4_SW\41_FW"
-    "4_SW\42_DAQ"
-    "4_SW\43_Libs"
-    "5_Exp\51_Sim\Scripts"
-    "5_Exp\51_Sim\Data"
-    "5_Exp\52_Empirical\Processed"
-    "5_Exp\53_Analysis\Scripts"
-    "5_Exp\53_Analysis\Logs\2_Wiki"
-    "5_Exp\54_Viz"
-    "6_Paper\61_Figs\rawFig"
-    "6_Paper\61_Figs\processedFig"
-    "6_Paper\61_Figs\finalFig"
-    "6_Paper\62_Drafts"
-    "6_Paper\63_Presentations"
-) do echo # Keep folder> %%~D\.gitignore
-
-> "5_Exp\52_Empirical\Raw\.gitignore" echo *
->> "5_Exp\52_Empirical\Raw\.gitignore" echo !.gitignore
-
-type nul > .gitattributes
-type nul > LICENSE
-echo [3/6] 하위 폴더 .gitignore 및 빈 파일 생성 완료.
-
-REM 4. 메타 문서 및 설정 파일 생성 (PowerShell 사용)
-for /f "tokens=1 delims=:" %%n in ('findstr /n "#__PS_START__" "%~f0"') do set "psline=%%n"
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "Get-Content -Path '%~f0' -Encoding UTF8 | Select-Object -Skip %psline% | Set-Content -Path '%TEMP%\_elfgen.ps1' -Encoding UTF8"
-powershell -NoProfile -ExecutionPolicy Bypass -File "%TEMP%\_elfgen.ps1"
-del "%TEMP%\_elfgen.ps1" 2>nul
-echo [4/6] 메타 문서 및 설정 파일 생성 완료.
-
-REM 5. Git 초기화 및 첫 커밋
-echo.
-git init
-git add .
-git commit -m "chore: Initialize ELF v2 project structure"
-echo [5/6] Git 초기화 완료.
-
-echo.
-echo ============================================
-echo   [%PROJECT_NAME%] ELF v2 프로젝트 구조 생성 완료!
-echo ============================================
-echo [6/6] 완료!
-pause
-exit /b
-
-#__PS_START__
-$utf8 = [System.Text.UTF8Encoding]::new($false)
-$projName = $env:PROJECT_NAME
-$projLang = $env:PROJECT_LANG
-if (-not $projLang) { $projLang = "한국어" }
-$dateStr = Get-Date -Format "yyyy-MM-dd"
+Write-Host ''
+Write-Host '============================================'
+Write-Host '  ELF v2 Project Structure Generator'
+Write-Host '  (0~6 Hierarchy + PARA Framework)'
+Write-Host '============================================'
+Write-Host ''
 
 # ================================================================
-# .gitignore
+# 1. Project name input
 # ================================================================
-[IO.File]::WriteAllText(".gitignore", @'
+do {
+    $projName = Read-Host 'Enter project folder name'
+    if ([string]::IsNullOrWhiteSpace($projName)) {
+        $projName = 'New_ELF_Project'
+        Write-Host "[Info] No name entered — using default: $projName"
+    }
+    if (Test-Path $projName) {
+        Write-Host "[Error] '$projName' already exists. Enter a different name."
+        $projName = $null
+    }
+} while (-not $projName)
+
+# ================================================================
+# 2. Language selection
+# ================================================================
+$langMap = [ordered]@{
+    '1'  = '한국어'           # Korean
+    '2'  = 'English'
+    '3'  = '日本語'           # Japanese
+    '4'  = '中文简体'         # Simplified Chinese
+    '5'  = '中文繁體'         # Traditional Chinese
+    '6'  = 'Français'        # French
+    '7'  = 'Deutsch'         # German
+    '8'  = 'Español'         # Spanish
+    '9'  = 'Italiano'        # Italian
+    '10' = 'Português'       # Portuguese
+    '11' = 'Русский'         # Russian
+    '12' = 'العربية'          # Arabic
+    '13' = 'हिन्दी'            # Hindi
+    '14' = 'Türkçe'          # Turkish
+    '15' = 'Tiếng Việt'      # Vietnamese
+    '16' = 'ภาษาไทย'         # Thai
+    '17' = 'Nederlands'      # Dutch
+    '18' = 'Polski'          # Polish
+    '19' = 'Bahasa Indonesia' # Indonesian
+}
+
+Write-Host ''
+Write-Host '  Select project language (AI agent response language):'
+foreach ($k in $langMap.Keys) {
+    $label = $langMap[$k]
+    Write-Host ("   [{0,2}] {1}" -f $k, $label)
+}
+Write-Host ''
+$langChoice = Read-Host 'Enter number [default: 1]'
+if ([string]::IsNullOrWhiteSpace($langChoice)) { $langChoice = '1' }
+$projLang = if ($langMap.Contains($langChoice)) { $langMap[$langChoice] } else { $langMap['1'] }
+
+Write-Host ''
+Write-Host "[1/6] Project root '$projName' created (language: $projLang)."
+
+# ================================================================
+# 3. Directory structure (ELF v2: 0~6)
+# ================================================================
+$dirs = @(
+    '0_Meta'
+    '1_Concept\11_Ideas'
+    '1_Concept\12_Literature'
+    '1_Concept\13_Planning'
+    '2_HW\21_Component\Design'
+    '2_HW\21_Component\Calibration'
+    '2_HW\22_System'
+    '2_HW\23_Elec'
+    '3_Fab\31_Recipes'
+    '3_Fab\32_Eval'
+    '4_SW\41_FW'
+    '4_SW\42_DAQ'
+    '4_SW\43_Libs'
+    '5_Exp\51_Sim\Scripts'
+    '5_Exp\51_Sim\Data'
+    '5_Exp\52_Empirical\Raw'
+    '5_Exp\52_Empirical\Processed'
+    '5_Exp\53_Analysis\Scripts'
+    '5_Exp\53_Analysis\Logs\2_Wiki'
+    '5_Exp\54_Viz'
+    '6_Paper\61_Figs\rawFig'
+    '6_Paper\61_Figs\processedFig'
+    '6_Paper\61_Figs\finalFig'
+    '6_Paper\62_Drafts'
+    '6_Paper\63_Presentations'
+)
+
+New-Item -ItemType Directory -Path $projName -Force | Out-Null
+Push-Location $projName
+[Environment]::CurrentDirectory = (Get-Location).ProviderPath
+
+foreach ($d in $dirs) {
+    New-Item -ItemType Directory -Path $d -Force | Out-Null
+}
+Write-Host '[2/6] Directory structure created (0_Meta ~ 6_Paper).'
+
+# ================================================================
+# 4. Placeholder .gitignore for empty folders
+# ================================================================
+$keepDirs = $dirs | Where-Object { $_ -ne '5_Exp\52_Empirical\Raw' }
+foreach ($d in $keepDirs) {
+    [IO.File]::WriteAllText("$d\.gitignore", "# Keep folder`n", $utf8)
+}
+# Raw data — block everything
+[IO.File]::WriteAllText("5_Exp\52_Empirical\Raw\.gitignore", "*`n!.gitignore`n", $utf8)
+
+New-Item -ItemType File -Path '.gitattributes' -Force | Out-Null
+New-Item -ItemType File -Path 'LICENSE' -Force | Out-Null
+Write-Host '[3/6] Sub-folder .gitignore and empty files created.'
+
+# ================================================================
+# 5. Meta documents & config files
+# ================================================================
+$dateStr = Get-Date -Format 'yyyy-MM-dd'
+
+# --- .gitignore (root) ---
+[IO.File]::WriteAllText('.gitignore', @'
 # === Claude Code & AI Toolkit ===
 .claude/
 .ecc/
@@ -208,18 +174,14 @@ sfprj/
 # *.fig
 '@, $utf8)
 
-# ================================================================
-# .claudeignore
-# ================================================================
-[IO.File]::WriteAllText(".claudeignore", @'
+# --- .claudeignore ---
+[IO.File]::WriteAllText('.claudeignore', @'
 # Ignore archive folders from Claude Code context
 **/9_Archive/
 **/*Archive*/
 '@, $utf8)
 
-# ================================================================
-# 0_Meta\EliRule.md
-# ================================================================
+# --- 0_Meta\EliRule.md ---
 $eliRuleContent = @'
 # EliRule: Project Structure & Operational Guide
 
@@ -320,7 +282,7 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 
 **PROJECT_LANG**: `__PROJECT_LANG__`
 
-> 이 값은 프로젝트 생성 시 `ELF_generator.bat`에서 선택한 언어로 자동 설정됩니다.
+> 이 값은 프로젝트 생성 시 `ELF_generator.ps1`에서 선택한 언어로 자동 설정됩니다.
 > AI 에이전트는 이 값을 참조하여 응답 언어를 결정합니다.
 
 프로젝트 내 모든 AI Agent는 사용자와 소통하고 문서를 작성할 때 다음 원칙을 준수합니다:
@@ -333,12 +295,10 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 6. **과장 및 감정적 수식어 금지 (No Embellishment)**: 정량적 수치와 물리적 인과관계로만 장단점을 서술합니다.
 '@
 $eliRuleContent = $eliRuleContent.Replace('__PROJECT_LANG__', $projLang)
-[IO.File]::WriteAllText("0_Meta\EliRule.md", $eliRuleContent, $utf8)
+[IO.File]::WriteAllText('0_Meta\EliRule.md', $eliRuleContent, $utf8)
 
-# ================================================================
-# 0_Meta\LogConvention.md
-# ================================================================
-[IO.File]::WriteAllText("0_Meta\LogConvention.md", @'
+# --- 0_Meta\LogConvention.md ---
+[IO.File]::WriteAllText('0_Meta\LogConvention.md', @'
 # LogConvention: ELF 로깅 표준 규칙
 
 사람과 AI 에이전트 모두가 따라야 할 실험 로그 작성, 결과 파일 저장, AI 핸드오프 규칙을 정의합니다.
@@ -480,10 +440,8 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 - [ ] Planning 내용이 포함된 경우 → `1_Concept/`로 분리 + cross-reference
 '@, $utf8)
 
-# ================================================================
-# 0_Meta\AI_PARA_Framework.md
-# ================================================================
-[IO.File]::WriteAllText("0_Meta\AI_PARA_Framework.md", @'
+# --- 0_Meta\AI_PARA_Framework.md ---
+[IO.File]::WriteAllText('0_Meta\AI_PARA_Framework.md', @'
 # AI PARA Framework & Context Management
 
 이 문서는 프로젝트 내의 방대한 실험 로그와 기획 문서들이 AI 에이전트(Claude Code, Gemini 등)의 컨텍스트 윈도우(Context Window)를 오염시키는 현상(Hallucination)을 막고, 인간-AI 협업 시 최적의 효율을 내기 위한 **AI 맞춤형 PARA (Projects, Areas, Resources, Archives) 파일 관리 규칙**을 정의함.
@@ -534,10 +492,8 @@ AI는 `9_Archive`를 스스로 뒤져볼 수 없지만, 인간 개발자가 특�
 *   이러한 방식을 돕기 위해, `2_Wiki`의 지식 문서들은 과거 데이터가 필요할 경우를 대비하여 항상 `9_Archive/...`로 향하는 **명시적 파일 경로 링크**를 포함해야 함.
 '@, $utf8)
 
-# ================================================================
-# 0_Meta\AI_Sync.md
-# ================================================================
-[IO.File]::WriteAllText("0_Meta\AI_Sync.md", @'
+# --- 0_Meta\AI_Sync.md ---
+[IO.File]::WriteAllText('0_Meta\AI_Sync.md', @'
 # AI_Sync: Agent Handoff Log
 
 최신 항목이 위에 오도록 역순으로 작성합니다.
@@ -548,15 +504,13 @@ AI는 `9_Archive`를 스스로 뒤져볼 수 없지만, 인간 개발자가 특�
 (아직 핸드오프 기록이 없습니다.)
 '@, $utf8)
 
-# ================================================================
-# README.md (변수 삽입 필요 — 단독 처리)
-# ================================================================
-$readmeContent = @'
-# {0}
+# --- README.md ---
+$readmeContent = @"
+# $projName
 
 ## 프로젝트 개요
 - **연구 목표:** [여기에 테스트 목표 및 가설 작성]
-- **연구 기간:** {1} ~
+- **연구 기간:** $dateStr ~
 - **담당 연구자:** [이름 작성]
 
 ## 하드웨어 및 소프트웨어 베이스라인 (Baseline)
@@ -570,18 +524,16 @@ $readmeContent = @'
 - **scripts:** 부분 실행 (Cell Mode)을 위한 후처리 스크립트 관리
 
 ## 프로젝트 규칙
-폴더 구조 및 운영 상세 규칙은 `0_Meta/EliRule.md`를 참조.
-AI 에이전트 로깅 규칙은 `0_Meta/LogConvention.md`를 참조.
-AI 컨텍스트 관리 규칙은 `0_Meta/AI_PARA_Framework.md`를 참조.
-'@
-[IO.File]::WriteAllText("README.md", ($readmeContent -f $projName, $dateStr), $utf8)
+폴더 구조 및 운영 상세 규칙은 ``0_Meta/EliRule.md``를 참조.
+AI 에이전트 로깅 규칙은 ``0_Meta/LogConvention.md``를 참조.
+AI 컨텍스트 관리 규칙은 ``0_Meta/AI_PARA_Framework.md``를 참조.
+"@
+[IO.File]::WriteAllText('README.md', $readmeContent, $utf8)
 
-# ================================================================
-# 5_Exp\53_Analysis\Logs\S001_log.md
-# ================================================================
-$logContent = @'
+# --- 5_Exp\53_Analysis\Logs\S001_log.md ---
+$logContent = @"
 # S001: [세션 제목]
-**Date**: {0}
+**Date**: $dateStr
 **Status**: Planning
 
 ## 요약정보
@@ -594,14 +546,33 @@ $logContent = @'
 ### t01: [작업 제목]
 - 목표:
 - 교훈:
-'@
-[IO.File]::WriteAllText("5_Exp\53_Analysis\Logs\S001_log.md", ($logContent -f $dateStr), $utf8)
+"@
+[IO.File]::WriteAllText('5_Exp\53_Analysis\Logs\S001_log.md', $logContent, $utf8)
 
-# ================================================================
-# 5_Exp\53_Analysis\Logs\2_Wiki\Session_Registry.tsv
-# ================================================================
+# --- Session_Registry.tsv ---
 $tsvContent = "Session`tDate`tTitle`tStatus`tKey Finding`tArchive Path`r`n"
 $tsvContent += "S001`t$dateStr`t[세션 제목]`tPlanning`t-`t-`r`n"
-[IO.File]::WriteAllText("5_Exp\53_Analysis\Logs\2_Wiki\Session_Registry.tsv", $tsvContent, $utf8)
+[IO.File]::WriteAllText('5_Exp\53_Analysis\Logs\2_Wiki\Session_Registry.tsv', $tsvContent, $utf8)
 
-Write-Host "[PS] 메타 문서 7개 생성 완료."
+Write-Host '[4/6] Meta documents and config files created.'
+
+# ================================================================
+# 6. Git init & first commit
+# ================================================================
+Write-Host ''
+git init
+git add .
+git commit -m 'chore: Initialize ELF v2 project structure'
+Write-Host '[5/6] Git initialized.'
+
+Pop-Location
+[Environment]::CurrentDirectory = (Get-Location).ProviderPath
+
+Write-Host ''
+Write-Host '============================================'
+Write-Host "  [$projName] ELF v2 project created!"
+Write-Host "  Language: $projLang"
+Write-Host '============================================'
+Write-Host '[6/6] Done!'
+Write-Host ''
+Read-Host 'Press Enter to exit'

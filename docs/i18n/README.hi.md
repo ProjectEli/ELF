@@ -1,4 +1,4 @@
-[English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [中文简体](README.zh-CN.md) | [中文繁體](README.zh-TW.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Italiano](README.it.md) | [Português](README.pt-BR.md) | [Русский](README.ru.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md) | [ภาษาไทย](README.th.md) | [Nederlands](README.nl.md) | [Polski](README.pl.md) | [Bahasa Indonesia](README.id.md)
+[English](../../README.md) | [한국어](../../README.ko.md) | [日本語](README.ja.md) | [中文简体](README.zh-CN.md) | [中文繁體](README.zh-TW.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Italiano](README.it.md) | [Português](README.pt-BR.md) | [Русский](README.ru.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [Türkçe](README.tr.md) | [Tiếng Việt](README.vi.md) | [ภาษาไทย](README.th.md) | [Nederlands](README.nl.md) | [Polski](README.pl.md) | [Bahasa Indonesia](README.id.md)
 
 # एलाई की लैब फ्रेमवर्क (ELF): एजाइल R&D के लिए बेस-डेल्टा प्रोटोकॉल
 
@@ -120,11 +120,11 @@ Project_Root/
 
 ## त्वरित प्रारंभ
 
-ELF v2 संरचना के साथ एक नई परियोजना बनाने के लिए, `0_Meta/ELF_generator.bat` चलाएं।
+ELF v2 संरचना के साथ एक नई परियोजना बनाने के लिए, `0_Meta/ELF_generator.ps1` चलाएं।
 
 ```
 cd desired_parent_directory
-D:\...\ELF\0_Meta\ELF_generator.bat
+D:\...\ELF\0_Meta\ELF_generator.ps1
 ```
 
 एक परियोजना नाम दर्ज करें और 0–6 फ़ोल्डर संरचना, मेटा दस्तावेज़, `.gitignore`, और Git आरंभीकरण सभी स्वचालित रूप से पूरे हो जाएंगे।
