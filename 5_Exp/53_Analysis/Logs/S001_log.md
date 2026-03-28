@@ -1,13 +1,31 @@
-Goal: 전도성 겔 종류에 따른 Motion Artifact 차이 확인
-Base: Gain 128, 오른팔 부착, 걷기 동작
+# S001: [Session Title]
 
-t1: 겔 A 사용.
-- 결과: 노이즈 심함. 베이스라인이 흔들림.
-- 교훈: 겔 점성이 부족한 듯. 다음엔 겔 B로 변경.
+> **Date**: 2026-01-01
+> **Status**: ★ 활성
+> **목표**: [Core objective of this session in 1-2 sentences]
+> **관련**: [Related sessions/documents, e.g., S000, P001_xxx.md]
 
-t2: 겔 B로 변경.
-- 결과: 베이스라인 안정됨. 하지만 큰 동작에서 튀는 값 발생.
-- 교훈: Gain이 너무 높은가? 다음엔 Gain 64로 낮춰봄.
+---
 
-t3: Gain 64로 변경.
-- 결과: 완벽함. 클리핑 안 생김.
+## t01: [Task Title]
+
+### 목표
+- [Specific goal for this task]
+
+### 조건
+- [Parameters, settings, constraints]
+
+### 결과
+- [Observations, findings]
+- [Inline figure embedding: `![S001_t01: description](../../54_Viz/S001/filename.png)`]
+
+### 교훈
+- [Key insight from this task]
+
+### 생성 파일
+
+| 유형 | 파일 |
+|------|------|
+| Script | `경로` |
+| Output | `경로` |
+| Figure | `경로` |
