@@ -134,7 +134,89 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 
 > On Windows, use Git Bash (included with [Git for Windows](https://git-scm.com/)).
 
-Enter a project name and the 0–6 folder structure, meta documents, and `.gitignore` will be created automatically. Git initialization is optional and prompted only when Git is available.
+Enter a project name and the 0–6 folder structure, meta documents, and `.gitkeep` will be created automatically. Git initialization is optional and prompted only when Git is available.
+
+## Usage
+
+### 1. Read the Rules First
+
+Before starting research, read the two governance documents generated in `0_Meta/`:
+
+| Document | Purpose |
+|----------|---------|
+| `EliRule.md` | Folder structure spec, naming convention, operational rules (Section 1-2), AI communication rules (Section 3) |
+| `LogConvention.md` | Session log format, file naming, archiving workflow, cross-reference rules |
+
+### 2. Start a New Session
+
+Create a log file in `5_Exp/53_Analysis/Logs/`:
+
+```markdown
+# S002: Wavelength Optimization Simulation
+
+> **Date**: 2026-04-01
+> **Status**: ★ Active
+> **Goal**: Compare SNR across 735/810/940 nm wavelengths via Monte Carlo simulation
+> **Related**: P001_wavelength_optimization.md
+```
+
+- Session numbers (`S001`, `S002`, ...) increment sequentially — no gaps, no duplicates.
+- File naming: `S002_WavelengthOpt.md` (session number + short descriptor).
+- The `S001_log.md` template is auto-generated with the correct format.
+
+### 3. Develop Tasks (t01, t02, ...)
+
+Within each session, break work into sequential tasks:
+
+```markdown
+## t01: MCX Forward Simulation — 3-wavelength sweep
+
+### Goal
+- Run MCX simulation for λ = {735, 810, 940} nm at SDS = 20 mm
+
+### Conditions
+- Tissue model: 3-layer (epidermis/dermis/subcutaneous)
+- Photon count: 1e8 per wavelength
+- fmel = 0.10 (Fitzpatrick III)
+
+### Results
+- 940 nm shows highest sensitivity (ΔR/Δh = 0.12 mm⁻¹)
+- 735 nm has lowest noise floor but saturates at h > 15 mm
+
+![S002_t01: SNR comparison](../../54_Viz/S002/S002_t01_SNR_comparison.png)
+
+### Lesson
+- 810 nm is the best compromise between sensitivity and dynamic range
+
+### Generated Files
+
+| Type | File |
+|------|------|
+| Script | `51_Sim/Scripts/S002_t01_wavelength_sweep.m` |
+| Output | `51_Sim/Data/S002/S002_t01_results.mat` |
+| Figure | `54_Viz/S002/S002_t01_SNR_comparison.png` |
+```
+
+- Tasks build on each other: `t01` → `t02` → `t03`.
+- Each task has: **Goal**, **Conditions**, **Results**, **Lesson**, **Generated Files**.
+- Embed figures inline in the results section — never list file paths without visual embedding.
+
+### 4. Complete a Session
+
+When a session is done:
+
+1. **Update Status**: Change `★ Active` to `Complete` in the log header.
+2. **Summarize to Wiki**: Add a 1-2 line summary to `Logs/2_Wiki/` knowledge documents with a link to the archived log.
+3. **Update Session Registry**: Add a row to `Logs/2_Wiki/Session_Registry.tsv`:
+   ```
+   S002	2026-04-01	Wavelength Optimization	Complete	810 nm optimal	9_Archive/S002_WavelengthOpt.md
+   ```
+4. **Archive the log**: Move the log file to `Logs/9_Archive/`.
+5. **Archive scripts** (if one-time): Move to `Scripts/9_Archive/`.
+
+### 5. AI Agent Handoff (Optional)
+
+If using AI agents, update `0_Meta/AI_Sync.md` upon task completion with: performed actions, modified files, and next steps. See `LogConvention.md` Section 4 for format.
 
 ## License
 

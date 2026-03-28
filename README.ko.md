@@ -134,7 +134,89 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 
 > Windows에서는 Git Bash([Git for Windows](https://git-scm.com/) 포함)를 사용합니다.
 
-프로젝트 이름을 입력하면 0~6 폴더 체계, 메타 문서, `.gitignore`가 자동 생성됩니다. Git 초기화는 Git이 설치된 경우에만 선택적으로 수행됩니다.
+프로젝트 이름을 입력하면 0~6 폴더 체계, 메타 문서, `.gitkeep`이 자동 생성됩니다. Git 초기화는 Git이 설치된 경우에만 선택적으로 수행됩니다.
+
+## 사용법 (Usage)
+
+### 1. 규칙 문서 읽기
+
+연구 시작 전, `0_Meta/`에 생성된 두 거버넌스 문서를 읽습니다:
+
+| 문서 | 목적 |
+|------|------|
+| `EliRule.md` | 폴더 구조 규격, 네이밍 컨벤션, 운영 규칙 (섹션 1-2), AI 커뮤니케이션 규칙 (섹션 3) |
+| `LogConvention.md` | 세션 로그 포맷, 파일 명명, 아카이빙 워크플로우, Cross-reference 규칙 |
+
+### 2. 새 세션 시작
+
+`5_Exp/53_Analysis/Logs/`에 로그 파일을 생성합니다:
+
+```markdown
+# S002: 파장 최적화 시뮬레이션
+
+> **Date**: 2026-04-01
+> **Status**: ★ 활성
+> **목표**: Monte Carlo 시뮬레이션으로 735/810/940 nm 파장별 SNR 비교
+> **관련**: P001_wavelength_optimization.md
+```
+
+- 세션 번호(`S001`, `S002`, ...)는 순차 증가 — 빈 번호, 중복 금지.
+- 파일명: `S002_WavelengthOpt.md` (세션 번호 + 짧은 설명).
+- `S001_log.md` 템플릿이 올바른 포맷으로 자동 생성되어 있으므로 참고.
+
+### 3. 작업 전개 (t01, t02, ...)
+
+각 세션 내에서 작업을 순차 task로 분리합니다:
+
+```markdown
+## t01: MCX Forward Simulation — 3파장 sweep
+
+### 목표
+- λ = {735, 810, 940} nm에서 SDS = 20 mm 조건으로 MCX 시뮬레이션 실행
+
+### 조건
+- Tissue model: 3-layer (epidermis/dermis/subcutaneous)
+- Photon count: 1e8 per wavelength
+- fmel = 0.10 (Fitzpatrick III)
+
+### 결과
+- 940 nm이 최고 감도 (ΔR/Δh = 0.12 mm⁻¹)
+- 735 nm은 noise floor 최저이나 h > 15 mm에서 포화
+
+![S002_t01: SNR 비교](../../54_Viz/S002/S002_t01_SNR_comparison.png)
+
+### 교훈
+- 810 nm이 감도와 dynamic range 간 최적 절충점
+
+### 생성 파일
+
+| 유형 | 파일 |
+|------|------|
+| Script | `51_Sim/Scripts/S002_t01_wavelength_sweep.m` |
+| Output | `51_Sim/Data/S002/S002_t01_results.mat` |
+| Figure | `54_Viz/S002/S002_t01_SNR_comparison.png` |
+```
+
+- Task는 순차적으로 발전: `t01` → `t02` → `t03`.
+- 각 task 구성: **목표** (goal), **조건** (conditions), **결과** (results), **교훈** (lesson), **생성 파일** (generated files).
+- Figure는 결과 섹션에 인라인 임베딩 필수 — 파일 목록만 나열하고 본문에 임베딩하지 않는 것은 금지.
+
+### 4. 세션 완료
+
+세션 종료 시 다음을 수행합니다:
+
+1. **Status 변경**: 로그 헤더의 `★ 활성`을 `Complete`로 변경.
+2. **Wiki 요약**: `Logs/2_Wiki/`의 지식 문서에 1-2줄 요약 추가. 아카이브된 로그 경로 링크 포함.
+3. **Session Registry 업데이트**: `Logs/2_Wiki/Session_Registry.tsv`에 행 추가:
+   ```
+   S002	2026-04-01	파장 최적화	Complete	810 nm 최적	9_Archive/S002_WavelengthOpt.md
+   ```
+4. **로그 아카이빙**: 로그 파일을 `Logs/9_Archive/`로 이동.
+5. **스크립트 아카이빙** (1회용인 경우): `Scripts/9_Archive/`로 이동.
+
+### 5. AI 에이전트 핸드오프 (선택)
+
+AI 에이전트를 사용하는 경우, 작업 완료 시 `0_Meta/AI_Sync.md`에 수행 내역, 수정 파일, Next Steps를 기록합니다. 포맷은 `LogConvention.md` 섹션 4 참조.
 
 ## 라이선스 (License)
 

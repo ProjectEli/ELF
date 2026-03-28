@@ -115,18 +115,18 @@ done
 echo '[2/6] Directory structure created (0_Meta ~ 6_Paper).'
 
 # ================================================================
-# 4. Placeholder .gitignore for empty folders
+# 4. .gitkeep for empty folders (preserves structure on remote)
 # ================================================================
 for d in "${DIRS[@]}"; do
     if [[ "$d" == '5_Exp/52_Empirical/Raw' ]]; then
         printf '*\n!.gitignore\n' > "$d/.gitignore"
     else
-        printf '# Keep folder\n' > "$d/.gitignore"
+        touch "$d/.gitkeep"
     fi
 done
 
 touch .gitattributes LICENSE
-echo '[3/6] Sub-folder .gitignore and empty files created.'
+echo '[3/6] .gitkeep and empty files created.'
 
 # ================================================================
 # 5. Meta documents & config files
@@ -323,28 +323,44 @@ cat > 0_Meta/LogConvention.md << 'LOGCONV_EOF'
 
 ```markdown
 # S{NNN}: {세션 제목}
-**Date**: YYYY-MM-DD
-**Status**: {Planning | In Progress | Step X 완료 | Complete}
 
-## 요약정보
-- 목표:
-- 배경:
-- 교훈:
+> **Date**: YYYY-MM-DD
+> **Status**: {★ 활성 | In Progress | Complete}
+> **목표**: {세션의 핵심 목표 1-2문장}
+> **관련**: {관련 세션/문서 링크}
 
-## 상세내용
+---
 
-### t{NN}: {작업 제목}
-- 목표:
-- 교훈:
+## t{NN}: {작업 제목}
 
-{실행 내용, 파라미터, 결과, 이미지 링크 등}
+### 목표
+- {구체적 작업 목표}
+
+### 조건
+- {파라미터, 설정, 제약}
+
+### 결과
+- {관찰, 발견, Figure 인라인}
+
+### 교훈
+- {핵심 인사이트, 향후 유의점}
+
+### 생성 파일
+
+| 유형 | 파일 |
+|------|------|
+| Script | `경로` |
+| Output | `경로` |
+| Figure | `경로` |
 ```
 
 ### 규칙
 - **작성 언어**: 로그는 `0_Meta/EliRule.md`의 `PROJECT_LANG` 설정에 따른 언어로 작성합니다. 기술 용어는 English 원문을 병기할 수 있습니다.
+- **Status**: `★ 활성` (현재 작업 중), `In Progress` (중간 단계), `Complete` (완료, 아카이빙 전)
 - **ticket 번호**: `t01`, `t02`, ... 순서대로. 중복 금지
-- **이미지 경로**: `![alt text](../../51_Sim/Data/S{NNN}/filename.png)` (Logs 기준 상대경로)
+- **이미지 경로**: `![alt text](../../54_Viz/S{NNN}/filename.png)` (Logs 기준 상대경로)
 - **Figure 인라인 임베딩 필수**: 분석 결과로 생성된 Figure는 반드시 로그 본문의 **해당 결과 섹션에 인라인으로 삽입**하고, alt text에 Figure 번호와 1줄 설명(축, 핵심 관찰)을 기재한다. 파일 목록 테이블에만 나열하고 본문에 임베딩하지 않는 것은 금지. 향후 사람이 로그만 읽고도 결과를 시각적으로 파악할 수 있어야 한다.
+- **생성 파일 테이블**: 각 task에서 생성된 스크립트, 데이터, Figure를 테이블로 정리. 유형(`Script`, `Output`, `Figure`, `Config` 등)과 프로젝트 루트 기준 상대경로를 명시.
 - **코드 사용법**: 코드 블록 (```lang ... ```) 으로 기재
 - **파라미터 표**: 변수명, 값, 단위를 표 형태로 정리
 
@@ -532,24 +548,40 @@ README_EOF
 # --- S001_log.md ---
 cat > 5_Exp/53_Analysis/Logs/S001_log.md << LOG_EOF
 # S001: [세션 제목]
-**Date**: ${DATE_STR}
-**Status**: Planning
 
-## 요약정보
-- 목표:
-- 배경:
-- 교훈:
+> **Date**: ${DATE_STR}
+> **Status**: ★ 활성
+> **목표**: [이 세션의 핵심 목표 1-2문장]
+> **관련**: [관련 세션/문서, 예: S000, P001_xxx.md]
 
-## 상세내용
+---
 
-### t01: [작업 제목]
-- 목표:
-- 교훈:
+## t01: [작업 제목]
+
+### 목표
+- [이 작업의 구체적 목표]
+
+### 조건
+- [파라미터, 설정, 제약 조건]
+
+### 결과
+- [관찰 결과, 발견사항, Figure 인라인 임베딩]
+
+### 교훈
+- [이 작업에서 얻은 핵심 인사이트]
+
+### 생성 파일
+
+| 유형 | 파일 |
+|------|------|
+| Script | \`경로\` |
+| Output | \`경로\` |
+| Figure | \`경로\` |
 LOG_EOF
 
 # --- Session_Registry.tsv ---
 printf 'Session\tDate\tTitle\tStatus\tKey Finding\tArchive Path\r\n' > 5_Exp/53_Analysis/Logs/2_Wiki/Session_Registry.tsv
-printf 'S001\t%s\t[세션 제목]\tPlanning\t-\t-\r\n' "$DATE_STR" >> 5_Exp/53_Analysis/Logs/2_Wiki/Session_Registry.tsv
+printf 'S001\t%s\t[세션 제목]\t★ 활성\t-\t-\r\n' "$DATE_STR" >> 5_Exp/53_Analysis/Logs/2_Wiki/Session_Registry.tsv
 
 echo '[4/6] Meta documents and config files created.'
 
