@@ -18,6 +18,7 @@
 ```text
 Project_Root/
 ├── 0_Meta/                          # 프로젝트 거버넌스 & 규칙
+│   ├── ProjectRule.md               # 프로젝트 전용 규칙 및 목표
 │   ├── EliRule.md                   # 폴더 구조 및 운영 가이드
 │   ├── LogConvention.md             # 로깅 표준 규칙
 │   ├── AI_PARA_Framework.md         # AI 컨텍스트 관리 & 아카이빙 규칙
@@ -151,7 +152,8 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 |------|----------|
 | `sessionTemplate.md` | 새 세션 시작 시 `5_Exp/53_Analysis/Logs/`에 복사 후 `S###_log.md`로 이름 변경 |
 | `trialTemplate.md` | 진행 중인 세션 로그에 trial 추가 시 (`t02`, `t03`, ...) 본문에 붙여넣기 |
-| `ProjectRule.md` | 제너레이터가 자동 생성; 섹션 1–8을 프로젝트에 맞게 편집 |
+
+> **Note**: `ProjectRule.md`는 프로젝트 생성 시 자동으로 `0_Meta/` 내부에 배치됩니다. 프로젝트 특성에 맞게 `0_Meta/ProjectRule.md`의 섹션 1~8을 직접 수정하여 사용하세요.
 
 ### 1. 규칙 문서 읽기
 

@@ -96,7 +96,7 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 
 ## 3. AI Communication Rules
 
-**PROJECT_LANG**: `한국어`
+**PROJECT_LANG**: `PLACEHOLDER_PROJECT_LANG`
 
 > 이 값은 프로젝트 생성 시 `ELF_generator.sh`에서 선택한 언어로 자동 설정됩니다.
 > AI 에이전트는 이 값을 참조하여 응답 언어를 결정합니다.
