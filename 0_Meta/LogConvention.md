@@ -23,7 +23,8 @@
 ```markdown
 # S{NNN}: {세션 제목}
 
-> **Date**: YYYY-MM-DD
+> **Created**: YYYY-MM-DD
+> **Modified**: YYYY-MM-DD
 > **Status**: {★ 활성 | In Progress | Complete}
 > **목표**: {세션의 핵심 목표 1-2문장}
 > **관련**: {관련 세션/문서 링크}

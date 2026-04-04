@@ -1,148 +1,163 @@
-#!/usr/bin/env bash
+#Requires -Version 5.1
 # ============================================
 #   ELF v2 Project Structure Generator
 #   (0~6 Hierarchy + PARA Framework)
 #
-#   Usage:
-#     chmod +x ELF_generator.sh && ./ELF_generator.sh
+#   Usage (Windows PowerShell 5.1):
+#     powershell -ExecutionPolicy Bypass -File "0_Meta\ELF_generator.ps1"
+#
+#   Usage (PowerShell 7+):
+#     pwsh -File "0_Meta\ELF_generator.ps1"
 # ============================================
 
-set -euo pipefail
+$ErrorActionPreference = 'Stop'
 
 # Locate templates folder relative to this script
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEMPLATES_DIR="$SCRIPT_DIR/../templates"
-if [[ ! -d "$TEMPLATES_DIR" ]]; then
-    echo "[Error] templates/ folder not found at: $TEMPLATES_DIR"
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$templatesDir = Join-Path $scriptDir '..\templates'
+if (-not (Test-Path $templatesDir)) {
+    Write-Host "[Error] templates/ folder not found at: $templatesDir"
     exit 1
-fi
+}
 
-echo ''
-echo '============================================'
-echo '  ELF v2 Project Structure Generator'
-echo '  (0~6 Hierarchy + PARA Framework)'
-echo '============================================'
-echo ''
+# Helper: Write content as UTF-8 without BOM
+function Write-FileUTF8 {
+    param([string]$Path, [string]$Content)
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    [System.IO.File]::WriteAllText($fullPath, $Content, $utf8NoBom)
+}
+
+Write-Host ''
+Write-Host '============================================'
+Write-Host '  ELF v2 Project Structure Generator'
+Write-Host '  (0~6 Hierarchy + PARA Framework)'
+Write-Host '============================================'
+Write-Host ''
 
 # ================================================================
 # 1. Project name input
 # ================================================================
-while true; do
-    read -rp 'Enter project folder name: ' PROJECT_NAME
-    if [[ -z "$PROJECT_NAME" ]]; then
-        PROJECT_NAME='New_ELF_Project'
-        echo "[Info] No name entered — using default: $PROJECT_NAME"
-    fi
-    if [[ -d "$PROJECT_NAME" ]]; then
-        echo "[Error] '$PROJECT_NAME' already exists. Enter a different name."
-    else
+while ($true) {
+    $projectName = Read-Host 'Enter project folder name'
+    if ([string]::IsNullOrWhiteSpace($projectName)) {
+        $projectName = 'New_ELF_Project'
+        Write-Host "[Info] No name entered — using default: $projectName"
+    }
+    if (Test-Path $projectName) {
+        Write-Host "[Error] '$projectName' already exists. Enter a different name."
+    } else {
         break
-    fi
-done
+    }
+}
 
 # ================================================================
 # 2. Language selection
 # ================================================================
-declare -a LANG_NAMES=(
-    [1]='한국어'
-    [2]='English'
-    [3]='日本語'
-    [4]='中文简体'
-    [5]='中文繁體'
-    [6]='Français'
-    [7]='Deutsch'
-    [8]='Español'
-    [9]='Italiano'
-    [10]='Português'
-    [11]='Русский'
-    [12]='العربية'
-    [13]='हिन्दी'
-    [14]='Türkçe'
-    [15]='Tiếng Việt'
-    [16]='ภาษาไทย'
-    [17]='Nederlands'
-    [18]='Polski'
-    [19]='Bahasa Indonesia'
+$langNames = @(
+    '',                  # 0: placeholder
+    '한국어',            # 1
+    'English',           # 2
+    '日本語',            # 3
+    '中文简体',          # 4
+    '中文繁體',          # 5
+    'Français',          # 6
+    'Deutsch',           # 7
+    'Español',           # 8
+    'Italiano',          # 9
+    'Português',         # 10
+    'Русский',           # 11
+    'العربية',           # 12
+    'हिन्दी',            # 13
+    'Türkçe',            # 14
+    'Tiếng Việt',        # 15
+    'ภาษาไทย',           # 16
+    'Nederlands',        # 17
+    'Polski',            # 18
+    'Bahasa Indonesia'   # 19
 )
 
-echo ''
-echo '  Select project language (AI agent response language):'
-for i in $(seq 1 19); do
-    printf '   [%2d] %s\n' "$i" "${LANG_NAMES[$i]}"
-done
-echo ''
-read -rp 'Enter number [default: 1]: ' LANG_CHOICE
-if [[ -z "$LANG_CHOICE" ]]; then LANG_CHOICE=1; fi
-if [[ "$LANG_CHOICE" -ge 1 && "$LANG_CHOICE" -le 19 ]] 2>/dev/null; then
-    PROJECT_LANG="${LANG_NAMES[$LANG_CHOICE]}"
-else
-    PROJECT_LANG="${LANG_NAMES[1]}"
-fi
+Write-Host ''
+Write-Host '  Select project language (AI agent response language):'
+for ($i = 1; $i -le 19; $i++) {
+    Write-Host ("   [{0,2}] {1}" -f $i, $langNames[$i])
+}
+Write-Host ''
+$langChoice = Read-Host 'Enter number [default: 1]'
 
-echo ''
-echo "[1/6] Project root '$PROJECT_NAME' created (language: $PROJECT_LANG)."
+$langNum = 0
+if ([string]::IsNullOrWhiteSpace($langChoice)) {
+    $langNum = 1
+} elseif (-not [int]::TryParse($langChoice.Trim(), [ref]$langNum) -or $langNum -lt 1 -or $langNum -gt 19) {
+    $langNum = 1
+}
+$projectLang = $langNames[$langNum]
+
+Write-Host ''
+Write-Host "[1/6] Project root '$projectName' created (language: $projectLang)."
 
 # ================================================================
 # 3. Directory structure (ELF v2: 0~6)
 # ================================================================
-DIRS=(
-    '0_Meta'
-    '1_Concept/11_Ideas'
-    '1_Concept/12_Literature'
-    '1_Concept/13_Planning/2_Wiki'
-    '2_HW/21_Component/Design'
-    '2_HW/21_Component/Calibration'
-    '2_HW/22_System'
-    '2_HW/23_Elec'
-    '3_Fab/31_Recipes'
-    '3_Fab/32_Eval'
-    '4_SW/41_FW'
-    '4_SW/42_DAQ'
-    '4_SW/43_Libs'
-    '5_Exp/51_Sim/Scripts/9_Archive'
-    '5_Exp/51_Sim/Data'
-    '5_Exp/52_Empirical/Raw'
-    '5_Exp/52_Empirical/Processed'
-    '5_Exp/53_Analysis/Scripts/9_Archive'
-    '5_Exp/53_Analysis/Logs/2_Wiki'
-    '5_Exp/53_Analysis/Logs/9_Archive'
-    '5_Exp/54_Viz'
-    '6_Paper/61_Figs/Raw'
-    '6_Paper/61_Figs/Processed'
-    '6_Paper/61_Figs/Final'
-    '6_Paper/62_Drafts/9_Archive'
+$dirs = @(
+    '0_Meta',
+    '1_Concept/11_Ideas',
+    '1_Concept/12_Literature',
+    '1_Concept/13_Planning/2_Wiki',
+    '2_HW/21_Component/Design',
+    '2_HW/21_Component/Calibration',
+    '2_HW/22_System',
+    '2_HW/23_Elec',
+    '3_Fab/31_Recipes',
+    '3_Fab/32_Eval',
+    '4_SW/41_FW',
+    '4_SW/42_DAQ',
+    '4_SW/43_Libs',
+    '5_Exp/51_Sim/Scripts/9_Archive',
+    '5_Exp/51_Sim/Data',
+    '5_Exp/52_Empirical/Raw',
+    '5_Exp/52_Empirical/Processed',
+    '5_Exp/53_Analysis/Scripts/9_Archive',
+    '5_Exp/53_Analysis/Logs/2_Wiki',
+    '5_Exp/53_Analysis/Logs/9_Archive',
+    '5_Exp/54_Viz',
+    '6_Paper/61_Figs/Raw',
+    '6_Paper/61_Figs/Processed',
+    '6_Paper/61_Figs/Final',
+    '6_Paper/62_Drafts/9_Archive',
     '6_Paper/63_Presentations'
 )
 
-mkdir -p "$PROJECT_NAME"
-cd "$PROJECT_NAME"
+New-Item -ItemType Directory -Force -Path $projectName | Out-Null
+Set-Location $projectName
 
-for d in "${DIRS[@]}"; do
-    mkdir -p "$d"
-done
-echo '[2/6] Directory structure created (0_Meta ~ 6_Paper).'
+foreach ($d in $dirs) {
+    New-Item -ItemType Directory -Force -Path $d | Out-Null
+}
+Write-Host '[2/6] Directory structure created (0_Meta ~ 6_Paper).'
 
 # ================================================================
 # 4. .gitkeep for empty folders (preserves structure on remote)
 # ================================================================
-for d in "${DIRS[@]}"; do
-    if [[ "$d" == '5_Exp/52_Empirical/Raw' ]]; then
-        printf '*\n!.gitignore\n' > "$d/.gitignore"
-    else
-        touch "$d/.gitkeep"
-    fi
-done
+foreach ($d in $dirs) {
+    if ($d -eq '5_Exp/52_Empirical/Raw') {
+        Write-FileUTF8 "$d/.gitignore" "*`n!.gitignore`n"
+    } else {
+        New-Item -ItemType File -Force -Path "$d/.gitkeep" | Out-Null
+    }
+}
 
-touch .gitattributes LICENSE
-echo '[3/6] .gitkeep and empty files created.'
+New-Item -ItemType File -Force -Path '.gitattributes' | Out-Null
+New-Item -ItemType File -Force -Path 'LICENSE' | Out-Null
+Write-Host '[3/6] .gitkeep and empty files created.'
 
 # ================================================================
 # 5. Meta documents & config files
 # ================================================================
-DATE_STR=$(date +%Y-%m-%d)
+$dateStr = Get-Date -Format 'yyyy-MM-dd'
 
 # --- .gitignore (root) ---
-cat > .gitignore << 'GITIGNORE_EOF'
+Write-FileUTF8 '.gitignore' @'
 # === Claude Code & AI Toolkit ===
 .claude/
 .ecc/
@@ -181,17 +196,17 @@ sfprj/
 # === Optional: large data files ===
 # *.mat
 # *.fig
-GITIGNORE_EOF
+'@
 
 # --- .claudeignore ---
-cat > .claudeignore << 'CLAUDEIGNORE_EOF'
+Write-FileUTF8 '.claudeignore' @'
 # Ignore archive folders from Claude Code context
 **/9_Archive/
 **/*Archive*/
-CLAUDEIGNORE_EOF
+'@
 
 # --- 0_Meta/EliRule.md ---
-cat > 0_Meta/EliRule.md << ELIRULE_EOF
+$eliRuleContent = @'
 # EliRule: Project Structure & Operational Guide
 
 ELF(Eli's Lab Framework) 프로젝트의 폴더 구조와 운영 규칙을 정의합니다.
@@ -201,112 +216,114 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 
 ## 1. 폴더 구조 상세
 
-### \`0_Meta/\` — 프로젝트 거버넌스
+### `0_Meta/` — 프로젝트 거버넌스
 연구 데이터가 아닌 프로젝트 운영 규칙을 정의하는 메타 구역입니다.
-- \`EliRule.md\`: 이 문서 (폴더 구조 및 운영 가이드)
-- \`LogConvention.md\`: 로깅 표준 규칙
-- \`AI_PARA_Framework.md\`: AI 환각 방지를 위한 상태 기반 파일 관리 및 아카이빙 규칙. AI가 프로젝트를 탐색할 때 가장 중요한 기준 문서
-- \`AI_Sync.md\`: AI 에이전트 핸드오프 로그
+- `EliRule.md`: 이 문서 (폴더 구조 및 운영 가이드)
+- `LogConvention.md`: 로깅 표준 규칙
+- `AI_PARA_Framework.md`: AI 환각 방지를 위한 상태 기반 파일 관리 및 아카이빙 규칙. AI가 프로젝트를 탐색할 때 가장 중요한 기준 문서
+- `AI_Sync.md`: AI 에이전트 핸드오프 로그
 
-### \`1_Concept/\` — 연구 기획 & 아이디어
+### `1_Concept/` — 연구 기획 & 아이디어
 연구 방향성, 문헌 고찰, 가설 설정을 실험 데이터와 분리하여 보관합니다.
-- **\`11_Ideas/\`**: 러프 스케치, 가설 제안록, 브레인스토밍 메모
-- **\`12_Literature/\`**: 논문 PDF, 서지 정보, 기반 공식 정리
-- **\`13_Planning/\`**: 연구 로드맵, Figure 구성 스토리보드, 실험 계획서
-  - Planning 문서는 \`P###_제목.md\` 형식으로 넘버링 (예: \`P001_wavelength_optimization.md\`)
-  - \`2_Wiki/\`: 기획 단계 결론 및 핵심 규칙 요약
+- **`11_Ideas/`**: 러프 스케치, 가설 제안록, 브레인스토밍 메모
+- **`12_Literature/`**: 논문 PDF, 서지 정보, 기반 공식 정리
+- **`13_Planning/`**: 연구 로드맵, Figure 구성 스토리보드, 실험 계획서
+  - Planning 문서는 `P###_제목.md` 형식으로 넘버링 (예: `P001_wavelength_optimization.md`)
+  - `2_Wiki/`: 기획 단계 결론 및 핵심 규칙 요약
 
-### \`2_HW/\` — 하드웨어 설계
+### `2_HW/` — 하드웨어 설계
 장치의 물리적 설계를 컴포넌트와 통합 시스템으로 분리합니다.
-- **\`21_Component/\`**: 개별 부품 사양서, 단위 소자 설계
-  - \`Design/\`: 설계 파일
-  - \`Calibration/\`: 교정 데이터 및 설정
-- **\`22_System/\`**: 통합 기기 설계, 하우징, 3D 모델 (\`.stl\`, \`.step\`)
-- **\`23_Elec/\`**: PCB 회로도, Gerber, BOM, Datasheets
+- **`21_Component/`**: 개별 부품 사양서, 단위 소자 설계
+  - `Design/`: 설계 파일
+  - `Calibration/`: 교정 데이터 및 설정
+- **`22_System/`**: 통합 기기 설계, 하우징, 3D 모델 (`.stl`, `.step`)
+- **`23_Elec/`**: PCB 회로도, Gerber, BOM, Datasheets
 
-### \`3_Fab/\` — 제작 & 공정
+### `3_Fab/` — 제작 & 공정
 부품/기기 제작 공정 기록 및 특성 평가를 관리합니다.
-- **\`31_Recipes/\`**: 공정 조건 문서화
-- **\`32_Eval/\`**: 모듈별 단일 특성 평가 데이터
+- **`31_Recipes/`**: 공정 조건 문서화
+- **`32_Eval/`**: 모듈별 단일 특성 평가 데이터
 
-### \`4_SW/\` — 소프트웨어 & 펌웨어
-- **\`41_FW/\`**: MCU/임베디드 펌웨어 소스
-- **\`42_DAQ/\`**: PC/모바일 데이터 획득 시스템
-- **\`43_Libs/\`**: 재사용 가능한 공용 라이브러리 (필터, SNR 계산 등)
+### `4_SW/` — 소프트웨어 & 펌웨어
+- **`41_FW/`**: MCU/임베디드 펌웨어 소스
+- **`42_DAQ/`**: PC/모바일 데이터 획득 시스템
+- **`43_Libs/`**: 재사용 가능한 공용 라이브러리 (필터, SNR 계산 등)
 
-### \`5_Exp/\` — 실험 (Sim + Empirical + Analysis)
+### `5_Exp/` — 실험 (Sim + Empirical + Analysis)
 시뮬레이션과 실측 데이터를 1:1 비교 검증할 수 있는 구조입니다.
-- **\`51_Sim/\`**: 시뮬레이션
-  - \`Scripts/\`: 시뮬레이션 코드 (\`S###_sim.m\` 등), \`9_Archive/\`: 폐기 스크립트 보관
-  - \`Data/\`: 시뮬레이션 결과 (\`Data/S###/\`)
-- **\`52_Empirical/\`**: 실측 데이터
-  - \`Raw/\`: 원본 센서 데이터 (**Read-Only, Git 추적 제외**)
-  - \`Processed/\`: 1차 가공 데이터
-- **\`53_Analysis/\`**: 통합 분석
-  - \`Scripts/\`: 비교/검증 포스트프로세싱 코드, \`9_Archive/\`: 폐기 스크립트 보관
-  - \`Logs/\`: 세션 로그 (\`S###_log.md\`), \`2_Wiki/\` 요약, \`9_Archive/\` 완료 로그 보관
-- **\`54_Viz/\`**: 자동 생성된 시각화 추출물 (Figure PNG 등)
+- **`51_Sim/`**: 시뮬레이션
+  - `Scripts/`: 시뮬레이션 코드 (`S###_sim.m` 등), `9_Archive/`: 폐기 스크립트 보관
+  - `Data/`: 시뮬레이션 결과 (`Data/S###/`)
+- **`52_Empirical/`**: 실측 데이터
+  - `Raw/`: 원본 센서 데이터 (**Read-Only, Git 추적 제외**)
+  - `Processed/`: 1차 가공 데이터
+- **`53_Analysis/`**: 통합 분석
+  - `Scripts/`: 비교/검증 포스트프로세싱 코드, `9_Archive/`: 폐기 스크립트 보관
+  - `Logs/`: 세션 로그 (`S###_log.md`), `2_Wiki/` 요약, `9_Archive/` 완료 로그 보관
+- **`54_Viz/`**: 자동 생성된 시각화 추출물 (Figure PNG 등)
 
-### \`6_Paper/\` — 논문 & 발표
-- **\`61_Figs/\`**: 논문용 Figure
-  - \`Raw/\` → \`Processed/\` → \`Final/\` (3단계 파이프라인)
-- **\`62_Drafts/\`**: 원고 (Word, LaTeX), \`9_Archive/\`: 이전 버전 보관
-- **\`63_Presentations/\`**: 발표 자료 (PPT, 포스터)
+### `6_Paper/` — 논문 & 발표
+- **`61_Figs/`**: 논문용 Figure
+  - `Raw/` → `Processed/` → `Final/` (3단계 파이프라인)
+- **`62_Drafts/`**: 원고 (Word, LaTeX), `9_Archive/`: 이전 버전 보관
+- **`63_Presentations/`**: 발표 자료 (PPT, 포스터)
 
 ---
 
 ## 2. 운영 규칙
 
 ### 2.1 Raw Data 무결성
-- \`5_Exp/52_Empirical/Raw/\`에 저장된 파일은 **읽기 전용(Read-Only)**입니다.
+- `5_Exp/52_Empirical/Raw/`에 저장된 파일은 **읽기 전용(Read-Only)**입니다.
 - 스크립트에서 읽기만 수행하며, 원본을 절대 덮어쓰지 않습니다.
 
 ### 2.2 Git 분리 전략
 - **Git 추적 대상**: 코드, 메타데이터, 로그, 분석 Figure, 원고 등 프로젝트 산출물 전반
-- **Git 추적 제외**: \`5_Exp/52_Empirical/Raw/\` (대용량 원본 센서 데이터), 도구 임시 파일
-- 대용량 설계 파일(\`2_HW/\`)은 Git LFS 또는 별도 드라이브 관리를 권장합니다.
-- 분석 Figure(\`.png\` 등)와 원고(\`.docx\` 등)는 Git으로 추적하여 버전 관리합니다.
+- **Git 추적 제외**: `5_Exp/52_Empirical/Raw/` (대용량 원본 센서 데이터), 도구 임시 파일
+- 대용량 설계 파일(`2_HW/`)은 Git LFS 또는 별도 드라이브 관리를 권장합니다.
+- 분석 Figure(`.png` 등)와 원고(`.docx` 등)는 Git으로 추적하여 버전 관리합니다.
 
 ### 2.3 Naming Convention
-- **Session-Trial**: \`S###_t##\` (예: \`S001_t1.csv\`)
+- **Session-Trial**: `S###_t##` (예: `S001_t1.csv`)
 - 파일 이름에 실험 조건/변수 정보 나열 **금지** — 모든 조건은 로그에 기록
-- Planning 문서: \`P###_제목.md\` (예: \`P001_experiment_roadmap.md\`)
-- 시뮬레이션 스크립트: \`S###_sim.m\`
-- 분석 스크립트: \`S###_analysis.m\`
+- Planning 문서: `P###_제목.md` (예: `P001_experiment_roadmap.md`)
+- 시뮬레이션 스크립트: `S###_sim.m`
+- 분석 스크립트: `S###_analysis.m`
 
 ### 2.4 스크립트와 데이터 분리
-- 분석 코드는 \`Scripts/\` 폴더에, 데이터는 \`Data/\` 또는 \`Raw/\`/\`Processed/\` 폴더에 위치
+- 분석 코드는 `Scripts/` 폴더에, 데이터는 `Data/` 또는 `Raw/`/`Processed/` 폴더에 위치
 - 데이터 폴더 내부에 코드를 혼재하지 않습니다.
 
 ### 2.5 Cross-Reference 규칙
-- 로그에서 Planning 문서 참조: \`→ see 1_Concept/13_Planning/P001_xxx.md\`
-- 로그에서 시뮬레이션 데이터 참조: \`→ see 5_Exp/51_Sim/Data/S###/\`
-- 로그에서 분석 스크립트 참조: \`→ see 5_Exp/53_Analysis/Scripts/S###_analysis.m\`
+- 로그에서 Planning 문서 참조: `→ see 1_Concept/13_Planning/P001_xxx.md`
+- 로그에서 시뮬레이션 데이터 참조: `→ see 5_Exp/51_Sim/Data/S###/`
+- 로그에서 분석 스크립트 참조: `→ see 5_Exp/53_Analysis/Scripts/S###_analysis.m`
 
 ### 2.6 Data Reusability (데이터 영구 보존 원칙)
-- 단순 Illustration(시각적 도해)을 제외한 모든 Plot/Graph 생성 시, 그래프에 표면적으로 드러나지 않는 메트릭이나 중간 연산 결과일지라도 **향후 재사용이 가능하도록 반드시 \`.mat\` 파일(또는 \`.csv\`) 형태로 원본 Data Array를 함께 저장(Export)**하는 것을 원칙으로 합니다.
+- 단순 Illustration(시각적 도해)을 제외한 모든 Plot/Graph 생성 시, 그래프에 표면적으로 드러나지 않는 메트릭이나 중간 연산 결과일지라도 **향후 재사용이 가능하도록 반드시 `.mat` 파일(또는 `.csv`) 형태로 원본 Data Array를 함께 저장(Export)**하는 것을 원칙으로 합니다.
 
 ---
 
 ## 3. AI Communication Rules
 
-**PROJECT_LANG**: \`${PROJECT_LANG}\`
+**PROJECT_LANG**: `PLACEHOLDER_PROJECT_LANG`
 
-> 이 값은 프로젝트 생성 시 \`ELF_generator.sh\`에서 선택한 언어로 자동 설정됩니다.
+> 이 값은 프로젝트 생성 시 `ELF_generator.ps1`에서 선택한 언어로 자동 설정됩니다.
 > AI 에이전트는 이 값을 참조하여 응답 언어를 결정합니다.
 
 프로젝트 내 모든 AI Agent는 사용자와 소통하고 문서를 작성할 때 다음 원칙을 준수합니다:
 
-1. **응답 언어 (Response Language)**: AI 에이전트는 \`PROJECT_LANG\`에 지정된 언어와 English 두 가지로 응답합니다. 로그, 문서 작성 시에도 동일하게 \`PROJECT_LANG\` 언어를 사용합니다. 기술 용어는 English 원문을 병기할 수 있습니다.
+1. **응답 언어 (Response Language)**: AI 에이전트는 `PROJECT_LANG`에 지정된 언어와 English 두 가지로 응답합니다. 로그, 문서 작성 시에도 동일하게 `PROJECT_LANG` 언어를 사용합니다. 기술 용어는 English 원문을 병기할 수 있습니다.
 2. **객관적이고 드라이한 문체 유지**: 불필요한 인삿말, 과도한 칭찬, 주관적 감정 표현, 과장된 형용사 사용을 금지합니다.
 3. **비유 금지**: 비유나 은유를 금지하고, 직관적이고 객관적인 학술/엔지니어링 용어로만 사실을 전달합니다.
 4. **결론 중심의 명확한 전달**: 분석 결과와 Action Item을 간결하고 명확하게 제시하며, 논리적이고 정교한 엔지니어링 팩트만을 다룹니다.
 5. **Data Reusability**: 위 2.6 항목을 엄격히 준수합니다.
 6. **과장 및 감정적 수식어 금지 (No Embellishment)**: 정량적 수치와 물리적 인과관계로만 장단점을 서술합니다.
-ELIRULE_EOF
+'@
+$eliRuleContent = $eliRuleContent.Replace('PLACEHOLDER_PROJECT_LANG', $projectLang)
+Write-FileUTF8 '0_Meta/EliRule.md' $eliRuleContent
 
 # --- 0_Meta/LogConvention.md ---
-cat > 0_Meta/LogConvention.md << 'LOGCONV_EOF'
+Write-FileUTF8 '0_Meta/LogConvention.md' @'
 # LogConvention: ELF 로깅 표준 규칙
 
 사람과 AI 에이전트 모두가 따라야 할 실험 로그 작성, 결과 파일 저장, AI 핸드오프 규칙을 정의합니다.
@@ -405,7 +422,7 @@ cat > 0_Meta/LogConvention.md << 'LOGCONV_EOF'
 | 종류 | 위치 | 비고 |
 |------|------|------|
 | 자동 생성 Figure | `5_Exp/54_Viz/` | 스크립트에서 자동 저장 |
-| 논문용 Figure | `6_Paper/61_Figs/` | rawFig → processedFig → finalFig |
+| 논문용 Figure | `6_Paper/61_Figs/` | Raw → Processed → Final |
 
 ---
 
@@ -463,10 +480,10 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 - [ ] `53_Analysis/Logs/2_Wiki/Session_Registry.tsv`에 해당 세션 항목 추가 업데이트
 - [ ] `AI_Sync.md` 업데이트
 - [ ] Planning 내용이 포함된 경우 → `1_Concept/`로 분리 + cross-reference
-LOGCONV_EOF
+'@
 
 # --- 0_Meta/AI_PARA_Framework.md ---
-cat > 0_Meta/AI_PARA_Framework.md << 'PARA_EOF'
+Write-FileUTF8 '0_Meta/AI_PARA_Framework.md' @'
 # AI PARA Framework & Context Management
 
 이 문서는 프로젝트 내의 방대한 실험 로그와 기획 문서들이 AI 에이전트(Claude Code, Gemini 등)의 컨텍스트 윈도우(Context Window)를 오염시키는 현상(Hallucination)을 막고, 인간-AI 협업 시 최적의 효율을 내기 위한 **AI 맞춤형 PARA (Projects, Areas, Resources, Archives) 파일 관리 규칙**을 정의함.
@@ -515,10 +532,10 @@ AI는 `9_Archive`를 스스로 뒤져볼 수 없지만, 인간 개발자가 특�
 
 *   *(사용자 프롬프트 예시)*: "`5_Exp/53_Analysis/Logs/9_Archive/S005_log.md` 파일을 열어서 당시의 파라미터 값 추이를 요약해 줘."
 *   이러한 방식을 돕기 위해, `2_Wiki`의 지식 문서들은 과거 데이터가 필요할 경우를 대비하여 항상 `9_Archive/...`로 향하는 **명시적 파일 경로 링크**를 포함해야 함.
-PARA_EOF
+'@
 
 # --- 0_Meta/AI_Sync.md ---
-cat > 0_Meta/AI_Sync.md << 'SYNC_EOF'
+Write-FileUTF8 '0_Meta/AI_Sync.md' @'
 # AI_Sync: Agent Handoff Log
 
 최신 항목이 위에 오도록 역순으로 작성합니다.
@@ -527,19 +544,20 @@ cat > 0_Meta/AI_Sync.md << 'SYNC_EOF'
 ---
 
 (아직 핸드오프 기록이 없습니다.)
-SYNC_EOF
+'@
 
 # --- 0_Meta/ProjectRule.md (from template) ---
-sed "s|\[프로젝트명\]|${PROJECT_NAME}|g; s|YYYY-MM-DD|${DATE_STR}|g" \
-    "$TEMPLATES_DIR/ProjectRule.md" > 0_Meta/ProjectRule.md
+$projRuleContent = Get-Content (Join-Path $templatesDir 'ProjectRule.md') -Raw -Encoding UTF8
+$projRuleContent = $projRuleContent.Replace('[프로젝트명]', $projectName).Replace('YYYY-MM-DD', $dateStr)
+Write-FileUTF8 '0_Meta/ProjectRule.md' $projRuleContent
 
 # --- README.md ---
-cat > README.md << README_EOF
-# ${PROJECT_NAME}
+$readmeContent = @'
+# PLACEHOLDER_PROJECT_NAME
 
 ## 프로젝트 개요
 - **연구 목표:** [여기에 테스트 목표 및 가설 작성]
-- **연구 기간:** ${DATE_STR} ~
+- **연구 기간:** PLACEHOLDER_DATE ~
 - **담당 연구자:** [이름 작성]
 
 ## 하드웨어 및 소프트웨어 베이스라인 (Baseline)
@@ -553,44 +571,51 @@ cat > README.md << README_EOF
 - **scripts:** 부분 실행 (Cell Mode)을 위한 후처리 스크립트 관리
 
 ## 프로젝트 규칙
-폴더 구조 및 운영 상세 규칙은 \`0_Meta/EliRule.md\`를 참조.
-AI 에이전트 로깅 규칙은 \`0_Meta/LogConvention.md\`를 참조.
-AI 컨텍스트 관리 규칙은 \`0_Meta/AI_PARA_Framework.md\`를 참조.
-README_EOF
+폴더 구조 및 운영 상세 규칙은 `0_Meta/EliRule.md`를 참조.
+AI 에이전트 로깅 규칙은 `0_Meta/LogConvention.md`를 참조.
+AI 컨텍스트 관리 규칙은 `0_Meta/AI_PARA_Framework.md`를 참조.
+'@
+$readmeContent = $readmeContent.Replace('PLACEHOLDER_PROJECT_NAME', $projectName).Replace('PLACEHOLDER_DATE', $dateStr)
+Write-FileUTF8 'README.md' $readmeContent
 
 # --- S001_log.md (from template) ---
-sed "s|S{NNN}|S001|g; s|YYYY-MM-DD|${DATE_STR}|g" \
-    "$TEMPLATES_DIR/sessionTemplate.md" > 5_Exp/53_Analysis/Logs/S001_log.md
+$logContent = Get-Content (Join-Path $templatesDir 'sessionTemplate.md') -Raw -Encoding UTF8
+$logContent = $logContent.Replace('S{NNN}', 'S001').Replace('YYYY-MM-DD', $dateStr)
+Write-FileUTF8 '5_Exp/53_Analysis/Logs/S001_log.md' $logContent
 
 # --- Session_Registry.tsv ---
-printf 'Session\tDate\tTitle\tStatus\tKey Finding\tArchive Path\r\n' > 5_Exp/53_Analysis/Logs/2_Wiki/Session_Registry.tsv
-printf 'S001\t%s\t[세션 제목]\t★ 활성\t-\t-\r\n' "$DATE_STR" >> 5_Exp/53_Analysis/Logs/2_Wiki/Session_Registry.tsv
+$tsvContent = "Session`tDate`tTitle`tStatus`tKey Finding`tArchive Path`r`nS001`t$dateStr`t[세션 제목]`t★ 활성`t-`t-`r`n"
+Write-FileUTF8 '5_Exp/53_Analysis/Logs/2_Wiki/Session_Registry.tsv' $tsvContent
 
-echo '[4/6] Meta documents and config files created.'
+Write-Host '[4/6] Meta documents and config files created.'
 
 # ================================================================
 # 6. Git init & first commit (optional)
 # ================================================================
-echo ''
-if command -v git &>/dev/null; then
-    read -rp 'Initialize Git repository? [Y/n]: ' GIT_CHOICE
-    if [[ -z "$GIT_CHOICE" || "$GIT_CHOICE" =~ ^[Yy]$ ]]; then
-        git init
-        git add .
-        git commit -m 'chore: Initialize ELF v2 project structure'
-        echo '[5/6] Git initialized.'
-    else
-        echo '[5/6] Git initialization skipped.'
-    fi
-else
-    echo '[5/6] Git not found — skipping Git initialization.'
-fi
+Write-Host ''
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    $gitChoice = Read-Host 'Initialize Git repository? [Y/n]'
+    if ([string]::IsNullOrWhiteSpace($gitChoice) -or $gitChoice -match '^[Yy]') {
+        try {
+            git init
+            git add .
+            git commit -m 'chore: Initialize ELF v2 project structure'
+            Write-Host '[5/6] Git initialized.'
+        } catch {
+            Write-Host "[5/6] Git init failed: $_"
+        }
+    } else {
+        Write-Host '[5/6] Git initialization skipped.'
+    }
+} else {
+    Write-Host '[5/6] Git not found — skipping Git initialization.'
+}
 
-cd ..
+Set-Location ..
 
-echo ''
-echo '============================================'
-echo "  [$PROJECT_NAME] ELF v2 project created!"
-echo "  Language: $PROJECT_LANG"
-echo '============================================'
-echo '[6/6] Done!'
+Write-Host ''
+Write-Host '============================================'
+Write-Host "  [$projectName] ELF v2 project created!"
+Write-Host "  Language: $projectLang"
+Write-Host '============================================'
+Write-Host '[6/6] Done!'

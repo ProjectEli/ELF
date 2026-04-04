@@ -1,6 +1,7 @@
 # S001: [Session Title]
 
-> **Date**: 2026-01-01
+> **Created**: 2026-01-01
+> **Modified**: 2026-01-01
 > **Status**: ★ 활성
 > **목표**: [Core objective of this session in 1-2 sentences]
 > **관련**: [Related sessions/documents, e.g., S000, P001_xxx.md]

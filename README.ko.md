@@ -1,4 +1,4 @@
-[English](README.md) | [한국어](README.ko.md) | [日本語](docs/i18n/README.ja.md) | [中文简体](docs/i18n/README.zh-CN.md) | [中文繁體](docs/i18n/README.zh-TW.md) | [Français](docs/i18n/README.fr.md) | [Deutsch](docs/i18n/README.de.md) | [Español](docs/i18n/README.es.md) | [Italiano](docs/i18n/README.it.md) | [Português](docs/i18n/README.pt-BR.md) | [Русский](docs/i18n/README.ru.md) | [العربية](docs/i18n/README.ar.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [ภาษาไทย](docs/i18n/README.th.md) | [Nederlands](docs/i18n/README.nl.md) | [Polski](docs/i18n/README.pl.md) | [Bahasa Indonesia](docs/i18n/README.id.md)
+[English](README.md) | [한국어](README.ko.md)
 
 # Eli's Lab Framework (ELF): Base-Delta Protocol for Agile R&D
 
@@ -125,18 +125,33 @@ AI 에이전트(Claude, Gemini 등)가 프로젝트에 참여할 때 다음 규�
 
 ## Quick Start
 
-새 프로젝트를 ELF v2 구조로 생성하려면 `0_Meta/ELF_generator.sh`를 실행합니다.
+**Windows (PowerShell 5.1 이상):**
 
-```bash
-cd 원하는_상위_디렉토리
-bash /path/to/ELF/0_Meta/ELF_generator.sh
+```powershell
+cd C:\원하는\상위\디렉토리
+powershell -ExecutionPolicy Bypass -File "C:\path\to\ELF\0_Meta\ELF_generator.ps1"
 ```
 
-> Windows에서는 Git Bash([Git for Windows](https://git-scm.com/) 포함)를 사용합니다.
+**Linux / macOS (Bash):**
+
+```bash
+cd /원하는/상위/디렉토리
+bash /path/to/ELF/0_Meta/ELF_generator.sh
+```
 
 프로젝트 이름을 입력하면 0~6 폴더 체계, 메타 문서, `.gitkeep`이 자동 생성됩니다. Git 초기화는 Git이 설치된 경우에만 선택적으로 수행됩니다.
 
 ## 사용법 (Usage)
+
+### 0. 템플릿 (Templates)
+
+`templates/` 폴더에는 즉시 사용 가능한 마크다운 스텁이 포함되어 있습니다:
+
+| 파일 | 사용 시점 |
+|------|----------|
+| `sessionTemplate.md` | 새 세션 시작 시 `5_Exp/53_Analysis/Logs/`에 복사 후 `S###_log.md`로 이름 변경 |
+| `trialTemplate.md` | 진행 중인 세션 로그에 trial 추가 시 (`t02`, `t03`, ...) 본문에 붙여넣기 |
+| `ProjectRule.md` | 제너레이터가 자동 생성; 섹션 1–8을 프로젝트에 맞게 편집 |
 
 ### 1. 규칙 문서 읽기
 
@@ -154,7 +169,8 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```markdown
 # S002: 파장 최적화 시뮬레이션
 
-> **Date**: 2026-04-01
+> **Created**: 2026-04-01
+> **Modified**: 2026-04-01
 > **Status**: ★ 활성
 > **목표**: Monte Carlo 시뮬레이션으로 735/810/940 nm 파장별 SNR 비교
 > **관련**: P001_wavelength_optimization.md
