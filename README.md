@@ -30,45 +30,45 @@ Project_Root/
 │   └── 13_Planning/                 # Research roadmaps, figure composition storyboards
 │       └── 2_Wiki/                  # Distilled planning conclusions & key rules
 │
-├── 2_HW/                            # Hardware design
-│   ├── 21_Component/                # Individual component specs, unit device design
+├── 3_HW/                            # Hardware design
+│   ├── 31_Component/                # Individual component specs, unit device design
 │   │   ├── Design/
 │   │   └── Calibration/
-│   ├── 22_System/                   # Integrated device design, housing, 3D models
-│   └── 23_Elec/                     # PCB schematics, Gerber, BOM, Datasheets
+│   ├── 32_System/                   # Integrated device design, housing, 3D models
+│   └── 33_Elec/                     # PCB schematics, Gerber, BOM, Datasheets
 │
-├── 3_Fab/                           # Fabrication and processing
-│   ├── 31_Recipes/                  # Process condition documentation
-│   └── 32_Eval/                     # Per-module single characteristic evaluation
+├── 4_Fab/                           # Fabrication and processing
+│   ├── 41_Recipes/                  # Process condition documentation
+│   └── 42_Eval/                     # Per-module single characteristic evaluation
 │
-├── 4_SW/                            # Software & firmware
-│   ├── 41_FW/                       # MCU/embedded firmware
-│   ├── 42_DAQ/                      # PC/mobile data acquisition systems
-│   └── 43_Libs/                     # Reusable shared libraries
+├── 5_SW/                            # Software & firmware
+│   ├── 51_FW/                       # MCU/embedded firmware
+│   ├── 52_DAQ/                      # PC/mobile data acquisition systems
+│   └── 53_Libs/                     # Reusable shared libraries
 │
-├── 5_Exp/                           # Experiments: simulation + empirical + analysis
-│   ├── 51_Sim/                      # Simulation
+├── 6_Exp/                           # Experiments: simulation + empirical + analysis
+│   ├── 61_Sim/                      # Simulation
 │   │   ├── Scripts/                 # Simulation code (S###_sim.m)
 │   │   │   └── 9_Archive/          # Retired scripts
 │   │   └── Data/                    # Simulation results (Data/S###/)
-│   ├── 52_Empirical/                # Empirical data
+│   ├── 62_Empirical/                # Empirical data
 │   │   ├── Raw/                     # Raw sensor data (Read-Only, excluded from Git)
 │   │   └── Processed/               # Primary processed data
-│   ├── 53_Analysis/                 # Integrated analysis
+│   ├── 63_Analysis/                 # Integrated analysis
 │   │   └── Scripts/                 # Comparison/validation post-processing code
 │   │       └── 9_Archive/           # Retired scripts
-│   └── 54_Viz/                      # Visualization outputs (auto-generated figures)
+│   └── 64_Viz/                      # Visualization outputs (auto-generated figures)
 │
-├── 6_Paper/                         # Papers & presentations
-│   ├── 61_Figs/                     # Figures for papers
+├── 7_Paper/                         # Papers & presentations
+│   ├── 71_Figs/                     # Figures for papers
 │   │   ├── Raw/
 │   │   ├── Processed/
 │   │   └── Final/
-│   ├── 62_Drafts/                   # Manuscripts (Word, LaTeX)
+│   ├── 72_Drafts/                   # Manuscripts (Word, LaTeX)
 │   │   └── 9_Archive/               # Previous versions
-│   └── 63_Presentations/            # Presentation materials (PPT, posters)
+│   └── 73_Presentations/            # Presentation materials (PPT, posters)
 │
-└── 7_Log/                           # Session logs (S###_log.md)
+└── 2_Log/                           # Session logs (S###_log.md)
     ├── 2_Wiki/                      # Distilled findings & session registry
     └── 9_Archive/                   # Completed session logs
 ```
@@ -84,7 +84,7 @@ Project_Root/
 
 ### 2. Base-Delta Logging (Hybrid Logging)
 
-* **Running Log (`7_Log/S###_log.md`):**
+* **Running Log (`2_Log/S###_log.md`):**
   * A narrative markdown file that records immediate hypothesis-test-lesson cycles in text.
   * Written per trial (`t1`, `t2`...) in a stream-of-consciousness style, recording only the **intentionally changed variables (Delta)** and observed results.
   * Format and detailed rules: refer to `0_Meta/LogConvention.md`.
@@ -97,10 +97,10 @@ Project_Root/
 
 ### 4. Post-Processing Analysis Specification (Cell Mode Scripting)
 
-* Analysis code must be located in `5_Exp/53_Analysis/Scripts/` or `5_Exp/51_Sim/Scripts/` and must not be mixed inside data folders.
+* Analysis code must be located in `6_Exp/63_Analysis/Scripts/` or `6_Exp/61_Sim/Scripts/` and must not be mixed inside data folders.
 * Pure `.m` files are used instead of `.mlx` to prevent vendor lock-in.
 * Code is executed section by section using `%%` (Cell Mode), and derived insights are reflected in the running log.
-* Analysis outputs (figures, mat files) are saved in `5_Exp/54_Viz/` or `5_Exp/52_Empirical/Processed/S###/` within per-session folders.
+* Analysis outputs (figures, mat files) are saved in `6_Exp/64_Viz/` or `6_Exp/62_Empirical/Processed/S###/` within per-session folders.
 
 ### 5. Cross-Reference Rules
 
@@ -109,9 +109,9 @@ Cross-reference formats are unified to ensure traceability between project docum
 | From → To | Format |
 |-----------|--------|
 | Logs → Planning | `→ see 1_Concept/13_Planning/P###_xxx.md` |
-| Logs → Sim Data | `→ see 5_Exp/51_Sim/Data/S###/` |
-| Logs → Script | `→ see 5_Exp/53_Analysis/Scripts/S###_analysis.m` |
-| Planning → Logs | `← tracked in 7_Log/S###_log.md` |
+| Logs → Sim Data | `→ see 6_Exp/61_Sim/Data/S###/` |
+| Logs → Script | `→ see 6_Exp/63_Analysis/Scripts/S###_analysis.m` |
+| Planning → Logs | `← tracked in 2_Log/S###_log.md` |
 
 ## AI Governance
 
@@ -151,7 +151,7 @@ The `templates/` folder provides ready-to-use stubs:
 
 | File | When to use |
 |------|-------------|
-| `sessionTemplate.md` | Copy to `7_Log/` when starting a new session (rename to `S###_log.md`) |
+| `sessionTemplate.md` | Copy to `2_Log/` when starting a new session (rename to `S###_log.md`) |
 | `trialTemplate.md` | Paste into an active session log when adding a new trial (`t02`, `t03`, ...) |
 
 > **Note**: `ProjectRule.md` is auto-generated and placed in `0_Meta/` during initialization. Edit Sections 1–8 of `0_Meta/ProjectRule.md` directly to fit your project.
@@ -167,7 +167,7 @@ Before starting research, read the two governance documents generated in `0_Meta
 
 ### 2. Start a New Session
 
-Create a log file in `7_Log/`:
+Create a log file in `2_Log/`:
 
 ```markdown
 # S002: Wavelength Optimization Simulation
@@ -202,7 +202,7 @@ Within each session, break work into sequential tasks:
 - 940 nm shows highest sensitivity (ΔR/Δh = 0.12 mm⁻¹)
 - 735 nm has lowest noise floor but saturates at h > 15 mm
 
-![S002_t01: SNR comparison](../5_Exp/54_Viz/S002/S002_t01_SNR_comparison.png)
+![S002_t01: SNR comparison](../6_Exp/64_Viz/S002/S002_t01_SNR_comparison.png)
 
 ### Lesson
 - 810 nm is the best compromise between sensitivity and dynamic range
@@ -211,9 +211,9 @@ Within each session, break work into sequential tasks:
 
 | Type | File |
 |------|------|
-| Script | `51_Sim/Scripts/S002_t01_wavelength_sweep.m` |
-| Output | `51_Sim/Data/S002/S002_t01_results.mat` |
-| Figure | `54_Viz/S002/S002_t01_SNR_comparison.png` |
+| Script | `61_Sim/Scripts/S002_t01_wavelength_sweep.m` |
+| Output | `61_Sim/Data/S002/S002_t01_results.mat` |
+| Figure | `64_Viz/S002/S002_t01_SNR_comparison.png` |
 ```
 
 - Tasks build on each other: `t01` → `t02` → `t03`.
@@ -225,12 +225,12 @@ Within each session, break work into sequential tasks:
 When a session is done:
 
 1. **Update Status**: Change `★ Active` to `Complete` in the log header.
-2. **Summarize to Wiki**: Add a 1-2 line summary to `7_Log/2_Wiki/` knowledge documents with a link to the archived log.
-3. **Update Session Registry**: Add a row to `7_Log/2_Wiki/Session_Registry.tsv`:
+2. **Summarize to Wiki**: Add a 1-2 line summary to `2_Log/2_Wiki/` knowledge documents with a link to the archived log.
+3. **Update Session Registry**: Add a row to `2_Log/2_Wiki/Session_Registry.tsv`:
    ```
    S002	2026-04-01	Wavelength Optimization	Complete	810 nm optimal	9_Archive/S002_WavelengthOpt.md
    ```
-4. **Archive the log**: Move the log file to `7_Log/9_Archive/`.
+4. **Archive the log**: Move the log file to `2_Log/9_Archive/`.
 5. **Archive scripts** (if one-time): Move to `Scripts/9_Archive/`.
 
 ### 5. AI Agent Handoff (Optional)
@@ -242,7 +242,7 @@ If using AI agents, update `0_Meta/AI_Sync.md` upon task completion with: perfor
 This project applies a Dual License policy because the nature of "executable code" and "data structure specification (Protocol)" differs.
 
 * **Software & Scripts:** [Mozilla Public License 2.0 (MPL 2.0)](https://www.mozilla.org/en-US/MPL/2.0/)
-  * **Applies to:** All source code (`.m`, `.py`, etc.) within the `4_SW/` and `5_Exp/*/Scripts/` folders.
+  * **Applies to:** All source code (`.m`, `.py`, etc.) within the `5_SW/` and `6_Exp/*/Scripts/` folders.
   * **Condition:** If template core scripts are modified and improved for redistribution, those modifications must be released as open source. However, unique algorithms or raw data added by the user within the project may remain private (commercialized).
 
 * **Protocol & Documentation:** [Creative Commons Attribution 4.0 (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/)

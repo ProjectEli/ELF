@@ -30,45 +30,45 @@ Project_Root/
 │   └── 13_Planning/                 # 연구 로드맵, Figure 구성 스토리보드
 │       └── 2_Wiki/                  # 기획 단계 결론 및 핵심 규칙 요약
 │
-├── 2_HW/                            # 하드웨어 설계
-│   ├── 21_Component/                # 개별 부품 사양서, 단위 소자 설계
+├── 3_HW/                            # 하드웨어 설계
+│   ├── 31_Component/                # 개별 부품 사양서, 단위 소자 설계
 │   │   ├── Design/
 │   │   └── Calibration/
-│   ├── 22_System/                   # 통합 기기 설계, 하우징, 3D 모델
-│   └── 23_Elec/                     # PCB 회로도, Gerber, BOM, Datasheets
+│   ├── 32_System/                   # 통합 기기 설계, 하우징, 3D 모델
+│   └── 33_Elec/                     # PCB 회로도, Gerber, BOM, Datasheets
 │
-├── 3_Fab/                           # 제작 및 공정
-│   ├── 31_Recipes/                  # 공정 조건 문서화
-│   └── 32_Eval/                     # 모듈별 단일 특성 평가
+├── 4_Fab/                           # 제작 및 공정
+│   ├── 41_Recipes/                  # 공정 조건 문서화
+│   └── 42_Eval/                     # 모듈별 단일 특성 평가
 │
-├── 4_SW/                            # 소프트웨어 & 펌웨어
-│   ├── 41_FW/                       # MCU/임베디드 펌웨어
-│   ├── 42_DAQ/                      # PC/모바일 데이터 획득 시스템
-│   └── 43_Libs/                     # 재사용 가능한 공용 라이브러리
+├── 5_SW/                            # 소프트웨어 & 펌웨어
+│   ├── 51_FW/                       # MCU/임베디드 펌웨어
+│   ├── 52_DAQ/                      # PC/모바일 데이터 획득 시스템
+│   └── 53_Libs/                     # 재사용 가능한 공용 라이브러리
 │
-├── 5_Exp/                           # 실험: 시뮬레이션 + 실측 + 분석
-│   ├── 51_Sim/                      # 시뮬레이션
+├── 6_Exp/                           # 실험: 시뮬레이션 + 실측 + 분석
+│   ├── 61_Sim/                      # 시뮬레이션
 │   │   ├── Scripts/                 # 시뮬레이션 코드 (S###_sim.m)
 │   │   │   └── 9_Archive/          # 폐기 스크립트
 │   │   └── Data/                    # 시뮬레이션 결과 (Data/S###/)
-│   ├── 52_Empirical/                # 실측 데이터
+│   ├── 62_Empirical/                # 실측 데이터
 │   │   ├── Raw/                     # 원본 센서 데이터 (Read-Only, Git 제외)
 │   │   └── Processed/               # 1차 가공 데이터
-│   ├── 53_Analysis/                 # 통합 분석
+│   ├── 63_Analysis/                 # 통합 분석
 │   │   └── Scripts/                 # 비교/검증 포스트프로세싱 코드
 │   │       └── 9_Archive/           # 폐기 스크립트
-│   └── 54_Viz/                      # 시각화 추출물 (자동 생성 Figure)
+│   └── 64_Viz/                      # 시각화 추출물 (자동 생성 Figure)
 │
-├── 6_Paper/                         # 논문 & 발표
-│   ├── 61_Figs/                     # 논문용 Figure
+├── 7_Paper/                         # 논문 & 발표
+│   ├── 71_Figs/                     # 논문용 Figure
 │   │   ├── Raw/
 │   │   ├── Processed/
 │   │   └── Final/
-│   ├── 62_Drafts/                   # 원고 (Word, LaTeX)
+│   ├── 72_Drafts/                   # 원고 (Word, LaTeX)
 │   │   └── 9_Archive/               # 이전 버전 보관
-│   └── 63_Presentations/            # 발표 자료 (PPT, 포스터)
+│   └── 73_Presentations/            # 발표 자료 (PPT, 포스터)
 │
-└── 7_Log/                           # 세션 로그 (S###_log.md)
+└── 2_Log/                           # 세션 로그 (S###_log.md)
     ├── 2_Wiki/                      # 핵심 발견 요약 및 세션 레지스트리
     └── 9_Archive/                   # 완료된 세션 로그
 ```
@@ -84,7 +84,7 @@ Project_Root/
 
 ### 2. Base-Delta 로깅 (Hybrid Logging)
 
-* **러닝 로그 (`7_Log/S###_log.md`):**
+* **러닝 로그 (`2_Log/S###_log.md`):**
   * 즉각적인 가설-테스트-교훈을 텍스트로 기록하는 서사형 마크다운 파일임.
   * 트라이얼(`t1`, `t2`...) 단위로 **의도적으로 변경한 변수(Delta)**와 관찰된 결과만 의식의 흐름대로 작성함.
   * 포맷 및 상세 규칙: `0_Meta/LogConvention.md` 참조.
@@ -97,10 +97,10 @@ Project_Root/
 
 ### 4. 후처리 분석 규격 (Cell Mode Scripting)
 
-* 분석 코드는 `5_Exp/53_Analysis/Scripts/` 또는 `5_Exp/51_Sim/Scripts/`에 위치해야 하며, 데이터 폴더 내부에 혼재 불가함.
+* 분석 코드는 `6_Exp/63_Analysis/Scripts/` 또는 `6_Exp/61_Sim/Scripts/`에 위치해야 하며, 데이터 폴더 내부에 혼재 불가함.
 * 벤더 종속성(Vendor Lock-in) 방지를 위해 `.mlx` 대신 순수 `.m` 파일을 사용함.
 * 코드 내 `%%` (Cell Mode)를 활용해 구역별로 실행하며, 도출된 인사이트는 러닝 로그에 반영함.
-* 분석 결과물(그림, mat파일)은 `5_Exp/54_Viz/` 또는 `5_Exp/52_Empirical/Processed/S###/`에 세션별 폴더를 생성하여 저장함.
+* 분석 결과물(그림, mat파일)은 `6_Exp/64_Viz/` 또는 `6_Exp/62_Empirical/Processed/S###/`에 세션별 폴더를 생성하여 저장함.
 
 ### 5. Cross-Reference 규칙
 
@@ -109,9 +109,9 @@ Project_Root/
 | From → To | 형식 |
 |-----------|------|
 | Logs → Planning | `→ see 1_Concept/13_Planning/P###_xxx.md` |
-| Logs → Sim Data | `→ see 5_Exp/51_Sim/Data/S###/` |
-| Logs → Script | `→ see 5_Exp/53_Analysis/Scripts/S###_analysis.m` |
-| Planning → Logs | `← tracked in 7_Log/S###_log.md` |
+| Logs → Sim Data | `→ see 6_Exp/61_Sim/Data/S###/` |
+| Logs → Script | `→ see 6_Exp/63_Analysis/Scripts/S###_analysis.m` |
+| Planning → Logs | `← tracked in 2_Log/S###_log.md` |
 
 ## AI 거버넌스
 
@@ -151,7 +151,7 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 
 | 파일 | 사용 시점 |
 |------|----------|
-| `sessionTemplate.md` | 새 세션 시작 시 `7_Log/`에 복사 후 `S###_log.md`로 이름 변경 |
+| `sessionTemplate.md` | 새 세션 시작 시 `2_Log/`에 복사 후 `S###_log.md`로 이름 변경 |
 | `trialTemplate.md` | 진행 중인 세션 로그에 trial 추가 시 (`t02`, `t03`, ...) 본문에 붙여넣기 |
 
 > **Note**: `ProjectRule.md`는 프로젝트 생성 시 자동으로 `0_Meta/` 내부에 배치됩니다. 프로젝트 특성에 맞게 `0_Meta/ProjectRule.md`의 섹션 1~8을 직접 수정하여 사용하세요.
@@ -167,7 +167,7 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 
 ### 2. 새 세션 시작
 
-`7_Log/`에 로그 파일을 생성합니다:
+`2_Log/`에 로그 파일을 생성합니다:
 
 ```markdown
 # S002: 파장 최적화 시뮬레이션
@@ -202,7 +202,7 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 - 940 nm이 최고 감도 (ΔR/Δh = 0.12 mm⁻¹)
 - 735 nm은 noise floor 최저이나 h > 15 mm에서 포화
 
-![S002_t01: SNR 비교](../5_Exp/54_Viz/S002/S002_t01_SNR_comparison.png)
+![S002_t01: SNR 비교](../6_Exp/64_Viz/S002/S002_t01_SNR_comparison.png)
 
 ### 교훈
 - 810 nm이 감도와 dynamic range 간 최적 절충점
@@ -211,9 +211,9 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 
 | 유형 | 파일 |
 |------|------|
-| Script | `51_Sim/Scripts/S002_t01_wavelength_sweep.m` |
-| Output | `51_Sim/Data/S002/S002_t01_results.mat` |
-| Figure | `54_Viz/S002/S002_t01_SNR_comparison.png` |
+| Script | `61_Sim/Scripts/S002_t01_wavelength_sweep.m` |
+| Output | `61_Sim/Data/S002/S002_t01_results.mat` |
+| Figure | `64_Viz/S002/S002_t01_SNR_comparison.png` |
 ```
 
 - Task는 순차적으로 발전: `t01` → `t02` → `t03`.
@@ -225,12 +225,12 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 세션 종료 시 다음을 수행합니다:
 
 1. **Status 변경**: 로그 헤더의 `★ 활성`을 `Complete`로 변경.
-2. **Wiki 요약**: `7_Log/2_Wiki/`의 지식 문서에 1-2줄 요약 추가. 아카이브된 로그 경로 링크 포함.
-3. **Session Registry 업데이트**: `7_Log/2_Wiki/Session_Registry.tsv`에 행 추가:
+2. **Wiki 요약**: `2_Log/2_Wiki/`의 지식 문서에 1-2줄 요약 추가. 아카이브된 로그 경로 링크 포함.
+3. **Session Registry 업데이트**: `2_Log/2_Wiki/Session_Registry.tsv`에 행 추가:
    ```
    S002	2026-04-01	파장 최적화	Complete	810 nm 최적	9_Archive/S002_WavelengthOpt.md
    ```
-4. **로그 아카이빙**: 로그 파일을 `7_Log/9_Archive/`로 이동.
+4. **로그 아카이빙**: 로그 파일을 `2_Log/9_Archive/`로 이동.
 5. **스크립트 아카이빙** (1회용인 경우): `Scripts/9_Archive/`로 이동.
 
 ### 5. AI 에이전트 핸드오프 (선택)
@@ -242,7 +242,7 @@ AI 에이전트를 사용하는 경우, 작업 완료 시 `0_Meta/AI_Sync.md`에
 이 프로젝트는 '구동 코드'와 '데이터 구조 규격(Protocol)'의 성격이 다르므로, 이중 라이선스(Dual License) 정책을 적용함.
 
 * **Software & Scripts:** [Mozilla Public License 2.0 (MPL 2.0)](https://www.mozilla.org/en-US/MPL/2.0/)
-  * **적용 대상:** `4_SW/`, `5_Exp/*/Scripts/` 폴더 내의 모든 소스 코드(`.m`, `.py` 등).
+  * **적용 대상:** `5_SW/`, `6_Exp/*/Scripts/` 폴더 내의 모든 소스 코드(`.m`, `.py` 등).
   * **조건:** 템플릿의 코어 스크립트를 수정 및 개선하여 배포할 경우 해당 수정본은 오픈소스로 공개해야 함. 단, 사용자가 프로젝트 내에 추가한 고유 알고리즘이나 원시 데이터는 비공개(상업화) 유지가 가능함.
 
 * **Protocol & Documentation:** [Creative Commons Attribution 4.0 (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/)

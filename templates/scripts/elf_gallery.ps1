@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 # elf_gallery.ps1 — Auto-generate visualization gallery markdown
-# Scans 54_Viz/ for images, groups by session, outputs _gallery.md
+# Scans 64_Viz/ for images, groups by session, outputs _gallery.md
 
 $ErrorActionPreference = "Stop"
 
@@ -12,11 +12,11 @@ try {
     exit 1
 }
 
-$VizDir = Join-Path $RepoRoot "5_Exp\54_Viz"
+$VizDir = Join-Path $RepoRoot "6_Exp\64_Viz"
 $Gallery = Join-Path $VizDir "_gallery.md"
 
 if (-Not (Test-Path $VizDir -PathType Container)) {
-    Write-Host "[Gallery] 54_Viz/ not found" -ForegroundColor Yellow
+    Write-Host "[Gallery] 64_Viz/ not found" -ForegroundColor Yellow
     exit 1
 }
 

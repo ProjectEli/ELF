@@ -10,7 +10,7 @@
 - **SW Version:** [분석 스크립트 및 툴 환경 명시]
 
 ## 데이터 파이프라인 규격 (Protocol)
-본 프로젝트는 Agile R&D Boilerplate 규격(ELF v2.1)을 준수함.
+본 프로젝트는 Agile R&D Boilerplate 규격(ELF v2.2)을 준수함.
 - **rawData:** 센서 원시 데이터 보관 (읽기 전용)
 - **metaData:** 세션-트라이얼 (Session-Trial) 기반 Base-Delta 마크다운 로깅
 - **scripts:** 부분 실행 (Cell Mode)을 위한 후처리 스크립트 관리

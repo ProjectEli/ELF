@@ -18,7 +18,7 @@
 
 ### 결과
 - [Observations, findings]
-- [Inline figure embedding: `![S001_t01: description](../../54_Viz/S001/filename.png)`]
+- [Inline figure embedding: `![S001_t01: description](../../64_Viz/S001/filename.png)`]
 
 ### 교훈
 - [Key insight from this task]

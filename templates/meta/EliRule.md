@@ -22,55 +22,55 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
   - Planning 문서는 `P###_제목.md` 형식으로 넘버링 (예: `P001_wavelength_optimization.md`)
   - `2_Wiki/`: 기획 단계 결론 및 핵심 규칙 요약
 
-### `2_HW/` — 하드웨어 설계
+### `3_HW/` — 하드웨어 설계
 장치의 물리적 설계를 컴포넌트와 통합 시스템으로 분리합니다.
-- **`21_Component/`**: 개별 부품 사양서, 단위 소자 설계
+- **`31_Component/`**: 개별 부품 사양서, 단위 소자 설계
   - `Design/`: 설계 파일
   - `Calibration/`: 교정 데이터 및 설정
-- **`22_System/`**: 통합 기기 설계, 하우징, 3D 모델 (`.stl`, `.step`)
-- **`23_Elec/`**: PCB 회로도, Gerber, BOM, Datasheets
+- **`32_System/`**: 통합 기기 설계, 하우징, 3D 모델 (`.stl`, `.step`)
+- **`33_Elec/`**: PCB 회로도, Gerber, BOM, Datasheets
 
-### `3_Fab/` — 제작 & 공정
+### `4_Fab/` — 제작 & 공정
 부품/기기 제작 공정 기록 및 특성 평가를 관리합니다.
-- **`31_Recipes/`**: 공정 조건 문서화
-- **`32_Eval/`**: 모듈별 단일 특성 평가 데이터
+- **`41_Recipes/`**: 공정 조건 문서화
+- **`42_Eval/`**: 모듈별 단일 특성 평가 데이터
 
-### `4_SW/` — 소프트웨어 & 펌웨어
-- **`41_FW/`**: MCU/임베디드 펌웨어 소스
-- **`42_DAQ/`**: PC/모바일 데이터 획득 시스템
-- **`43_Libs/`**: 재사용 가능한 공용 라이브러리 (필터, SNR 계산 등)
+### `5_SW/` — 소프트웨어 & 펌웨어
+- **`51_FW/`**: MCU/임베디드 펌웨어 소스
+- **`52_DAQ/`**: PC/모바일 데이터 획득 시스템
+- **`53_Libs/`**: 재사용 가능한 공용 라이브러리 (필터, SNR 계산 등)
 
-### `5_Exp/` — 실험 (Sim + Empirical + Analysis)
+### `6_Exp/` — 실험 (Sim + Empirical + Analysis)
 시뮬레이션과 실측 데이터를 1:1 비교 검증할 수 있는 구조입니다.
-- **`51_Sim/`**: 시뮬레이션
+- **`61_Sim/`**: 시뮬레이션
   - `Scripts/`: 시뮬레이션 코드 (`S###_sim.m` 등), `9_Archive/`: 폐기 스크립트 보관
   - `Data/`: 시뮬레이션 결과 (`Data/S###/`)
-- **`52_Empirical/`**: 실측 데이터
+- **`62_Empirical/`**: 실측 데이터
   - `Raw/`: 원본 센서 데이터 (**Read-Only, Git 추적 제외**)
   - `Processed/`: 1차 가공 데이터
-- **`53_Analysis/`**: 통합 분석
+- **`63_Analysis/`**: 통합 분석
   - `Scripts/`: 비교/검증 포스트프로세싱 코드, `9_Archive/`: 폐기 스크립트 보관
   - `Logs/`: 세션 로그 (`S###_log.md`), `2_Wiki/` 요약, `9_Archive/` 완료 로그 보관
-- **`54_Viz/`**: 자동 생성된 시각화 추출물 (Figure PNG 등)
+- **`64_Viz/`**: 자동 생성된 시각화 추출물 (Figure PNG 등)
 
-### `6_Paper/` — 논문 & 발표
-- **`61_Figs/`**: 논문용 Figure
+### `7_Paper/` — 논문 & 발표
+- **`71_Figs/`**: 논문용 Figure
   - `Raw/` → `Processed/` → `Final/` (3단계 파이프라인)
-- **`62_Drafts/`**: 원고 (Word, LaTeX), `9_Archive/`: 이전 버전 보관
-- **`63_Presentations/`**: 발표 자료 (PPT, 포스터)
+- **`72_Drafts/`**: 원고 (Word, LaTeX), `9_Archive/`: 이전 버전 보관
+- **`73_Presentations/`**: 발표 자료 (PPT, 포스터)
 
 ---
 
 ## 2. 운영 규칙
 
 ### 2.1 Raw Data 무결성
-- `5_Exp/52_Empirical/Raw/`에 저장된 파일은 **읽기 전용(Read-Only)**입니다.
+- `6_Exp/62_Empirical/Raw/`에 저장된 파일은 **읽기 전용(Read-Only)**입니다.
 - 스크립트에서 읽기만 수행하며, 원본을 절대 덮어쓰지 않습니다.
 
 ### 2.2 Git 분리 전략
 - **Git 추적 대상**: 코드, 메타데이터, 로그, 분석 Figure, 원고 등 프로젝트 산출물 전반
-- **Git 추적 제외**: `5_Exp/52_Empirical/Raw/` (대용량 원본 센서 데이터), 도구 임시 파일
-- 대용량 설계 파일(`2_HW/`)은 Git LFS 또는 별도 드라이브 관리를 권장합니다.
+- **Git 추적 제외**: `6_Exp/62_Empirical/Raw/` (대용량 원본 센서 데이터), 도구 임시 파일
+- 대용량 설계 파일(`3_HW/`)은 Git LFS 또는 별도 드라이브 관리를 권장합니다.
 - 분석 Figure(`.png` 등)와 원고(`.docx` 등)는 Git으로 추적하여 버전 관리합니다.
 
 ### 2.3 Naming Convention
@@ -86,8 +86,8 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 
 ### 2.5 Cross-Reference 규칙
 - 로그에서 Planning 문서 참조: `→ see 1_Concept/13_Planning/P001_xxx.md`
-- 로그에서 시뮬레이션 데이터 참조: `→ see 5_Exp/51_Sim/Data/S###/`
-- 로그에서 분석 스크립트 참조: `→ see 5_Exp/53_Analysis/Scripts/S###_analysis.m`
+- 로그에서 시뮬레이션 데이터 참조: `→ see 6_Exp/61_Sim/Data/S###/`
+- 로그에서 분석 스크립트 참조: `→ see 6_Exp/63_Analysis/Scripts/S###_analysis.m`
 
 ### 2.6 Data Reusability (데이터 영구 보존 원칙)
 - 단순 Illustration(시각적 도해)을 제외한 모든 Plot/Graph 생성 시, 그래프에 표면적으로 드러나지 않는 메트릭이나 중간 연산 결과일지라도 **향후 재사용이 가능하도록 반드시 `.mat` 파일(또는 `.csv`) 형태로 원본 Data Array를 함께 저장(Export)**하는 것을 원칙으로 합니다.

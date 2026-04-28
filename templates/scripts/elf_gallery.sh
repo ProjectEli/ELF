@@ -1,13 +1,13 @@
 #!/bin/bash
 # elf_gallery.sh — Auto-generate visualization gallery markdown
-# Scans 54_Viz/ for images, groups by session, outputs _gallery.md
+# Scans 64_Viz/ for images, groups by session, outputs _gallery.md
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-VIZ_DIR="$REPO_ROOT/5_Exp/54_Viz"
+VIZ_DIR="$REPO_ROOT/6_Exp/64_Viz"
 GALLERY="$VIZ_DIR/_gallery.md"
 
 if [ ! -d "$VIZ_DIR" ]; then
-    echo "[Gallery] 54_Viz/ not found"
+    echo "[Gallery] 64_Viz/ not found"
     exit 1
 fi
 
