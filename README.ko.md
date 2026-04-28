@@ -55,21 +55,22 @@ Project_Root/
 │   │   ├── Raw/                     # 원본 센서 데이터 (Read-Only, Git 제외)
 │   │   └── Processed/               # 1차 가공 데이터
 │   ├── 53_Analysis/                 # 통합 분석
-│   │   ├── Scripts/                 # 비교/검증 포스트프로세싱 코드
-│   │   │   └── 9_Archive/          # 폐기 스크립트
-│   │   └── Logs/                    # 세션 로그 (S###_log.md)
-│   │       ├── 2_Wiki/              # 핵심 발견 요약 및 세션 레지스트리
-│   │       └── 9_Archive/           # 완료된 세션 로그
+│   │   └── Scripts/                 # 비교/검증 포스트프로세싱 코드
+│   │       └── 9_Archive/           # 폐기 스크립트
 │   └── 54_Viz/                      # 시각화 추출물 (자동 생성 Figure)
 │
-└── 6_Paper/                         # 논문 & 발표
-    ├── 61_Figs/                     # 논문용 Figure
-    │   ├── Raw/
-    │   ├── Processed/
-    │   └── Final/
-    ├── 62_Drafts/                   # 원고 (Word, LaTeX)
-    │   └── 9_Archive/               # 이전 버전 보관
-    └── 63_Presentations/            # 발표 자료 (PPT, 포스터)
+├── 6_Paper/                         # 논문 & 발표
+│   ├── 61_Figs/                     # 논문용 Figure
+│   │   ├── Raw/
+│   │   ├── Processed/
+│   │   └── Final/
+│   ├── 62_Drafts/                   # 원고 (Word, LaTeX)
+│   │   └── 9_Archive/               # 이전 버전 보관
+│   └── 63_Presentations/            # 발표 자료 (PPT, 포스터)
+│
+└── 7_Log/                           # 세션 로그 (S###_log.md)
+    ├── 2_Wiki/                      # 핵심 발견 요약 및 세션 레지스트리
+    └── 9_Archive/                   # 완료된 세션 로그
 ```
 
 > 각 폴더의 상세 용도와 운영 규칙은 `0_Meta/EliRule.md`를 참조.
@@ -83,7 +84,7 @@ Project_Root/
 
 ### 2. Base-Delta 로깅 (Hybrid Logging)
 
-* **러닝 로그 (`5_Exp/53_Analysis/Logs/S###_log.md`):**
+* **러닝 로그 (`7_Log/S###_log.md`):**
   * 즉각적인 가설-테스트-교훈을 텍스트로 기록하는 서사형 마크다운 파일임.
   * 트라이얼(`t1`, `t2`...) 단위로 **의도적으로 변경한 변수(Delta)**와 관찰된 결과만 의식의 흐름대로 작성함.
   * 포맷 및 상세 규칙: `0_Meta/LogConvention.md` 참조.
@@ -110,7 +111,7 @@ Project_Root/
 | Logs → Planning | `→ see 1_Concept/13_Planning/P###_xxx.md` |
 | Logs → Sim Data | `→ see 5_Exp/51_Sim/Data/S###/` |
 | Logs → Script | `→ see 5_Exp/53_Analysis/Scripts/S###_analysis.m` |
-| Planning → Logs | `← tracked in 5_Exp/53_Analysis/Logs/S###_log.md` |
+| Planning → Logs | `← tracked in 7_Log/S###_log.md` |
 
 ## AI 거버넌스
 
@@ -150,7 +151,7 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 
 | 파일 | 사용 시점 |
 |------|----------|
-| `sessionTemplate.md` | 새 세션 시작 시 `5_Exp/53_Analysis/Logs/`에 복사 후 `S###_log.md`로 이름 변경 |
+| `sessionTemplate.md` | 새 세션 시작 시 `7_Log/`에 복사 후 `S###_log.md`로 이름 변경 |
 | `trialTemplate.md` | 진행 중인 세션 로그에 trial 추가 시 (`t02`, `t03`, ...) 본문에 붙여넣기 |
 
 > **Note**: `ProjectRule.md`는 프로젝트 생성 시 자동으로 `0_Meta/` 내부에 배치됩니다. 프로젝트 특성에 맞게 `0_Meta/ProjectRule.md`의 섹션 1~8을 직접 수정하여 사용하세요.
@@ -166,7 +167,7 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 
 ### 2. 새 세션 시작
 
-`5_Exp/53_Analysis/Logs/`에 로그 파일을 생성합니다:
+`7_Log/`에 로그 파일을 생성합니다:
 
 ```markdown
 # S002: 파장 최적화 시뮬레이션
@@ -201,7 +202,7 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 - 940 nm이 최고 감도 (ΔR/Δh = 0.12 mm⁻¹)
 - 735 nm은 noise floor 최저이나 h > 15 mm에서 포화
 
-![S002_t01: SNR 비교](../../54_Viz/S002/S002_t01_SNR_comparison.png)
+![S002_t01: SNR 비교](../5_Exp/54_Viz/S002/S002_t01_SNR_comparison.png)
 
 ### 교훈
 - 810 nm이 감도와 dynamic range 간 최적 절충점
@@ -224,12 +225,12 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 세션 종료 시 다음을 수행합니다:
 
 1. **Status 변경**: 로그 헤더의 `★ 활성`을 `Complete`로 변경.
-2. **Wiki 요약**: `Logs/2_Wiki/`의 지식 문서에 1-2줄 요약 추가. 아카이브된 로그 경로 링크 포함.
-3. **Session Registry 업데이트**: `Logs/2_Wiki/Session_Registry.tsv`에 행 추가:
+2. **Wiki 요약**: `7_Log/2_Wiki/`의 지식 문서에 1-2줄 요약 추가. 아카이브된 로그 경로 링크 포함.
+3. **Session Registry 업데이트**: `7_Log/2_Wiki/Session_Registry.tsv`에 행 추가:
    ```
    S002	2026-04-01	파장 최적화	Complete	810 nm 최적	9_Archive/S002_WavelengthOpt.md
    ```
-4. **로그 아카이빙**: 로그 파일을 `Logs/9_Archive/`로 이동.
+4. **로그 아카이빙**: 로그 파일을 `7_Log/9_Archive/`로 이동.
 5. **스크립트 아카이빙** (1회용인 경우): `Scripts/9_Archive/`로 이동.
 
 ### 5. AI 에이전트 핸드오프 (선택)

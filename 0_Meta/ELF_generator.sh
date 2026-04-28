@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================
-#   ELF v2 Project Structure Generator
-#   (0~6 Hierarchy + PARA Framework)
+#   ELF v2.1 Project Structure Generator
+#   (0~7 Hierarchy + PARA Framework)
 #
 #   Usage:
 #     chmod +x ELF_generator.sh && ./ELF_generator.sh
@@ -19,8 +19,8 @@ fi
 
 echo ''
 echo '============================================'
-echo '  ELF v2 Project Structure Generator'
-echo '  (0~6 Hierarchy + PARA Framework)'
+echo '  ELF v2.1 Project Structure Generator'
+echo '  (0~7 Hierarchy + PARA Framework)'
 echo '============================================'
 echo ''
 
@@ -84,7 +84,7 @@ echo ''
 echo "[1/6] Project root '$PROJECT_NAME' created (language: $PROJECT_LANG)."
 
 # ================================================================
-# 3. Directory structure (ELF v2: 0~6)
+# 3. Directory structure (ELF v2.1: 0~7)
 # ================================================================
 DIRS=(
     '0_Meta'
@@ -107,9 +107,10 @@ DIRS=(
     '5_Exp/52_Empirical/Raw'
     '5_Exp/52_Empirical/Processed'
     '5_Exp/53_Analysis/Scripts/9_Archive'
-    '5_Exp/53_Analysis/Logs/2_Wiki'
-    '5_Exp/53_Analysis/Logs/9_Archive'
     '5_Exp/54_Viz'
+    '7_Log'
+    '7_Log/2_Wiki'
+    '7_Log/9_Archive'
     '6_Paper/61_Figs/Raw'
     '6_Paper/61_Figs/Processed'
     '6_Paper/61_Figs/Final'
@@ -124,7 +125,7 @@ cd "$PROJECT_NAME"
 for d in "${DIRS[@]}"; do
     mkdir -p "$d"
 done
-echo '[2/6] Directory structure created (0_Meta ~ 6_Paper).'
+echo '[2/6] Directory structure created (0_Meta ~ 7_Log).'
 
 # ================================================================
 # 4. .gitkeep for empty folders (preserves structure on remote)
@@ -172,11 +173,11 @@ sed "s|PLACEHOLDER_PROJECT_NAME|${PROJECT_NAME}|g; s|PLACEHOLDER_DATE|${DATE_STR
 
 # --- S001_log.md (from template) ---
 sed "s|S{NNN}|S001|g; s|YYYY-MM-DD|${DATE_STR}|g" \
-    "$TEMPLATES_DIR/sessionTemplate.md" > 5_Exp/53_Analysis/Logs/S001_log.md
+    "$TEMPLATES_DIR/sessionTemplate.md" > 7_Log/S001_log.md
 
 # --- Session_Registry.tsv ---
-printf 'Session\tDate\tTitle\tStatus\tKey Finding\tArchive Path\r\n' > 5_Exp/53_Analysis/Logs/2_Wiki/Session_Registry.tsv
-printf 'S001\t%s\t[세션 제목]\t★ 활성\t-\t-\r\n' "$DATE_STR" >> 5_Exp/53_Analysis/Logs/2_Wiki/Session_Registry.tsv
+printf 'Session\tDate\tTitle\tStatus\tKey Finding\tArchive Path\r\n' > 7_Log/2_Wiki/Session_Registry.tsv
+printf 'S001\t%s\t[세션 제목]\t★ 활성\t-\t-\r\n' "$DATE_STR" >> 7_Log/2_Wiki/Session_Registry.tsv
 
 echo '[4/6] Meta documents and config files created.'
 
@@ -189,7 +190,7 @@ if command -v git &>/dev/null; then
     if [[ -z "$GIT_CHOICE" || "$GIT_CHOICE" =~ ^[Yy]$ ]]; then
         git init
         git add .
-        git commit -m 'chore: Initialize ELF v2 project structure'
+        git commit -m 'chore: Initialize ELF v2.1 project structure'
         echo '[5/6] Git initialized.'
     else
         echo '[5/6] Git initialization skipped.'
@@ -202,7 +203,7 @@ cd ..
 
 echo ''
 echo '============================================'
-echo "  [$PROJECT_NAME] ELF v2 project created!"
+echo "  [$PROJECT_NAME] ELF v2.1 project created!"
 echo "  Language: $PROJECT_LANG"
 echo '============================================'
 echo '[6/6] Done!'

@@ -1,7 +1,7 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 # ============================================
-#   ELF v2 Project Structure Generator
-#   (0~6 Hierarchy + PARA Framework)
+#   ELF v2.1 Project Structure Generator
+#   (0~7 Hierarchy + PARA Framework)
 #
 #   Usage (Windows PowerShell 5.1):
 #     powershell -ExecutionPolicy Bypass -File "0_Meta\ELF_generator.ps1"
@@ -30,8 +30,8 @@ function Write-FileUTF8 {
 
 Write-Host ''
 Write-Host '============================================'
-Write-Host '  ELF v2 Project Structure Generator'
-Write-Host '  (0~6 Hierarchy + PARA Framework)'
+Write-Host '  ELF v2.1 Project Structure Generator'
+Write-Host '  (0~7 Hierarchy + PARA Framework)'
 Write-Host '============================================'
 Write-Host ''
 
@@ -100,7 +100,7 @@ Write-Host ''
 Write-Host "[1/6] Project root '$projectName' created (language: $projectLang)."
 
 # ================================================================
-# 3. Directory structure (ELF v2: 0~6)
+# 3. Directory structure (ELF v2.1: 0~7)
 # ================================================================
 $dirs = @(
     '0_Meta',
@@ -123,9 +123,10 @@ $dirs = @(
     '5_Exp/52_Empirical/Raw',
     '5_Exp/52_Empirical/Processed',
     '5_Exp/53_Analysis/Scripts/9_Archive',
-    '5_Exp/53_Analysis/Logs/2_Wiki',
-    '5_Exp/53_Analysis/Logs/9_Archive',
     '5_Exp/54_Viz',
+    '7_Log',
+    '7_Log/2_Wiki',
+    '7_Log/9_Archive',
     '6_Paper/61_Figs/Raw',
     '6_Paper/61_Figs/Processed',
     '6_Paper/61_Figs/Final',
@@ -140,7 +141,7 @@ Set-Location $projectName
 foreach ($d in $dirs) {
     New-Item -ItemType Directory -Force -Path $d | Out-Null
 }
-Write-Host '[2/6] Directory structure created (0_Meta ~ 6_Paper).'
+Write-Host '[2/6] Directory structure created (0_Meta ~ 7_Log).'
 
 # ================================================================
 # 4. .gitkeep for empty folders (preserves structure on remote)
@@ -200,11 +201,11 @@ Write-FileUTF8 'README.md' $readmeContent
 # --- S001_log.md (from template) ---
 $logContent = Get-Content (Join-Path $templatesDir 'sessionTemplate.md') -Raw -Encoding UTF8
 $logContent = $logContent.Replace('S{NNN}', 'S001').Replace('YYYY-MM-DD', $dateStr)
-Write-FileUTF8 '5_Exp/53_Analysis/Logs/S001_log.md' $logContent
+Write-FileUTF8 '7_Log/S001_log.md' $logContent
 
 # --- Session_Registry.tsv ---
 $tsvContent = "Session`tDate`tTitle`tStatus`tKey Finding`tArchive Path`r`nS001`t$dateStr`t[세션 제목]`t★ 활성`t-`t-`r`n"
-Write-FileUTF8 '5_Exp/53_Analysis/Logs/2_Wiki/Session_Registry.tsv' $tsvContent
+Write-FileUTF8 '7_Log/2_Wiki/Session_Registry.tsv' $tsvContent
 
 Write-Host '[4/6] Meta documents and config files created.'
 
@@ -218,7 +219,7 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
         try {
             git init
             git add .
-            git commit -m 'chore: Initialize ELF v2 project structure'
+            git commit -m 'chore: Initialize ELF v2.1 project structure'
             Write-Host '[5/6] Git initialized.'
         } catch {
             Write-Host "[5/6] Git init failed: $_"
@@ -234,7 +235,7 @@ Set-Location ..
 
 Write-Host ''
 Write-Host '============================================'
-Write-Host "  [$projectName] ELF v2 project created!"
+Write-Host "  [$projectName] ELF v2.1 project created!"
 Write-Host "  Language: $projectLang"
 Write-Host '============================================'
 Write-Host '[6/6] Done!'

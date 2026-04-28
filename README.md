@@ -55,21 +55,22 @@ Project_Root/
 │   │   ├── Raw/                     # Raw sensor data (Read-Only, excluded from Git)
 │   │   └── Processed/               # Primary processed data
 │   ├── 53_Analysis/                 # Integrated analysis
-│   │   ├── Scripts/                 # Comparison/validation post-processing code
-│   │   │   └── 9_Archive/          # Retired scripts
-│   │   └── Logs/                    # Session logs (S###_log.md)
-│   │       ├── 2_Wiki/              # Distilled findings & session registry
-│   │       └── 9_Archive/           # Completed session logs
+│   │   └── Scripts/                 # Comparison/validation post-processing code
+│   │       └── 9_Archive/           # Retired scripts
 │   └── 54_Viz/                      # Visualization outputs (auto-generated figures)
 │
-└── 6_Paper/                         # Papers & presentations
-    ├── 61_Figs/                     # Figures for papers
-    │   ├── Raw/
-    │   ├── Processed/
-    │   └── Final/
-    ├── 62_Drafts/                   # Manuscripts (Word, LaTeX)
-    │   └── 9_Archive/               # Previous versions
-    └── 63_Presentations/            # Presentation materials (PPT, posters)
+├── 6_Paper/                         # Papers & presentations
+│   ├── 61_Figs/                     # Figures for papers
+│   │   ├── Raw/
+│   │   ├── Processed/
+│   │   └── Final/
+│   ├── 62_Drafts/                   # Manuscripts (Word, LaTeX)
+│   │   └── 9_Archive/               # Previous versions
+│   └── 63_Presentations/            # Presentation materials (PPT, posters)
+│
+└── 7_Log/                           # Session logs (S###_log.md)
+    ├── 2_Wiki/                      # Distilled findings & session registry
+    └── 9_Archive/                   # Completed session logs
 ```
 
 > For detailed usage and operational rules for each folder, refer to `0_Meta/EliRule.md`.
@@ -83,7 +84,7 @@ Project_Root/
 
 ### 2. Base-Delta Logging (Hybrid Logging)
 
-* **Running Log (`5_Exp/53_Analysis/Logs/S###_log.md`):**
+* **Running Log (`7_Log/S###_log.md`):**
   * A narrative markdown file that records immediate hypothesis-test-lesson cycles in text.
   * Written per trial (`t1`, `t2`...) in a stream-of-consciousness style, recording only the **intentionally changed variables (Delta)** and observed results.
   * Format and detailed rules: refer to `0_Meta/LogConvention.md`.
@@ -110,7 +111,7 @@ Cross-reference formats are unified to ensure traceability between project docum
 | Logs → Planning | `→ see 1_Concept/13_Planning/P###_xxx.md` |
 | Logs → Sim Data | `→ see 5_Exp/51_Sim/Data/S###/` |
 | Logs → Script | `→ see 5_Exp/53_Analysis/Scripts/S###_analysis.m` |
-| Planning → Logs | `← tracked in 5_Exp/53_Analysis/Logs/S###_log.md` |
+| Planning → Logs | `← tracked in 7_Log/S###_log.md` |
 
 ## AI Governance
 
@@ -150,7 +151,7 @@ The `templates/` folder provides ready-to-use stubs:
 
 | File | When to use |
 |------|-------------|
-| `sessionTemplate.md` | Copy to `5_Exp/53_Analysis/Logs/` when starting a new session (rename to `S###_log.md`) |
+| `sessionTemplate.md` | Copy to `7_Log/` when starting a new session (rename to `S###_log.md`) |
 | `trialTemplate.md` | Paste into an active session log when adding a new trial (`t02`, `t03`, ...) |
 
 > **Note**: `ProjectRule.md` is auto-generated and placed in `0_Meta/` during initialization. Edit Sections 1–8 of `0_Meta/ProjectRule.md` directly to fit your project.
@@ -166,7 +167,7 @@ Before starting research, read the two governance documents generated in `0_Meta
 
 ### 2. Start a New Session
 
-Create a log file in `5_Exp/53_Analysis/Logs/`:
+Create a log file in `7_Log/`:
 
 ```markdown
 # S002: Wavelength Optimization Simulation
@@ -201,7 +202,7 @@ Within each session, break work into sequential tasks:
 - 940 nm shows highest sensitivity (ΔR/Δh = 0.12 mm⁻¹)
 - 735 nm has lowest noise floor but saturates at h > 15 mm
 
-![S002_t01: SNR comparison](../../54_Viz/S002/S002_t01_SNR_comparison.png)
+![S002_t01: SNR comparison](../5_Exp/54_Viz/S002/S002_t01_SNR_comparison.png)
 
 ### Lesson
 - 810 nm is the best compromise between sensitivity and dynamic range
@@ -224,12 +225,12 @@ Within each session, break work into sequential tasks:
 When a session is done:
 
 1. **Update Status**: Change `★ Active` to `Complete` in the log header.
-2. **Summarize to Wiki**: Add a 1-2 line summary to `Logs/2_Wiki/` knowledge documents with a link to the archived log.
-3. **Update Session Registry**: Add a row to `Logs/2_Wiki/Session_Registry.tsv`:
+2. **Summarize to Wiki**: Add a 1-2 line summary to `7_Log/2_Wiki/` knowledge documents with a link to the archived log.
+3. **Update Session Registry**: Add a row to `7_Log/2_Wiki/Session_Registry.tsv`:
    ```
    S002	2026-04-01	Wavelength Optimization	Complete	810 nm optimal	9_Archive/S002_WavelengthOpt.md
    ```
-4. **Archive the log**: Move the log file to `Logs/9_Archive/`.
+4. **Archive the log**: Move the log file to `7_Log/9_Archive/`.
 5. **Archive scripts** (if one-time): Move to `Scripts/9_Archive/`.
 
 ### 5. AI Agent Handoff (Optional)
