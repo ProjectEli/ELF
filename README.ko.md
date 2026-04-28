@@ -30,6 +30,10 @@ Project_Root/
 │   └── 13_Planning/                 # 연구 로드맵, Figure 구성 스토리보드
 │       └── 2_Wiki/                  # 기획 단계 결론 및 핵심 규칙 요약
 │
+├── 2_Log/                           # 세션 로그 (S###_log.md)
+│   ├── 2_Wiki/                      # 핵심 발견 요약 및 세션 레지스트리
+│   └── 9_Archive/                   # 완료된 세션 로그
+│
 ├── 3_HW/                            # 하드웨어 설계
 │   ├── 31_Component/                # 개별 부품 사양서, 단위 소자 설계
 │   │   ├── Design/
@@ -67,10 +71,6 @@ Project_Root/
 │   ├── 72_Drafts/                   # 원고 (Word, LaTeX)
 │   │   └── 9_Archive/               # 이전 버전 보관
 │   └── 73_Presentations/            # 발표 자료 (PPT, 포스터)
-│
-└── 2_Log/                           # 세션 로그 (S###_log.md)
-    ├── 2_Wiki/                      # 핵심 발견 요약 및 세션 레지스트리
-    └── 9_Archive/                   # 완료된 세션 로그
 ```
 
 > 각 폴더의 상세 용도와 운영 규칙은 `0_Meta/EliRule.md`를 참조.
@@ -141,7 +141,7 @@ cd /원하는/상위/디렉토리
 bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-프로젝트 이름을 입력하면 0~6 폴더 체계, 메타 문서, `.gitkeep`이 자동 생성됩니다. Git 초기화는 Git이 설치된 경우에만 선택적으로 수행됩니다.
+프로젝트 이름을 입력하면 0~7 폴더 체계, 메타 문서, `.gitkeep`이 자동 생성됩니다. Git 초기화는 Git이 설치된 경우에만 선택적으로 수행됩니다.
 
 ## 사용법 (Usage)
 

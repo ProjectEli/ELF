@@ -30,6 +30,10 @@ Project_Root/
 │   └── 13_Planning/                 # Research roadmaps, figure composition storyboards
 │       └── 2_Wiki/                  # Distilled planning conclusions & key rules
 │
+├── 2_Log/                           # Session logs (S###_log.md)
+│   ├── 2_Wiki/                      # Distilled findings & session registry
+│   └── 9_Archive/                   # Completed session logs
+│
 ├── 3_HW/                            # Hardware design
 │   ├── 31_Component/                # Individual component specs, unit device design
 │   │   ├── Design/
@@ -67,10 +71,6 @@ Project_Root/
 │   ├── 72_Drafts/                   # Manuscripts (Word, LaTeX)
 │   │   └── 9_Archive/               # Previous versions
 │   └── 73_Presentations/            # Presentation materials (PPT, posters)
-│
-└── 2_Log/                           # Session logs (S###_log.md)
-    ├── 2_Wiki/                      # Distilled findings & session registry
-    └── 9_Archive/                   # Completed session logs
 ```
 
 > For detailed usage and operational rules for each folder, refer to `0_Meta/EliRule.md`.
