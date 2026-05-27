@@ -17,6 +17,9 @@
 
 ```text
 Project_Root/
+│
+│  ─── Core ───────────────────────────────
+│
 ├── 0_Meta/                          # 프로젝트 거버넌스 & 규칙
 │   ├── ProjectRule.md               # 프로젝트 전용 규칙 및 목표
 │   ├── EliRule.md                   # 폴더 구조 및 운영 가이드
@@ -25,14 +28,15 @@ Project_Root/
 │   └── AI_Sync.md                   # AI 에이전트 핸드오프 로그
 │
 ├── 1_Concept/                       # 연구 기획, 문헌, 아이디어
-│   ├── 11_Ideas/                    # 러프 스케치, 가설 제안록
-│   ├── 12_Literature/               # 논문 PDF, 서지 정보, 기반 공식
-│   └── 13_Planning/                 # 연구 로드맵, Figure 구성 스토리보드
-│       └── 2_Wiki/                  # 기획 단계 결론 및 핵심 규칙 요약
+│   ├── 11_Literature/               # 논문 PDF, 서지 정보, 기반 공식
+│   └── 12_Planning/                 # 연구 기획, 아이디어, 로드맵
+│       └── 1_Wiki/                  # 기획 단계 결론 및 핵심 규칙 요약
 │
 ├── 2_Log/                           # 세션 로그 (S###_log.md)
-│   ├── 2_Wiki/                      # 핵심 발견 요약 및 세션 레지스트리
+│   ├── 1_Wiki/                      # 핵심 발견 요약 및 세션 레지스트리
 │   └── 9_Archive/                   # 완료된 세션 로그
+│
+│  ─── Modules (Optional) ────────────────
 │
 ├── 3_HW/                            # 하드웨어 설계
 │   ├── 31_Component/                # 개별 부품 사양서, 단위 소자 설계
@@ -91,9 +95,9 @@ Project_Root/
 
 ### 3. Planning 문서 규칙
 
-* 연구 로드맵, Figure 구성, 실험 전략 등은 `1_Concept/13_Planning/`에 별도 관리.
+* 연구 로드맵, Figure 구성, 실험 전략 등은 `1_Concept/12_Planning/`에 별도 관리.
 * **형식:** `P###_제목.md` (예: `P001_wavelength_optimization.md`)
-* 로그에서 Planning 참조 시: `→ see 1_Concept/13_Planning/P###_xxx.md`
+* 로그에서 Planning 참조 시: `→ see 1_Concept/12_Planning/P###_xxx.md`
 
 ### 4. 후처리 분석 규격 (Cell Mode Scripting)
 
@@ -108,7 +112,7 @@ Project_Root/
 
 | From → To | 형식 |
 |-----------|------|
-| Logs → Planning | `→ see 1_Concept/13_Planning/P###_xxx.md` |
+| Logs → Planning | `→ see 1_Concept/12_Planning/P###_xxx.md` |
 | Logs → Sim Data | `→ see 6_Exp/61_Sim/Data/S###/` |
 | Logs → Script | `→ see 6_Exp/63_Analysis/Scripts/S###_analysis.m` |
 | Planning → Logs | `← tracked in 2_Log/S###_log.md` |
@@ -120,7 +124,7 @@ AI 에이전트(Claude, Gemini 등)가 프로젝트에 참여할 때 다음 규�
 1. **컨텍스트 파악**: 작업 시작 전 `0_Meta/AI_Sync.md`를 읽어 이전 작업 상태 확인.
 2. **동일 규격 준수**: `0_Meta/LogConvention.md`의 로깅 규칙을 사람과 동일하게 따름.
 3. **핸드오프 기록**: 작업 완료 시 `0_Meta/AI_Sync.md`에 수행 내역, 생성/수정 파일, Next Steps 기록. 최신 항목이 위에 오도록 역순 작성.
-4. **아이디어 분리**: AI가 생성한 가설/아이디어는 로그가 아닌 `1_Concept/11_Ideas/`에 별도 저장.
+4. **아이디어 분리**: AI가 생성한 가설/아이디어는 로그가 아닌 `1_Concept/12_Planning/`에 별도 저장.
 5. **PARA 기반 컨텍스트 관리**: `9_Archive/` 폴더와 `.claudeignore`를 활용하여 AI의 컨텍스트 오염을 방지. 상세 규칙은 `0_Meta/AI_PARA_Framework.md` 참조.
 6. **Communication Rules**: 객관적이고 드라이한 문체 유지. 비유/은유 금지. 결론 중심의 명확한 전달. 과장 및 감정적 수식어 금지. 상세 규칙은 `0_Meta/EliRule.md` 섹션 3 참조.
 7. **Data Reusability**: 모든 Plot/Graph 생성 시 원본 Data Array를 `.mat`/`.csv`로 함께 저장. 상세 규칙은 `0_Meta/EliRule.md` 섹션 2.6 참조.
@@ -141,7 +145,7 @@ cd /원하는/상위/디렉토리
 bash /path/to/ELF/0_Meta/ELF_generator.sh
 ```
 
-프로젝트 이름을 입력하면 0~7 폴더 체계, 메타 문서, `.gitkeep`이 자동 생성됩니다. Git 초기화는 Git이 설치된 경우에만 선택적으로 수행됩니다.
+프로젝트 이름을 입력하고, 언어를 선택하고, 모듈 preset을 선택합니다. Core 폴더(0~2)는 항상 생성되며, Module 폴더(3~7)는 preset 선택에 따라 포함됩니다. Git 초기화는 Git이 설치된 경우에만 선택적으로 수행됩니다.
 
 ## 사용법 (Usage)
 
@@ -225,8 +229,8 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 세션 종료 시 다음을 수행합니다:
 
 1. **Status 변경**: 로그 헤더의 `★ 활성`을 `Complete`로 변경.
-2. **Wiki 요약**: `2_Log/2_Wiki/`의 지식 문서에 1-2줄 요약 추가. 아카이브된 로그 경로 링크 포함.
-3. **Session Registry 업데이트**: `2_Log/2_Wiki/Session_Registry.tsv`에 행 추가:
+2. **Wiki 요약**: `2_Log/1_Wiki/`의 지식 문서에 1-2줄 요약 추가. 아카이브된 로그 경로 링크 포함.
+3. **Session Registry 업데이트**: `2_Log/1_Wiki/Session_Registry.tsv`에 행 추가:
    ```
    S002	2026-04-01	파장 최적화	Complete	810 nm 최적	9_Archive/S002_WavelengthOpt.md
    ```

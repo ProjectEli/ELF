@@ -7,28 +7,33 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 
 ## 1. 폴더 구조 상세
 
-### `0_Meta/` — 프로젝트 거버넌스
+### Core (항상 포함)
+
+#### `0_Meta/` — 프로젝트 거버넌스
 연구 데이터가 아닌 프로젝트 운영 규칙을 정의하는 메타 구역입니다.
 - `EliRule.md`: 이 문서 (폴더 구조 및 운영 가이드)
 - `LogConvention.md`: 로깅 표준 규칙
 - `AI_PARA_Framework.md`: AI의 환각을 방지하기 위한 상태 기반 파일 관리 및 아카이빙 규칙. AI가 프로젝트를 탐색할 때 가장 중요한 기준 문서
 - `AI_Sync.md`: AI 에이전트 핸드오프 로그
 
-### `1_Concept/` — 연구 기획 & 아이디어
+#### `1_Concept/` — 연구 기획 & 아이디어
 연구 방향성, 문헌 고찰, 가설 설정을 실험 데이터와 분리하여 보관합니다.
-- **`11_Ideas/`**: 러프 스케치, 가설 제안록, 브레인스토밍 메모
-- **`12_Literature/`**: 논문 PDF, 서지 정보, 기반 공식 정리
-- **`13_Planning/`**: 연구 로드맵, Figure 구성 스토리보드, 실험 계획서
+- **`11_Literature/`**: 논문 PDF, 서지 정보, 기반 공식 정리
+- **`12_Planning/`**: 연구 기획, 아이디어, 로드맵, Figure 구성 스토리보드
   - Planning 문서는 `P###_제목.md` 형식으로 넘버링 (예: `P001_wavelength_optimization.md`)
-  - `2_Wiki/`: 기획 단계 결론 및 핵심 규칙 요약
+  - `1_Wiki/`: 기획 단계 결론 및 핵심 규칙 요약
 
-### `2_Log/` — 세션 로그
+#### `2_Log/` — 세션 로그
 모든 종류의 작업(실험, 기획, SW 개발 등)을 기록하는 세션 로그의 최상위 공간입니다.
 - `S###_log.md`: 세션 로그 파일 (포맷: `0_Meta/LogConvention.md` 참조)
-- `2_Wiki/`: 핵심 발견 요약 및 Session Registry
+- `1_Wiki/`: 핵심 발견 요약 및 Session Registry
 - `9_Archive/`: 완료된 세션 로그 보관
 
-### `3_HW/` — 하드웨어 설계
+### Modules (선택적 포함)
+
+> Generator 실행 시 preset 선택으로 필요한 모듈만 포함 가능.
+
+#### `3_HW/` — 하드웨어 설계
 장치의 물리적 설계를 컴포넌트와 통합 시스템으로 분리합니다.
 - **`31_Component/`**: 개별 부품 사양서, 단위 소자 설계
   - `Design/`: 설계 파일
@@ -36,17 +41,17 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 - **`32_System/`**: 통합 기기 설계, 하우징, 3D 모델 (`.stl`, `.step`)
 - **`33_Elec/`**: PCB 회로도, Gerber, BOM, Datasheets
 
-### `4_Fab/` — 제작 & 공정
+#### `4_Fab/` — 제작 & 공정
 부품/기기 제작 공정 기록 및 특성 평가를 관리합니다.
 - **`41_Recipes/`**: 공정 조건 문서화
 - **`42_Eval/`**: 모듈별 단일 특성 평가 데이터
 
-### `5_SW/` — 소프트웨어 & 펌웨어
+#### `5_SW/` — 소프트웨어 & 펌웨어
 - **`51_FW/`**: MCU/임베디드 펌웨어 소스
 - **`52_DAQ/`**: PC/모바일 데이터 획득 시스템
 - **`53_Libs/`**: 재사용 가능한 공용 라이브러리 (필터, SNR 계산 등)
 
-### `6_Exp/` — 실험 (Sim + Empirical + Analysis)
+#### `6_Exp/` — 실험 (Sim + Empirical + Analysis)
 시뮬레이션과 실측 데이터를 1:1 비교 검증할 수 있는 구조입니다.
 - **`61_Sim/`**: 시뮬레이션
   - `Scripts/`: 시뮬레이션 코드 (`S###_sim.m` 등), `9_Archive/`: 폐기 스크립트 보관
@@ -58,7 +63,7 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
   - `Scripts/`: 비교/검증 포스트프로세싱 코드, `9_Archive/`: 폐기 스크립트 보관
 - **`64_Viz/`**: 자동 생성된 시각화 추출물 (Figure PNG 등)
 
-### `7_Paper/` — 논문 & 발표
+#### `7_Paper/` — 논문 & 발표
 - **`71_Figs/`**: 논문용 Figure
   - `Raw/` → `Processed/` → `Final/` (3단계 파이프라인)
 - **`72_Drafts/`**: 원고 (Word, LaTeX), `9_Archive/`: 이전 버전 보관
@@ -90,7 +95,7 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 - 데이터 폴더 내부에 코드를 혼재하지 않습니다.
 
 ### 2.5 Cross-Reference 규칙
-- 로그에서 Planning 문서 참조: `→ see 1_Concept/13_Planning/P001_xxx.md`
+- 로그에서 Planning 문서 참조: `→ see 1_Concept/12_Planning/P001_xxx.md`
 - 로그에서 시뮬레이션 데이터 참조: `→ see 6_Exp/61_Sim/Data/S###/`
 - 로그에서 분석 스크립트 참조: `→ see 6_Exp/63_Analysis/Scripts/S###_analysis.m`
 

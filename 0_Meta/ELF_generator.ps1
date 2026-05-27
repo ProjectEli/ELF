@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 # ============================================
 #   ELF v2.2 Project Structure Generator
-#   (0~7 Hierarchy + PARA Framework)
+#   (Core + Modules)
 #
 #   Usage (Windows PowerShell 5.1):
 #     powershell -ExecutionPolicy Bypass -File "0_Meta\ELF_generator.ps1"
@@ -31,7 +31,7 @@ function Write-FileUTF8 {
 Write-Host ''
 Write-Host '============================================'
 Write-Host '  ELF v2.2 Project Structure Generator'
-Write-Host '  (0~7 Hierarchy + PARA Framework)'
+Write-Host '  (Core + Modules)'
 Write-Host '============================================'
 Write-Host ''
 
@@ -97,54 +97,123 @@ if ([string]::IsNullOrWhiteSpace($langChoice)) {
 }
 
 Write-Host ''
-Write-Host "[1/6] Project root '$projectName' created (language: $projectLang)."
+Write-Host "[1/7] Project root '$projectName' created (language: $projectLang)."
 
 # ================================================================
-# 3. Directory structure (ELF v2.2: 0~7)
+# 3. Module preset selection
 # ================================================================
-$dirs = @(
+
+# --- Core directories (always created) ---
+$coreDirs = @(
     '0_Meta',
     '0_Meta/scripts',
-    '1_Concept/11_Ideas',
-    '1_Concept/12_Literature',
-    '1_Concept/13_Planning/2_Wiki',
-    '1_Concept/13_Planning/9_Archive',
+    '1_Concept/11_Literature',
+    '1_Concept/12_Planning/1_Wiki',
+    '1_Concept/12_Planning/9_Archive',
+    '2_Log',
+    '2_Log/1_Wiki',
+    '2_Log/9_Archive',
+    'templates'
+)
+
+# --- Module directories ---
+$hwDirs = @(
     '3_HW/31_Component/Design',
     '3_HW/31_Component/Calibration',
     '3_HW/32_System',
-    '3_HW/33_Elec',
+    '3_HW/33_Elec'
+)
+$fabDirs = @(
     '4_Fab/41_Recipes',
-    '4_Fab/42_Eval',
+    '4_Fab/42_Eval'
+)
+$swDirs = @(
     '5_SW/51_FW',
     '5_SW/52_DAQ',
-    '5_SW/53_Libs',
+    '5_SW/53_Libs'
+)
+$expDirs = @(
     '6_Exp/61_Sim/Scripts/9_Archive',
     '6_Exp/61_Sim/Data',
     '6_Exp/62_Empirical/Raw',
     '6_Exp/62_Empirical/Processed',
     '6_Exp/63_Analysis/Scripts/9_Archive',
-    '6_Exp/64_Viz',
-    '2_Log',
-    '2_Log/2_Wiki',
-    '2_Log/9_Archive',
+    '6_Exp/64_Viz'
+)
+$paperDirs = @(
     '7_Paper/71_Figs/Raw',
     '7_Paper/71_Figs/Processed',
     '7_Paper/71_Figs/Final',
     '7_Paper/72_Drafts/9_Archive',
-    '7_Paper/73_Presentations',
-    'templates'
+    '7_Paper/73_Presentations'
 )
 
+Write-Host ''
+Write-Host '  Select module preset (Core 0~2 is always included):'
+Write-Host '   [1] Full         — 3_HW + 4_Fab + 5_SW + 6_Exp + 7_Paper'
+Write-Host '   [2] Experimental — 6_Exp + 7_Paper'
+Write-Host '   [3] Software     — 5_SW + 7_Paper'
+Write-Host '   [4] Minimal      — Core only (no modules)'
+Write-Host '   [5] Custom       — Select individually'
+Write-Host ''
+$presetChoice = Read-Host 'Enter number [default: 1]'
+if ([string]::IsNullOrWhiteSpace($presetChoice)) { $presetChoice = '1' }
+
+$moduleDirs = @()
+switch ($presetChoice.Trim()) {
+    '1' {
+        $moduleDirs = $hwDirs + $fabDirs + $swDirs + $expDirs + $paperDirs
+        $presetName = 'Full'
+    }
+    '2' {
+        $moduleDirs = $expDirs + $paperDirs
+        $presetName = 'Experimental'
+    }
+    '3' {
+        $moduleDirs = $swDirs + $paperDirs
+        $presetName = 'Software'
+    }
+    '4' {
+        $presetName = 'Minimal'
+    }
+    '5' {
+        $presetName = 'Custom'
+        Write-Host ''
+        Write-Host '  Select modules to include:'
+        $incHW    = Read-Host '   3_HW  (Hardware)?      [y/N]'
+        $incFab   = Read-Host '   4_Fab (Fabrication)?   [y/N]'
+        $incSW    = Read-Host '   5_SW  (Software)?      [y/N]'
+        $incExp   = Read-Host '   6_Exp (Experiments)?   [y/N]'
+        $incPaper = Read-Host '   7_Paper (Papers)?      [y/N]'
+        if ($incHW    -match '^[Yy]$') { $moduleDirs += $hwDirs }
+        if ($incFab   -match '^[Yy]$') { $moduleDirs += $fabDirs }
+        if ($incSW    -match '^[Yy]$') { $moduleDirs += $swDirs }
+        if ($incExp   -match '^[Yy]$') { $moduleDirs += $expDirs }
+        if ($incPaper -match '^[Yy]$') { $moduleDirs += $paperDirs }
+    }
+    default {
+        $moduleDirs = $hwDirs + $fabDirs + $swDirs + $expDirs + $paperDirs
+        $presetName = 'Full'
+    }
+}
+
+$dirs = $coreDirs + $moduleDirs
+
+Write-Host "[2/7] Module preset: $presetName"
+
+# ================================================================
+# 4. Directory structure
+# ================================================================
 New-Item -ItemType Directory -Force -Path $projectName | Out-Null
 Set-Location $projectName
 
 foreach ($d in $dirs) {
     New-Item -ItemType Directory -Force -Path $d | Out-Null
 }
-Write-Host '[2/6] Directory structure created (0_Meta ~ 2_Log).'
+Write-Host '[3/7] Directory structure created.'
 
 # ================================================================
-# 4. .gitkeep for empty folders (preserves structure on remote)
+# 5. .gitkeep for empty folders (preserves structure on remote)
 # ================================================================
 foreach ($d in $dirs) {
     if ($d -eq '6_Exp/62_Empirical/Raw') {
@@ -156,10 +225,10 @@ foreach ($d in $dirs) {
 
 New-Item -ItemType File -Force -Path '.gitattributes' | Out-Null
 New-Item -ItemType File -Force -Path 'LICENSE' | Out-Null
-Write-Host '[3/6] .gitkeep and empty files created.'
+Write-Host '[4/7] .gitkeep and empty files created.'
 
 # ================================================================
-# 5. Meta documents & config files
+# 6. Meta documents & config files
 # ================================================================
 $dateStr = Get-Date -Format 'yyyy-MM-dd'
 
@@ -185,11 +254,13 @@ if (Test-Path $templateScriptsDir) {
 }
 
 # --- Project Templates ---
-Copy-Item -Path (Join-Path $templatesDir 'sessionTemplate.md') -Destination 'templates\sessionTemplate.md' -Force -ErrorAction SilentlyContinue
-Copy-Item -Path (Join-Path $templatesDir 'trialTemplate.md') -Destination 'templates\trialTemplate.md' -Force -ErrorAction SilentlyContinue
+$templateLog = Join-Path $templatesDir 'log'
+Copy-Item -Path (Join-Path $templateLog 'sessionTemplate.md') -Destination 'templates\sessionTemplate.md' -Force -ErrorAction SilentlyContinue
+Copy-Item -Path (Join-Path $templateLog 'trialTemplate.md') -Destination 'templates\trialTemplate.md' -Force -ErrorAction SilentlyContinue
+Copy-Item -Path (Join-Path $templateLog 'Session_Registry.tsv') -Destination 'templates\Session_Registry.tsv' -Force -ErrorAction SilentlyContinue
 
 # --- 0_Meta/ProjectRule.md (from template) ---
-$projRuleContent = Get-Content (Join-Path $templatesDir 'ProjectRule.md') -Raw -Encoding UTF8
+$projRuleContent = Get-Content (Join-Path $templateMeta 'ProjectRule.md') -Raw -Encoding UTF8
 $projRuleContent = $projRuleContent.Replace('[프로젝트명]', $projectName).Replace('YYYY-MM-DD', $dateStr)
 Write-FileUTF8 '0_Meta/ProjectRule.md' $projRuleContent
 
@@ -199,18 +270,19 @@ $readmeContent = $readmeContent.Replace('PLACEHOLDER_PROJECT_NAME', $projectName
 Write-FileUTF8 'README.md' $readmeContent
 
 # --- S001_log.md (from template) ---
-$logContent = Get-Content (Join-Path $templatesDir 'sessionTemplate.md') -Raw -Encoding UTF8
+$logContent = Get-Content (Join-Path $templateLog 'sessionTemplate.md') -Raw -Encoding UTF8
 $logContent = $logContent.Replace('S{NNN}', 'S001').Replace('YYYY-MM-DD', $dateStr)
 Write-FileUTF8 '2_Log/S001_log.md' $logContent
 
-# --- Session_Registry.tsv ---
-$tsvContent = "Session`tDate`tTitle`tStatus`tKey Finding`tArchive Path`r`nS001`t$dateStr`t[세션 제목]`t★ 활성`t-`t-`r`n"
-Write-FileUTF8 '2_Log/2_Wiki/Session_Registry.tsv' $tsvContent
+# --- Session_Registry.tsv (from template) ---
+$tsvContent = Get-Content (Join-Path $templateLog 'Session_Registry.tsv') -Raw -Encoding UTF8
+$tsvContent = $tsvContent.Replace('YYYY-MM-DD', $dateStr)
+Write-FileUTF8 '2_Log/1_Wiki/Session_Registry.tsv' $tsvContent
 
-Write-Host '[4/6] Meta documents and config files created.'
+Write-Host '[5/7] Meta documents and config files created.'
 
 # ================================================================
-# 6. Git init & first commit (optional)
+# 7. Git init & first commit (optional)
 # ================================================================
 Write-Host ''
 if (Get-Command git -ErrorAction SilentlyContinue) {
@@ -220,15 +292,15 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
             git init
             git add .
             git commit -m 'chore: Initialize ELF v2.2 project structure'
-            Write-Host '[5/6] Git initialized.'
+            Write-Host '[6/7] Git initialized.'
         } catch {
-            Write-Host "[5/6] Git init failed: $_"
+            Write-Host "[6/7] Git init failed: $_"
         }
     } else {
-        Write-Host '[5/6] Git initialization skipped.'
+        Write-Host '[6/7] Git initialization skipped.'
     }
 } else {
-    Write-Host '[5/6] Git not found — skipping Git initialization.'
+    Write-Host '[6/7] Git not found — skipping Git initialization.'
 }
 
 Set-Location ..
@@ -237,6 +309,6 @@ Write-Host ''
 Write-Host '============================================'
 Write-Host "  [$projectName] ELF v2.2 project created!"
 Write-Host "  Language: $projectLang"
+Write-Host "  Modules:  $presetName"
 Write-Host '============================================'
-Write-Host '[6/6] Done!'
-
+Write-Host '[7/7] Done!'

@@ -34,7 +34,7 @@
 
 ### 수행한 작업
 - Token Economy 지향적 구조로 메타 문서(`EliRule.md`, `LogConvention.md`, `AI_Sync.md`) 일괄 개편
-- `1_Concept/13_Planning/P001_Gallery_Integration_Plan.md` 기획안 수립
+- `1_Concept/12_Planning/P001_Gallery_Integration_Plan.md` 기획안 수립
 - P001 수행을 위한 `S002_log.md` 발행
 
 ### Next Steps
@@ -45,7 +45,7 @@
 ## [2026-03-02 ] 프로젝트 초기 구조 설정
 
 ### 수행한 작업
-- ELF v2 디렉토리 구조 생성 (0_Meta ~ 6_Paper)
+- ELF v2 디렉토리 구조 생성 (0_Meta ~ 7_Paper)
 
 | 파일 | 역할 |
 |------|------|
@@ -55,5 +55,5 @@
 
 ### Next Steps
 - 첫 실험 세션(S001) 로그 작성 시작
-- `51_Sim/Data/S001/` 디렉토리 생성 후 시뮬 실행
+- `61_Sim/Data/S001/` 디렉토리 생성 후 시뮬 실행
 -->

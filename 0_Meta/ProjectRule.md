@@ -47,8 +47,8 @@ AI 에이전트는 EliRule.md와 함께 이 문서를 읽어 프로젝트 컨텍
 
 > EliRule.md 기본 파이프라인과 다른 점만 기재합니다.
 
-- 이 프로젝트는 연구 데이터가 없는 메타 프로젝트임. `5_Exp/` 폴더는 generator 출력 예시 용도로만 사용.
-- `7_Log/S001_log.md`: generator가 생성하는 세션 로그의 예시 파일로 유지.
+- 이 프로젝트는 연구 데이터가 없는 메타 프로젝트임. `6_Exp/` 폴더는 generator 출력 예시 용도로만 사용.
+- `2_Log/S001_log.md`: generator가 생성하는 세션 로그의 예시 파일로 유지.
 
 ---
 
@@ -62,17 +62,13 @@ AI 에이전트는 EliRule.md와 함께 이 문서를 읽어 프로젝트 컨텍
 
 ## 6. 폴더 사용 계획
 
-| 폴더 | 사용 여부 | 비고 |
-|------|-----------|------|
-| `0_Meta/` | ✅ | 핵심. generator, 규칙 문서 |
-| `1_Concept/` | ❌ 미사용 | |
-| `2_HW/` | ❌ 미사용 | |
-| `3_Fab/` | ❌ 미사용 | |
-| `4_SW/` | ❌ 미사용 | |
-| `5_Exp/` | ✅ (예시용) | 실험 데이터/스크립트/시각화 |
-| `6_Paper/` | ❌ 미사용 | |
-| `7_Log/` | ✅ | 세션 로그 (S001_log.md 예시 파일) |
-| `templates/` | ✅ | sessionTemplate, trialTemplate, ProjectRule |
+| 구분 | 폴더 | 사용 여부 | 비고 |
+|------|------|-----------|------|
+| Core | `0_Meta/` | ✅ | 핵심. generator, 규칙 문서 |
+| Core | `1_Concept/` | ✅ | Planning 문서 |
+| Core | `2_Log/` | ✅ | 세션 로그 (S001_log.md 예시 파일) |
+| — | `templates/` | ✅ | meta, log, root, scripts 템플릿 |
+| Module | 3~7 | 미포함 | 프레임워크 repo이므로 Module 폴더 불포함. Generator가 생성 |
 
 ---
 
