@@ -1,6 +1,6 @@
 ﻿#Requires -Version 5.1
 # ============================================
-#   ELF v2.2 Project Structure Generator
+#   ELF v2.3 Project Structure Generator
 #   (Core + Modules)
 #
 #   Usage (Windows PowerShell 5.1):
@@ -30,7 +30,7 @@ function Write-FileUTF8 {
 
 Write-Host ''
 Write-Host '============================================'
-Write-Host '  ELF v2.2 Project Structure Generator'
+Write-Host '  ELF v2.3 Project Structure Generator'
 Write-Host '  (Core + Modules)'
 Write-Host '============================================'
 Write-Host ''
@@ -46,7 +46,8 @@ while ($true) {
     }
     if (Test-Path $projectName) {
         Write-Host "[Error] '$projectName' already exists. Enter a different name."
-    } else {
+    }
+    else {
         break
     }
 }
@@ -87,11 +88,13 @@ $langChoice = Read-Host 'Enter number or type custom language [default: 1]'
 
 if ([string]::IsNullOrWhiteSpace($langChoice)) {
     $projectLang = $langNames[1]
-} else {
+}
+else {
     $langNum = 0
     if ([int]::TryParse($langChoice.Trim(), [ref]$langNum) -and $langNum -ge 1 -and $langNum -le 19) {
         $projectLang = $langNames[$langNum]
-    } else {
+    }
+    else {
         $projectLang = $langChoice.Trim()
     }
 }
@@ -180,15 +183,15 @@ switch ($presetChoice.Trim()) {
         $presetName = 'Custom'
         Write-Host ''
         Write-Host '  Select modules to include:'
-        $incHW    = Read-Host '   3_HW  (Hardware)?      [y/N]'
-        $incFab   = Read-Host '   4_Fab (Fabrication)?   [y/N]'
-        $incSW    = Read-Host '   5_SW  (Software)?      [y/N]'
-        $incExp   = Read-Host '   6_Exp (Experiments)?   [y/N]'
+        $incHW = Read-Host '   3_HW  (Hardware)?      [y/N]'
+        $incFab = Read-Host '   4_Fab (Fabrication)?   [y/N]'
+        $incSW = Read-Host '   5_SW  (Software)?      [y/N]'
+        $incExp = Read-Host '   6_Exp (Experiments)?   [y/N]'
         $incPaper = Read-Host '   7_Paper (Papers)?      [y/N]'
-        if ($incHW    -match '^[Yy]$') { $moduleDirs += $hwDirs }
-        if ($incFab   -match '^[Yy]$') { $moduleDirs += $fabDirs }
-        if ($incSW    -match '^[Yy]$') { $moduleDirs += $swDirs }
-        if ($incExp   -match '^[Yy]$') { $moduleDirs += $expDirs }
+        if ($incHW -match '^[Yy]$') { $moduleDirs += $hwDirs }
+        if ($incFab -match '^[Yy]$') { $moduleDirs += $fabDirs }
+        if ($incSW -match '^[Yy]$') { $moduleDirs += $swDirs }
+        if ($incExp -match '^[Yy]$') { $moduleDirs += $expDirs }
         if ($incPaper -match '^[Yy]$') { $moduleDirs += $paperDirs }
     }
     default {
@@ -218,7 +221,8 @@ Write-Host '[3/7] Directory structure created.'
 foreach ($d in $dirs) {
     if ($d -eq '6_Exp/62_Empirical/Raw') {
         Write-FileUTF8 "$d/.gitignore" "*`n!.gitignore`n"
-    } else {
+    }
+    else {
         New-Item -ItemType File -Force -Path "$d/.gitkeep" | Out-Null
     }
 }
@@ -291,15 +295,18 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
         try {
             git init
             git add .
-            git commit -m 'chore: Initialize ELF v2.2 project structure'
+            git commit -m 'chore: Initialize ELF v2.3 project structure'
             Write-Host '[6/7] Git initialized.'
-        } catch {
+        }
+        catch {
             Write-Host "[6/7] Git init failed: $_"
         }
-    } else {
+    }
+    else {
         Write-Host '[6/7] Git initialization skipped.'
     }
-} else {
+}
+else {
     Write-Host '[6/7] Git not found — skipping Git initialization.'
 }
 
@@ -307,7 +314,7 @@ Set-Location ..
 
 Write-Host ''
 Write-Host '============================================'
-Write-Host "  [$projectName] ELF v2.2 project created!"
+Write-Host "  [$projectName] ELF v2.3 project created!"
 Write-Host "  Language: $projectLang"
 Write-Host "  Modules:  $presetName"
 Write-Host '============================================'

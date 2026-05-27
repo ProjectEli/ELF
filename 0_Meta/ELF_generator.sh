@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================
-#   ELF v2.2 Project Structure Generator
+#   ELF v2.3 Project Structure Generator
 #   (Core + Modules)
 #
 #   Usage:
@@ -19,7 +19,7 @@ fi
 
 echo ''
 echo '============================================'
-echo '  ELF v2.2 Project Structure Generator'
+echo '  ELF v2.3 Project Structure Generator'
 echo '  (Core + Modules)'
 echo '============================================'
 echo ''
@@ -263,7 +263,7 @@ if command -v git &>/dev/null; then
     if [[ -z "$GIT_CHOICE" || "$GIT_CHOICE" =~ ^[Yy]$ ]]; then
         git init
         git add .
-        git commit -m 'chore: Initialize ELF v2.2 project structure'
+        git commit -m 'chore: Initialize ELF v2.3 project structure'
         echo '[6/7] Git initialized.'
     else
         echo '[6/7] Git initialization skipped.'
@@ -276,7 +276,7 @@ cd ..
 
 echo ''
 echo '============================================'
-echo "  [$PROJECT_NAME] ELF v2.2 project created!"
+echo "  [$PROJECT_NAME] ELF v2.3 project created!"
 echo "  Language: $PROJECT_LANG"
 echo "  Modules:  $PRESET_NAME"
 echo '============================================'
