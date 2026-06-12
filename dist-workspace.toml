@@ -1,0 +1,22 @@
+# dist (cargo-dist) 워크스페이스 선언 — Cargo 프로젝트가 repo 루트가 아니라 elf-cli/cli/ 에 있음.
+# [dist] 섹션은 `dist init`이 채움. main 동기화 대상 (P011 t06 repo 모델).
+[workspace]
+members = ["cargo:elf-cli/cli"]
+
+# Config for 'dist'
+[dist]
+# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.32.0"
+# CI backends to support
+ci = "github"
+# The installers to generate for each app
+installers = ["shell", "powershell"]
+# Target platforms to build apps for (Rust target-triple syntax)
+# linux는 musl 정적만 (P011 §0 — glibc 의존 제거)
+targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-musl", "aarch64-pc-windows-msvc", "x86_64-apple-darwin", "x86_64-unknown-linux-musl", "x86_64-pc-windows-msvc"]
+# Path that installers should place binaries in (claude식 자체 디렉토리 — P011 §0.1)
+install-path = "~/.elf/bin"
+# Where to host releases
+hosting = "github"
+# Whether to install an updater program
+install-updater = false

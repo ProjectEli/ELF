@@ -29,12 +29,13 @@ Project_Root/
 │
 ├── 1_Concept/                       # 연구 기획, 문헌, 아이디어
 │   ├── 11_Literature/               # 논문 PDF, 서지 정보, 기반 공식
-│   └── 12_Planning/                 # 연구 기획, 아이디어, 로드맵
-│       └── 1_Wiki/                  # 기획 단계 결론 및 핵심 규칙 요약
+│   ├── 12_Planning/                 # 연구 기획, 로드맵 (다중 세션)
+│   │   └── Wiki/                    # 기획 단계 결론 및 핵심 규칙 요약
+│   └── 13_Ideas/                    # 작은 snippet / 초기 naive 아이디어 (flat)
 │
 ├── 2_Log/                           # 세션 로그 (S###_log.md)
-│   ├── 1_Wiki/                      # 핵심 발견 요약 및 세션 레지스트리
-│   └── 9_Archive/                   # 완료된 세션 로그
+│   ├── Wiki/                      # 핵심 발견 요약 및 세션 레지스트리
+│   └── Archive/                   # 완료된 세션 로그
 │
 │  ─── Modules (Optional) ────────────────
 │
@@ -57,14 +58,14 @@ Project_Root/
 ├── 6_Exp/                           # 실험: 시뮬레이션 + 실측 + 분석
 │   ├── 61_Sim/                      # 시뮬레이션
 │   │   ├── Scripts/                 # 시뮬레이션 코드 (S###_sim.m)
-│   │   │   └── 9_Archive/          # 폐기 스크립트
+│   │   │   └── Archive/          # 폐기 스크립트
 │   │   └── Data/                    # 시뮬레이션 결과 (Data/S###/)
 │   ├── 62_Empirical/                # 실측 데이터
 │   │   ├── Raw/                     # 원본 센서 데이터 (Read-Only, Git 제외)
 │   │   └── Processed/               # 1차 가공 데이터
 │   ├── 63_Analysis/                 # 통합 분석
 │   │   └── Scripts/                 # 비교/검증 포스트프로세싱 코드
-│   │       └── 9_Archive/           # 폐기 스크립트
+│   │       └── Archive/           # 폐기 스크립트
 │   └── 64_Viz/                      # 시각화 추출물 (자동 생성 Figure)
 │
 ├── 7_Paper/                         # 논문 & 발표
@@ -73,7 +74,7 @@ Project_Root/
 │   │   ├── Processed/
 │   │   └── Final/
 │   ├── 72_Drafts/                   # 원고 (Word, LaTeX)
-│   │   └── 9_Archive/               # 이전 버전 보관
+│   │   └── Archive/               # 이전 버전 보관
 │   └── 73_Presentations/            # 발표 자료 (PPT, 포스터)
 ```
 
@@ -124,8 +125,8 @@ AI 에이전트(Claude, Gemini 등)가 프로젝트에 참여할 때 다음 규�
 1. **컨텍스트 파악**: 작업 시작 전 `0_Meta/AI_Sync.md`를 읽어 이전 작업 상태 확인.
 2. **동일 규격 준수**: `0_Meta/LogConvention.md`의 로깅 규칙을 사람과 동일하게 따름.
 3. **핸드오프 기록**: 작업 완료 시 `0_Meta/AI_Sync.md`에 수행 내역, 생성/수정 파일, Next Steps 기록. 최신 항목이 위에 오도록 역순 작성.
-4. **아이디어 분리**: AI가 생성한 가설/아이디어는 로그가 아닌 `1_Concept/12_Planning/`에 별도 저장.
-5. **PARA 기반 컨텍스트 관리**: `9_Archive/` 폴더와 `.claudeignore`를 활용하여 AI의 컨텍스트 오염을 방지. 상세 규칙은 `0_Meta/AI_PARA_Framework.md` 참조.
+4. **아이디어 분리**: AI가 생성한 가설/아이디어는 로그가 아닌 `1_Concept/`에 별도 저장 (작은 아이디어 → `13_Ideas/`, 계획 → `12_Planning/`).
+5. **PARA 기반 컨텍스트 관리**: `Archive/` 폴더와 `.claudeignore`를 활용하여 AI의 컨텍스트 오염을 방지. 상세 규칙은 `0_Meta/AI_PARA_Framework.md` 참조.
 6. **Communication Rules**: 객관적이고 드라이한 문체 유지. 비유/은유 금지. 결론 중심의 명확한 전달. 과장 및 감정적 수식어 금지. 상세 규칙은 `0_Meta/EliRule.md` 섹션 3 참조.
 7. **Data Reusability**: 모든 Plot/Graph 생성 시 원본 Data Array를 `.mat`/`.csv`로 함께 저장. 상세 규칙은 `0_Meta/EliRule.md` 섹션 2.6 참조.
 
@@ -135,14 +136,14 @@ AI 에이전트(Claude, Gemini 등)가 프로젝트에 참여할 때 다음 규�
 
 ```powershell
 cd C:\원하는\상위\디렉토리
-powershell -ExecutionPolicy Bypass -File "C:\path\to\ELF\0_Meta\ELF_generator.ps1"
+powershell -ExecutionPolicy Bypass -File "C:\path\to\ELF\elf-cli\ELF_generator.ps1"
 ```
 
 **Linux / macOS (Bash):**
 
 ```bash
 cd /원하는/상위/디렉토리
-bash /path/to/ELF/0_Meta/ELF_generator.sh
+bash /path/to/ELF/elf-cli/ELF_generator.sh
 ```
 
 프로젝트 이름을 입력하고, 언어를 선택하고, 모듈 preset을 선택합니다. Core 폴더(0~2)는 항상 생성되며, Module 폴더(3~7)는 preset 선택에 따라 포함됩니다. Git 초기화는 Git이 설치된 경우에만 선택적으로 수행됩니다.
@@ -229,13 +230,13 @@ bash /path/to/ELF/0_Meta/ELF_generator.sh
 세션 종료 시 다음을 수행합니다:
 
 1. **Status 변경**: 로그 헤더의 `★ 활성`을 `Complete`로 변경.
-2. **Wiki 요약**: `2_Log/1_Wiki/`의 지식 문서에 1-2줄 요약 추가. 아카이브된 로그 경로 링크 포함.
-3. **Session Registry 업데이트**: `2_Log/1_Wiki/Session_Registry.tsv`에 행 추가:
+2. **Wiki 요약**: `2_Log/Wiki/`의 지식 문서에 1-2줄 요약 추가. 아카이브된 로그 경로 링크 포함.
+3. **Session Registry 업데이트**: `2_Log/Wiki/Session_Registry.tsv`에 행 추가:
    ```
-   S002	2026-04-01	파장 최적화	Complete	810 nm 최적	9_Archive/S002_WavelengthOpt.md
+   S002	2026-04-01	파장 최적화	Complete	810 nm 최적	Archive/S002_WavelengthOpt.md
    ```
-4. **로그 아카이빙**: 로그 파일을 `2_Log/9_Archive/`로 이동.
-5. **스크립트 아카이빙** (1회용인 경우): `Scripts/9_Archive/`로 이동.
+4. **로그 아카이빙**: 로그 파일을 `2_Log/Archive/`로 이동.
+5. **스크립트 아카이빙** (1회용인 경우): `Scripts/Archive/`로 이동.
 
 ### 5. AI 에이전트 핸드오프 (선택)
 

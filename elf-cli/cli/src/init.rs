@@ -1,0 +1,159 @@
+//! `elf init` — 프로젝트 스캐폴드 실행 (t03).
+//! 순수 planner(plan_dirs/plan_init)를 소비해 FS에 반영하는 executor.
+//!
+//! 불변식 (S007 t02 재점검 §1): **managed/hybrid는 placeholder 치환 금지** — embed 정본
+//! 바이트 그대로 배치해야 stamp 해시 비교(update 편집감지)가 성립한다. 치환은 seed에만 허용.
+
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
+
+use crate::embed;
+use crate::manifest::{self, Tier};
+use crate::plan::{self, KeepFile};
+
+pub struct InitOptions {
+    pub name: String,
+    /// preset 이름 (full/experimental/software/minimal). modules 지정 시 무시.
+    pub preset: String,
+    /// custom 모듈 선택 (Some이면 preset 대신 사용)
+    pub modules: Option<Vec<String>>,
+    pub lang: String,
+    /// YYYY-MM-DD — 주입형(테스트 결정성; 프로덕션은 main이 오늘 날짜 주입)
+    pub date: String,
+}
+
+#[derive(Debug)]
+pub enum InitError {
+    /// 대상 폴더가 이미 존재 — refuse (exit 3)
+    TargetExists(PathBuf),
+    /// 미지 preset/module 등 계획 오류
+    Plan(String),
+    Io(io::Error),
+}
+
+impl std::fmt::Display for InitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InitError::TargetExists(p) => write!(f, "refuse: {} already exists", p.display()),
+            InitError::Plan(s) => write!(f, "plan: {s}"),
+            InitError::Io(e) => write!(f, "io: {e}"),
+        }
+    }
+}
+
+impl From<io::Error> for InitError {
+    fn from(e: io::Error) -> Self {
+        InitError::Io(e)
+    }
+}
+
+/// `parent/<name>` 에 ELF 프로젝트를 생성하고 생성된 경로를 반환.
+pub fn run_init(parent: &Path, opts: &InitOptions) -> Result<PathBuf, InitError> {
+    let target = parent.join(&opts.name);
+    if target.exists() {
+        return Err(InitError::TargetExists(target));
+    }
+
+    let m = manifest::embedded();
+
+    // 1. 폴더 scaffold (+ .gitkeep / raw .gitignore) — 데이터 출처 = manifest.dirs
+    let dir_plan = match &opts.modules {
+        Some(keys) => {
+            let refs: Vec<&str> = keys.iter().map(String::as_str).collect();
+            plan::plan_dirs_from_modules(&m, &refs)
+        }
+        None => plan::plan_dirs(&m, &opts.preset),
+    }
+    .map_err(InitError::Plan)?;
+
+    for d in &dir_plan {
+        let p = target.join(&d.path);
+        fs::create_dir_all(&p)?;
+        match d.keep {
+            KeepFile::GitKeep => fs::write(p.join(".gitkeep"), b"")?,
+            KeepFile::RawGitignore => fs::write(p.join(".gitignore"), b"*\n!.gitignore\n")?,
+        }
+    }
+
+    // 2. 빈 루트 파일 (generator parity)
+    fs::write(target.join(".gitattributes"), b"")?;
+    fs::write(target.join("LICENSE"), b"")?;
+
+    // 3. manifest 파일 배치 — managed/hybrid = 정본 그대로, seed = placeholder 치환
+    for a in plan::plan_init(&m) {
+        let rel = a
+            .src
+            .strip_prefix("templates/")
+            .expect("manifest src must be under templates/");
+        let file = embed::TEMPLATES
+            .get_file(rel)
+            .expect("manifest src missing in embed (gated by tests)");
+        let dest = target.join(&a.dest);
+        if let Some(dir) = dest.parent() {
+            fs::create_dir_all(dir)?;
+        }
+        match a.tier {
+            Tier::Managed | Tier::Hybrid => fs::write(&dest, file.contents())?,
+            Tier::Seed => {
+                let text = file.contents_utf8().expect("seed templates must be UTF-8");
+                fs::write(&dest, substitute_seed(&a.dest, text, opts))?;
+            }
+        }
+    }
+
+    // 4. 파생 instance: 2_Log/S001_log.md (sessionTemplate 기반 — init 1회 생성, update 미접근)
+    let session_tpl = embed::TEMPLATES
+        .get_file("log/sessionTemplate.md")
+        .expect("sessionTemplate must be embedded")
+        .contents_utf8()
+        .expect("sessionTemplate must be UTF-8");
+    let s001 = session_tpl
+        .replace("S{NNN}", "S001")
+        .replace("YYYY-MM-DD", &opts.date);
+    fs::write(target.join("2_Log/S001_log.md"), s001)?;
+
+    // 5. .elf/ control plane: config + version stamp + manifest stamp(배포 시점 사본)
+    let elf_dir = target.join(".elf");
+    fs::create_dir_all(&elf_dir)?;
+    let config = serde_json::json!({
+        "name": opts.name,
+        "lang": opts.lang,
+        "created": opts.date,
+    });
+    let mut config_text = serde_json::to_string_pretty(&config).expect("config serializes");
+    config_text.push('\n');
+    fs::write(elf_dir.join("config.json"), config_text)?;
+    fs::write(elf_dir.join("version"), format!("{}\n", embed::version()))?;
+    fs::write(elf_dir.join("manifest.json"), embed::MANIFEST_JSON)?;
+
+    // hybrid 배포본 baseline (블록 내 편집 감지의 비교 기준 — t04 update가 사용)
+    for e in &m.files {
+        if e.tier == Tier::Hybrid {
+            let rel = e.src.strip_prefix("templates/").expect("src under templates/");
+            let file = embed::TEMPLATES.get_file(rel).expect("hybrid src embedded");
+            let baseline = elf_dir.join("baseline").join(&e.dest);
+            if let Some(dir) = baseline.parent() {
+                fs::create_dir_all(dir)?;
+            }
+            fs::write(baseline, file.contents())?;
+        }
+    }
+
+    Ok(target)
+}
+
+/// seed 전용 placeholder 치환 (dest 기준 — 토큰이 파일별 역사적 상이).
+/// 토큰 통일·데이터화는 manifest schema 확장 시 재검토 (S007 §5).
+fn substitute_seed(dest: &str, text: &str, o: &InitOptions) -> String {
+    match dest {
+        "0_Meta/ProjectRule.md" => text
+            .replace("[프로젝트명]", &o.name)
+            .replace("YYYY-MM-DD", &o.date),
+        "README.md" => text
+            .replace("PLACEHOLDER_PROJECT_NAME", &o.name)
+            .replace("PLACEHOLDER_DATE", &o.date),
+        "2_Log/Wiki/Session_Registry.tsv" => text.replace("YYYY-MM-DD", &o.date),
+        _ => text.to_string(), // AI_Sync.md 등: 치환 없음
+    }
+}

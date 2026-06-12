@@ -1,2 +1,9 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# ELF CLI embed 소스: working tree도 LF 고정 (CRLF가 바이너리에 embed되는 것 방지 — S007 t01)
+elf-cli/templates/** text eol=lf
+elf-cli/manifest.json text eol=lf
+elf-cli/VERSION text eol=lf
+# 셸 스크립트: Git_Hook_Governance §2 (LF 필수)
+*.sh text eol=lf

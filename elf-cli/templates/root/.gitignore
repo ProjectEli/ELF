@@ -1,11 +1,12 @@
+# >>> ELF managed >>>
+# 이 블록은 `elf update`가 관리합니다 — 직접 수정하지 마세요.
+# 사용자 규칙은 블록 아래(사용자 영역)에 추가하세요.
+
 # === Claude Code & AI Toolkit ===
 .claude/
 .ecc/
 CLAUDE.md
 .claudeignore
-
-# === Rust/dist build output (elf-cli — repo 루트는 dist 워크스페이스) ===
-/target/
 
 # === MATLAB Autosave files (자동 저장 파일) ===
 *.asv
@@ -42,9 +43,10 @@ sfprj/
 *.hwpx.bak
 
 # === Raw Data (원본 센서 데이터 — 절대 Git 추적 제외) ===
-5_Exp/52_Empirical/Raw/
+6_Exp/62_Empirical/Raw/
+# <<< ELF managed <<<
 
-# === (선택) 용량이 큰 데이터 파일 제외 ===
-# 필요 시 아래 주석을 해제하여 대용량 파일 제외
+# === 사용자 영역 (ELF가 건드리지 않습니다) ===
+# (선택) 용량이 큰 데이터 파일 제외 — 필요 시 아래 주석 해제
 # *.mat
 # *.fig

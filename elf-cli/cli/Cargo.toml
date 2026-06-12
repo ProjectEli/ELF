@@ -1,0 +1,33 @@
+[package]
+name = "elf-cli"
+# semver 매핑: elf-cli/VERSION "v2.4-dev" ↔ "2.4.0-dev" (표시 버전 SSOT = VERSION, S007 t01 A2)
+version = "2.4.0-dev"
+edition = "2024"
+description = "ELF (Eli's Lab Framework) scaffold & update CLI"
+repository = "https://github.com/ProjectEli/ELF"
+
+[[bin]]
+name = "elf"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+include_dir = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+tempfile = "3"
+
+[profile.release]
+strip = true
+lto = true
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
