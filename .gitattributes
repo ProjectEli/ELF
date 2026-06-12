@@ -1,5 +1,6 @@
 # Auto detect text files and perform LF normalization
-* text=auto
+# eol=lf: working copy도 LF 고정 (autocrlf=true의 CRLF checkout 차단 — repo 전체 LF 정책)
+* text=auto eol=lf
 
 # ELF CLI embed 소스: working tree도 LF 고정 (CRLF가 바이너리에 embed되는 것 방지 — S007 t01)
 elf-cli/templates/** text eol=lf

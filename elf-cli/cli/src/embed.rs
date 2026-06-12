@@ -29,6 +29,33 @@ mod tests {
         assert_eq!(v, v.trim());
     }
 
+    /// VERSION(ELF 표기) ↔ Cargo.toml(semver) 정합 — Versioning_Policy 매핑 게이트.
+    /// vX.Y → X.Y.0 / vX.Y.Z → X.Y.Z / -suffix 보존 (예: v2.4-dev → 2.4.0-dev).
+    /// 릴리즈 Step 1(-dev drop) 누락을 로컬·CI cargo test에서 즉시 적발 (S008 사고 환류).
+    #[test]
+    fn version_maps_to_cargo_semver() {
+        let v = version().strip_prefix('v').expect("v prefix");
+        let (core, suffix) = match v.split_once('-') {
+            Some((c, s)) => (c, Some(s)),
+            None => (v, None),
+        };
+        let mut mapped = match core.matches('.').count() {
+            1 => format!("{core}.0"),
+            2 => core.to_string(),
+            n => panic!("unexpected version core: {core} ({n} dots)"),
+        };
+        if let Some(s) = suffix {
+            mapped.push('-');
+            mapped.push_str(s);
+        }
+        assert_eq!(
+            mapped,
+            env!("CARGO_PKG_VERSION"),
+            "elf-cli/VERSION({}) ↔ Cargo.toml 버전 불일치 — 릴리즈 Step 1 누락 또는 매핑 위반",
+            version()
+        );
+    }
+
     #[test]
     fn templates_contain_core_files() {
         for path in [

@@ -1,0 +1,3 @@
+# Ignore archive folders from Claude Code context
+**/Archive/
+**/*Archive*/

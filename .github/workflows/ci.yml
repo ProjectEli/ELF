@@ -1,0 +1,15 @@
+# ELF CI: clean checkout에서 cargo test — embed 게이트(manifest↔templates 양방향 검증)를
+# 로컬이 아닌 CI 트리에서 강제. (v2.4.0 사고 재발 방지: 템플릿이 git 미추적이면 여기서 실패)
+name: CI
+permissions: {}
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test --manifest-path elf-cli/cli/Cargo.toml --locked
