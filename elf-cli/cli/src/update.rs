@@ -28,6 +28,8 @@ pub struct UpdateOptions {
 pub enum UpdateError {
     NotElfProject(PathBuf),
     BadStamp(String),
+    /// 내장 데이터 불일치 등 — 손상된 설치 의심 (panic 대신 안내, t09 정책)
+    Internal(String),
     Io(io::Error),
 }
 
@@ -40,6 +42,10 @@ impl std::fmt::Display for UpdateError {
                 p.display()
             ),
             UpdateError::BadStamp(s) => write!(f, "stamp(.elf/manifest.json): {s}"),
+            UpdateError::Internal(s) => write!(
+                f,
+                "internal: {s} — corrupted install? run `elf self-update` or reinstall"
+            ),
             UpdateError::Io(e) => write!(f, "io: {e}"),
         }
     }
@@ -141,7 +147,7 @@ fn apply(
         }
         UpdateAction::Overwrite { dest } | UpdateAction::CreateMissing { dest } => {
             if !opts.dry_run {
-                let bytes = template_bytes(new_m, dest);
+                let bytes = template_bytes(new_m, dest)?;
                 write_file(root, dest, bytes)?;
                 if entry_is_hybrid(new_m, dest) {
                     write_baseline(root, dest, bytes)?;
@@ -158,7 +164,7 @@ fn apply(
         UpdateAction::Conflict { dest } => {
             if opts.force {
                 if !opts.dry_run {
-                    write_file(root, dest, template_bytes(new_m, dest))?;
+                    write_file(root, dest, template_bytes(new_m, dest)?)?;
                 }
                 report.changed += 1;
                 report.note(format!("force-updated (user edits discarded): {dest}"));
@@ -168,7 +174,7 @@ fn apply(
                     write_file(
                         root,
                         &format!("{dest}.elf-new"),
-                        template_bytes(new_m, dest),
+                        template_bytes(new_m, dest)?,
                     )?;
                 }
                 report.warn(format!(
@@ -190,9 +196,10 @@ fn merge_hybrid(
     new_m: &Manifest,
     report: &mut UpdateReport,
 ) -> Result<(), UpdateError> {
-    let template = std::str::from_utf8(template_bytes(new_m, dest))
-        .expect("hybrid templates must be UTF-8");
-    let new_block = block_of(template).expect("hybrid template must contain marker block");
+    let template = std::str::from_utf8(template_bytes(new_m, dest)?)
+        .map_err(|_| UpdateError::Internal(format!("hybrid template not UTF-8: {dest}")))?;
+    let new_block = block_of(template)
+        .ok_or_else(|| UpdateError::Internal(format!("hybrid template missing marker block: {dest}")))?;
 
     let current_path = root.join(dest);
     let current_bytes = fs::read(&current_path)?;
@@ -290,17 +297,20 @@ fn entry_is_hybrid(m: &Manifest, dest: &str) -> bool {
         .any(|e| e.dest == dest && e.tier == manifest::Tier::Hybrid)
 }
 
-fn template_bytes<'a>(m: &'a Manifest, dest: &str) -> &'a [u8] {
+fn template_bytes<'a>(m: &'a Manifest, dest: &str) -> Result<&'a [u8], UpdateError> {
     let e = m
         .files
         .iter()
         .find(|e| e.dest == dest)
-        .expect("action dest must exist in manifest");
-    let rel = e.src.strip_prefix("templates/").expect("src under templates/");
-    embed::TEMPLATES
+        .ok_or_else(|| UpdateError::Internal(format!("not in manifest: {dest}")))?;
+    let rel = e
+        .src
+        .strip_prefix("templates/")
+        .ok_or_else(|| UpdateError::Internal(format!("invalid template path: {}", e.src)))?;
+    Ok(embed::TEMPLATES
         .get_file(rel)
-        .expect("src embedded (gated by tests)")
-        .contents()
+        .ok_or_else(|| UpdateError::Internal(format!("embedded template missing: {}", e.src)))?
+        .contents())
 }
 
 fn write_file(root: &Path, dest: &str, bytes: &[u8]) -> io::Result<()> {

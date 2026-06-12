@@ -29,6 +29,8 @@ pub enum InitError {
     TargetExists(PathBuf),
     /// 미지 preset/module 등 계획 오류
     Plan(String),
+    /// 내장 데이터 불일치 등 — 손상된 설치 의심 (panic 대신 안내, t09 정책)
+    Internal(String),
     Io(io::Error),
 }
 
@@ -37,6 +39,10 @@ impl std::fmt::Display for InitError {
         match self {
             InitError::TargetExists(p) => write!(f, "refuse: {} already exists", p.display()),
             InitError::Plan(s) => write!(f, "plan: {s}"),
+            InitError::Internal(s) => write!(
+                f,
+                "internal: {s} — corrupted install? run `elf self-update` or reinstall"
+            ),
             InitError::Io(e) => write!(f, "io: {e}"),
         }
     }
@@ -85,10 +91,10 @@ pub fn run_init(parent: &Path, opts: &InitOptions) -> Result<PathBuf, InitError>
         let rel = a
             .src
             .strip_prefix("templates/")
-            .expect("manifest src must be under templates/");
+            .ok_or_else(|| InitError::Internal(format!("invalid template path: {}", a.src)))?;
         let file = embed::TEMPLATES
             .get_file(rel)
-            .expect("manifest src missing in embed (gated by tests)");
+            .ok_or_else(|| InitError::Internal(format!("embedded template missing: {}", a.src)))?;
         let dest = target.join(&a.dest);
         if let Some(dir) = dest.parent() {
             fs::create_dir_all(dir)?;
@@ -105,9 +111,8 @@ pub fn run_init(parent: &Path, opts: &InitOptions) -> Result<PathBuf, InitError>
     // 4. 파생 instance: 2_Log/S001_log.md (sessionTemplate 기반 — init 1회 생성, update 미접근)
     let session_tpl = embed::TEMPLATES
         .get_file("log/sessionTemplate.md")
-        .expect("sessionTemplate must be embedded")
-        .contents_utf8()
-        .expect("sessionTemplate must be UTF-8");
+        .and_then(|f| f.contents_utf8())
+        .ok_or_else(|| InitError::Internal("embedded template missing: sessionTemplate.md".into()))?;
     let s001 = session_tpl
         .replace("S{NNN}", "S001")
         .replace("YYYY-MM-DD", &opts.date);
@@ -130,8 +135,13 @@ pub fn run_init(parent: &Path, opts: &InitOptions) -> Result<PathBuf, InitError>
     // hybrid 배포본 baseline (블록 내 편집 감지의 비교 기준 — t04 update가 사용)
     for e in &m.files {
         if e.tier == Tier::Hybrid {
-            let rel = e.src.strip_prefix("templates/").expect("src under templates/");
-            let file = embed::TEMPLATES.get_file(rel).expect("hybrid src embedded");
+            let rel = e
+                .src
+                .strip_prefix("templates/")
+                .ok_or_else(|| InitError::Internal(format!("invalid template path: {}", e.src)))?;
+            let file = embed::TEMPLATES
+                .get_file(rel)
+                .ok_or_else(|| InitError::Internal(format!("embedded template missing: {}", e.src)))?;
             let baseline = elf_dir.join("baseline").join(&e.dest);
             if let Some(dir) = baseline.parent() {
                 fs::create_dir_all(dir)?;

@@ -56,3 +56,52 @@ fn unknown_flag_is_usage_error() {
         .failure()
         .code(2);
 }
+
+/// help 출력에 내부 dev 표기(trial/세션/플랜 번호·_dev 등) 누출 금지 — v2.4.1 누출 회귀 게이트 (P011 t09)
+#[test]
+fn help_outputs_contain_no_internal_dev_markers() {
+    let marker = regex_lite_match;
+    for args in [
+        vec!["--help"],
+        vec!["init", "--help"],
+        vec!["update", "--help"],
+        vec!["status", "--help"],
+        vec!["self-update", "--help"],
+    ] {
+        let out = Command::cargo_bin("elf").unwrap().args(&args).output().unwrap();
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(
+            !marker(&text),
+            "internal dev marker leaked in help of {args:?}:\n{text}"
+        );
+    }
+}
+
+/// 내부 표기 패턴: t## / S### / P### / _dev / "gated" (정규식 crate 없이 수동 검사)
+fn regex_lite_match(text: &str) -> bool {
+    if text.contains("_dev") || text.contains("gated") {
+        return true;
+    }
+    let bytes = text.as_bytes();
+    for (i, w) in bytes.windows(3).enumerate() {
+        let prev_alnum = i > 0 && bytes[i - 1].is_ascii_alphanumeric();
+        // t## (예: t06)
+        if w[0] == b't' && w[1].is_ascii_digit() && w[2].is_ascii_digit() && !prev_alnum {
+            return true;
+        }
+        // S###/P### (예: S007, P011)
+        if (w[0] == b'S' || w[0] == b'P')
+            && w[1].is_ascii_digit()
+            && w[2].is_ascii_digit()
+            && !prev_alnum
+            && bytes.get(i + 3).is_some_and(|b| b.is_ascii_digit())
+        {
+            return true;
+        }
+    }
+    false
+}

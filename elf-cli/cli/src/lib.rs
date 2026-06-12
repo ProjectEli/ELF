@@ -6,5 +6,6 @@ pub mod hash;
 pub mod init;
 pub mod manifest;
 pub mod plan;
+pub mod selfupdate;
 pub mod status;
 pub mod update;

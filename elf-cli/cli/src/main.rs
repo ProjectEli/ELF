@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use clap::{Parser, Subcommand};
-use elf_cli::{embed, init, status, update};
+use elf_cli::{embed, init, selfupdate, status, update};
 
 /// ELF (Eli's Lab Framework) scaffold & update CLI
 #[derive(Parser)]
@@ -28,7 +28,7 @@ enum Commands {
         lang: String,
     },
     /// 프로젝트의 ELF managed/hybrid 파일을 현 CLI 버전으로 갱신
-    /// (주의: CLI 자체 갱신은 self-update — t06)
+    /// (CLI 자체 갱신은 `elf self-update` 또는 `elf update --self`)
     Update {
         /// 변경 없이 수행될 작업 목록만 출력
         #[arg(long)]
@@ -36,14 +36,20 @@ enum Commands {
         /// 사용자 편집 보호를 무시하고 강제 갱신 (managed 덮어쓰기·hybrid 블록 교체·마커 재삽입)
         #[arg(long)]
         force: bool,
+        /// 프로젝트가 아니라 elf 바이너리 자체를 갱신 (= self-update의 alias)
+        #[arg(long = "self", conflicts_with_all = ["dry_run", "force"])]
+        update_self: bool,
     },
+    /// elf 바이너리 자체를 최신 릴리즈로 갱신 (프로젝트 파일 갱신은 `elf update`)
+    #[command(name = "self-update", alias = "selfupdate")]
+    SelfUpdate,
+    // (주의: doc comment(`///`)는 help로 노출됨 — 내부 표기 금지, 회귀 테스트가 게이트. P011 t09)
     /// 프로젝트 ELF 파일 상태 진단 (drift/편집/누락 — 읽기전용)
     Status {
         /// 발견(outdated/missing/edited) 시 exit 4 — pre-commit/CI 게이트용
         #[arg(long)]
         check: bool,
     },
-    // self-update: t06에서 추가
 }
 
 // exit code 규약 (clap 표준 수용, 2026-06-12): 0=성공, 1=실행 오류, 2=usage(clap 기본), 3=refuse.
@@ -88,7 +94,9 @@ fn main() {
                 }
             }
         }
-        Commands::Update { dry_run, force } => {
+        Commands::SelfUpdate => do_self_update(),
+        Commands::Update { update_self: true, .. } => do_self_update(),
+        Commands::Update { dry_run, force, update_self: false } => {
             let cwd = std::env::current_dir().expect("cwd");
             let Some(root) = update::find_project_root(&cwd) else {
                 eprintln!("[elf] error: not an ELF project (no .elf/manifest.json upward from {})", cwd.display());
@@ -138,6 +146,16 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+        }
+    }
+}
+
+fn do_self_update() {
+    match selfupdate::run_self_update() {
+        Ok(msg) => println!("[elf] {msg}"),
+        Err(e) => {
+            eprintln!("[elf] {e}");
+            std::process::exit(1);
         }
     }
 }

@@ -25,6 +25,11 @@ impl StatusReport {
     pub fn findings(&self) -> usize {
         self.pending + self.conflicts
     }
+
+    fn warn(&mut self, line: String) {
+        self.warnings += 1;
+        self.lines.push(format!("warn: {line}"));
+    }
 }
 
 pub fn run_status(root: &Path) -> Result<StatusReport, UpdateError> {
@@ -93,14 +98,24 @@ fn classify(root: &Path, action: &UpdateAction, new_m: &Manifest, report: &mut S
 
 /// hybrid는 블록 단위로 세분: 블록==새 정본→ok / ==baseline→outdated / 그 외→edited / 마커 부재→edited
 fn classify_hybrid(root: &Path, dest: &str, new_m: &Manifest, report: &mut StatusReport) {
-    let entry = new_m.files.iter().find(|e| e.dest == *dest).expect("dest in manifest");
-    let rel = entry.src.strip_prefix("templates/").expect("src under templates/");
-    let template = embed::TEMPLATES
-        .get_file(rel)
-        .expect("src embedded")
-        .contents_utf8()
-        .expect("hybrid template UTF-8");
-    let new_block = update::block_of(template).expect("hybrid template has marker block");
+    // 내장 데이터 불일치 = 손상 의심 — 진단 도구이므로 panic 대신 경고 후 계속 (t09 정책)
+    let template = new_m
+        .files
+        .iter()
+        .find(|e| e.dest == *dest)
+        .and_then(|e| e.src.strip_prefix("templates/"))
+        .and_then(|rel| embed::TEMPLATES.get_file(rel))
+        .and_then(|f| f.contents_utf8());
+    let Some(template) = template else {
+        report.warn(format!(
+            "internal: embedded template unavailable for {dest} — reinstall (`elf self-update`)"
+        ));
+        return;
+    };
+    let Some(new_block) = update::block_of(template) else {
+        report.warn(format!("internal: hybrid template missing marker block: {dest}"));
+        return;
+    };
 
     let Ok(current) = fs::read_to_string(root.join(dest)) else {
         report.conflicts += 1;
