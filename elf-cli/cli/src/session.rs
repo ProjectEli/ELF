@@ -436,6 +436,51 @@ fn registry_mark_closed(reg_text: &str, target: &str) -> String {
     out
 }
 
+/// 로그가 `2_Log/` → `2_Log/Archive/`로 **한 단계 깊어질** 때, **`../`로 시작하는**(= 2_Log 밖
+/// 고정 대상을 가리키는) 상대 링크에만 `../`를 1개 prepend해 동일 대상을 유지. 변경 없으면 None.
+/// bare same-dir 링크(`](S###_log.md)` 형제 로그 — 함께 이동)·산문 속 `](...)` 오탐은 자동 회피.
+/// (prefix폐지 "단순 이동"이 누락한 상대링크 깊이 보정 — close 전용.)
+pub fn deepen_relative_links(content: &str) -> Option<String> {
+    let b = content.as_bytes();
+    let mut out = String::with_capacity(content.len() + 64);
+    let mut i = 0;
+    let mut last = 0;
+    let mut changed = false;
+    while i + 1 < b.len() {
+        if b[i] == b']'
+            && b[i + 1] == b'('
+            && let Some(close) = content[i + 2..].find(')')
+        {
+            let raw = &content[i + 2..i + 2 + close];
+            if let Some(adj) = deepen_link_target(raw) {
+                out.push_str(&content[last..i + 2]); // "...]("
+                out.push_str(&adj);
+                last = i + 2 + close; // ')' 위치
+                changed = true;
+            }
+            i = i + 2 + close + 1;
+            continue;
+        }
+        i += 1;
+    }
+    if changed {
+        out.push_str(&content[last..]);
+        Some(out)
+    } else {
+        None
+    }
+}
+
+/// `../`로 시작하는 상대 링크 대상에만 `../` prepend한 새 문자열, 아니면 None.
+fn deepen_link_target(raw: &str) -> Option<String> {
+    let token = raw.split_whitespace().next().unwrap_or("");
+    if token.starts_with("../") {
+        Some(format!("../{raw}"))
+    } else {
+        None
+    }
+}
+
 pub struct CloseOptions {
     pub id: Option<String>,
     pub force: bool,
@@ -502,6 +547,8 @@ pub fn run_session_close(root: &Path, opts: &CloseOptions) -> Result<CloseResult
     }
 
     let updated = mark_status_complete(&content).unwrap_or(content);
+    // 2_Log → 2_Log/Archive 한 단계 깊어짐 → 상대 cross-ref에 ../ 1개 보정
+    let updated = deepen_relative_links(&updated).unwrap_or(updated);
     if let Some(dir) = archive_path.parent() {
         fs::create_dir_all(dir)?;
     }
@@ -550,6 +597,25 @@ mod tests {
         assert!(!next_section_filled("## 다음 세션 후보\n\n### 가설 후보\n- [후속 가설 1-3항]\n"));
         assert!(next_section_filled("## 다음 세션 후보\n\n### 가설 후보\n- 실제 가설\n"));
         assert!(!next_section_filled("no section\n- 실제 가설\n")); // 섹션 밖 bullet 무시
+    }
+
+    #[test]
+    fn deepen_prepends_dotdot_to_updir_links_only() {
+        let input = "[P](../1_Concept/P.md) [img](../../x/y.png) [ext](https://e.com/z) [abs](/a.md) [a](#sec) [t](../q.md \"제목\") [sib](S011_log.md)";
+        let out = deepen_relative_links(input).unwrap();
+        assert!(out.contains("[P](../../1_Concept/P.md)"));
+        assert!(out.contains("[img](../../../x/y.png)"));
+        assert!(out.contains("[t](../../q.md \"제목\")")); // 제목 보존
+        assert!(out.contains("[ext](https://e.com/z)")); // URL 불변
+        assert!(out.contains("[abs](/a.md)")); // 절대 불변
+        assert!(out.contains("[a](#sec)")); // 앵커 불변
+        assert!(out.contains("[sib](S011_log.md)")); // bare 형제 링크 불변(함께 이동)
+    }
+
+    #[test]
+    fn deepen_noop_without_updir_links() {
+        // bare same-dir 링크·산문 속 `](...)`·URL·앵커는 보정 안 함
+        assert!(deepen_relative_links("`](` 없는 비링크 설명(AC) [sib](S005_log.md) [x](https://a.b)\n").is_none());
     }
 
     #[test]

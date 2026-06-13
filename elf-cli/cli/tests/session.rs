@@ -171,6 +171,23 @@ fn close_archives_and_updates_registry() {
 }
 
 #[test]
+fn close_deepens_relative_cross_refs() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path()); // S001 활성
+    fill_next_section(&root, "S001");
+    let p = root.join("2_Log/S001_log.md");
+    let mut c = fs::read_to_string(&p).unwrap();
+    c.push_str("\nsee [plan](../1_Concept/P.md) and [ext](https://e.com) and [img](../../elf-cli/x.md)\n");
+    fs::write(&p, c).unwrap();
+
+    run_session_close(&root, &CloseOptions { id: Some("S001".into()), force: false }).unwrap();
+    let arch = fs::read_to_string(root.join("2_Log/Archive/S001_log.md")).unwrap();
+    assert!(arch.contains("[plan](../../1_Concept/P.md)"), "../ 1개 보정: {arch}");
+    assert!(arch.contains("[img](../../../elf-cli/x.md)"));
+    assert!(arch.contains("[ext](https://e.com)")); // URL 불변
+}
+
+#[test]
 fn close_default_picks_single_open() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
