@@ -245,7 +245,6 @@ Copy-Item -Path "$templateRoot\.gitignore" -Destination '.gitignore' -Force
 $templateMeta = Join-Path $templatesDir 'meta'
 Copy-Item -Path "$templateMeta\LogConvention.md" -Destination '0_Meta\LogConvention.md' -Force
 Copy-Item -Path "$templateMeta\AI_PARA_Framework.md" -Destination '0_Meta\AI_PARA_Framework.md' -Force
-Copy-Item -Path "$templateMeta\AI_Sync.md" -Destination '0_Meta\AI_Sync.md' -Force
 Copy-Item -Path "$templateMeta\highIFjournals.md" -Destination '0_Meta\highIFjournals.md' -Force
 
 # EliRule is ELF-managed (project-agnostic) — copy as-is (lang은 .elf/config.json로 분리)

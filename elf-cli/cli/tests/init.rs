@@ -80,10 +80,6 @@ fn seed_substitution_applied_and_no_placeholders_remain() {
 
     let registry = std::fs::read_to_string(target.join("2_Log/Wiki/Session_Registry.tsv")).unwrap();
     assert!(!registry.contains("YYYY-MM-DD"));
-
-    // 치환 대상 아닌 seed(AI_Sync)는 정본 그대로
-    let sync = std::fs::read(target.join("0_Meta/AI_Sync.md")).unwrap();
-    assert_eq!(sync, embed::TEMPLATES.get_file("meta/AI_Sync.md").unwrap().contents());
 }
 
 #[test]

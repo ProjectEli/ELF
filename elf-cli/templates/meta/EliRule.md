@@ -18,7 +18,6 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 - `EliRule.md`: 이 문서 (폴더 구조 및 운영 가이드)
 - `LogConvention.md`: 로깅 표준 규칙
 - `AI_PARA_Framework.md`: AI의 환각을 방지하기 위한 상태 기반 파일 관리 및 아카이빙 규칙. AI가 프로젝트를 탐색할 때 가장 중요한 기준 문서
-- `AI_Sync.md`: AI 에이전트 핸드오프 로그
 - `highIFjournals.md`: 외부 문헌 검색용 high-IF 저널 화이트리스트 (§4 참조)
 
 #### `1_Concept/` — 연구 기획 & 아이디어
@@ -119,7 +118,7 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 | 구분 | 파일 | `elf update` 동작 |
 |------|------|-------------------|
 | **ELF 관리** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `templates/*`, `.claudeignore` | 새 버전으로 교체. **직접 수정한 경우 덮어쓰지 않고** 새 버전을 `<파일>.elf-new`로 생성(병합은 사용자 몫, `--force`로 강제 교체 가능) |
-| **사용자 소유** | `ProjectRule.md`, `AI_Sync.md`, `Session_Registry.tsv`, `README.md`, 모든 연구 데이터·로그 | **절대 미접근** |
+| **사용자 소유** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, 모든 연구 데이터·로그 | **절대 미접근** |
 | **부분 관리** | `.gitignore` | 마커블록(`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) 안쪽만 교체, 블록 밖 사용자 규칙 보존 |
 
 - 프로젝트 규칙 커스터마이즈는 ELF 관리 파일을 고치는 대신 **`ProjectRule.md`에 작성**하는 것을 권장합니다(갱신 충돌 없음).

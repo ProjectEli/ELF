@@ -164,6 +164,6 @@ fn substitute_seed(dest: &str, text: &str, o: &InitOptions) -> String {
             .replace("PLACEHOLDER_PROJECT_NAME", &o.name)
             .replace("PLACEHOLDER_DATE", &o.date),
         "2_Log/Wiki/Session_Registry.tsv" => text.replace("YYYY-MM-DD", &o.date),
-        _ => text.to_string(), // AI_Sync.md 등: 치환 없음
+        _ => text.to_string(), // 그 외 seed: 치환 없음
     }
 }

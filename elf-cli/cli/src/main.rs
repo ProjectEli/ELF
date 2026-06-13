@@ -312,7 +312,7 @@ fn main() {
                     }
                     Err(session::SessionError::MissingNextSection(id)) => {
                         eprintln!(
-                            "[elf] refuse: {id} has no filled '다음 세션 후보' section (LogConvention §6.2) — fill it or use --force"
+                            "[elf] refuse: {id} has no filled '다음 세션 후보' section (LogConvention §5.2) — fill it or use --force"
                         );
                         std::process::exit(3);
                     }

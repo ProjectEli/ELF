@@ -186,7 +186,7 @@ agent-action: fix the line to match the schema, then re-run (this tool will not 
 | Tier | 파일 | update 동작 |
 |------|------|-------------|
 | **Managed** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `templates/*`, `.claudeignore`, `.editorconfig` | 새 버전으로 교체. 편집한 경우 **보존**하고 새 버전을 `<파일>.elf-new`로 생성(`--force`로 덮어쓰기) |
-| **사용자 소유** | `ProjectRule.md`, `AI_Sync.md`, `Session_Registry.tsv`, `README.md`, 모든 연구 데이터·로그 | **절대 미접근** |
+| **사용자 소유** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, 모든 연구 데이터·로그 | **절대 미접근** |
 | **Hybrid** | `.gitignore` | 마커 블록(`# >>> ELF managed >>>` … `# <<< ELF managed <<<`)만 교체, 블록 밖 사용자 규칙은 보존 |
 
 프로젝트 규칙은 managed 파일을 고치는 대신 `ProjectRule.md`(사용자 소유)에 작성하세요 — 그러면 update 충돌이 없습니다.

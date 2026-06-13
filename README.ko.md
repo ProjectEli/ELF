@@ -9,7 +9,7 @@
 * **단일 진실 공급원 (Single Source of Truth):** 하드웨어 설계, 분석 코드, 원시 데이터를 하나의 프로젝트 내에서 유기적으로 연결함.
 * **Base-Delta 로깅:** 모든 변수를 기록하지 않음. 기준(Baseline)을 선언하고, 변경된 변수(Delta)만 가볍게 기록하여 연구 지연을 방지함.
 * **시스템적 강제성:** 파일명 길이 제한(Windows 260자)을 우회하고, 코드를 통한 재현성을 보장함.
-* **AI 거버넌스:** AI 에이전트의 작업 연속성을 `0_Meta/AI_Sync.md` 핸드오프 로그로 보장하고, `0_Meta/LogConvention.md`로 사람과 AI 모두 동일한 로깅 규격을 따르도록 강제함.
+* **AI 거버넌스:** `0_Meta/LogConvention.md`로 사람과 AI 모두 동일한 로깅 규격을 따르도록 강제하고, `0_Meta/AI_PARA_Framework.md`로 컨텍스트 오염을 방지함.
 
 ## 프로젝트 디렉토리 규격 (Directory Structure)
 
@@ -25,8 +25,7 @@ Project_Root/
 │   ├── ProjectRule.md               # 프로젝트 전용 규칙 및 목표
 │   ├── EliRule.md                   # 폴더 구조 및 운영 가이드
 │   ├── LogConvention.md             # 로깅 표준 규칙
-│   ├── AI_PARA_Framework.md         # AI 컨텍스트 관리 & 아카이빙 규칙
-│   └── AI_Sync.md                   # AI 에이전트 핸드오프 로그
+│   └── AI_PARA_Framework.md         # AI 컨텍스트 관리 & 아카이빙 규칙
 │
 ├── 1_Concept/                       # 연구 기획, 문헌, 아이디어
 │   ├── 11_Literature/               # 논문 PDF, 서지 정보, 기반 공식
@@ -123,11 +122,11 @@ Project_Root/
 
 ## AI 거버넌스
 
-AI 에이전트(Claude, Gemini 등)가 프로젝트에 참여할 때 다음 규칙을 따름:
+AI 에이전트(Claude 등)가 프로젝트에 참여할 때 다음 규칙을 따름:
 
-1. **컨텍스트 파악**: 작업 시작 전 `0_Meta/AI_Sync.md`를 읽어 이전 작업 상태 확인.
+1. **컨텍스트 파악**: 작업 시작 전 `2_Log/`의 활성 세션 로그와 `2_Log/Wiki/Session_Registry.tsv`를 읽어 이전 작업 상태 확인.
 2. **동일 규격 준수**: `0_Meta/LogConvention.md`의 로깅 규칙을 사람과 동일하게 따름.
-3. **핸드오프 기록**: 작업 완료 시 `0_Meta/AI_Sync.md`에 수행 내역, 생성/수정 파일, Next Steps 기록. 최신 항목이 위에 오도록 역순 작성.
+3. **핸드오프 기록**: 작업 완료 시 세션 로그(`2_Log/S###_log.md`)에 수행 내역, 생성/수정 파일, Next Steps 기록 — 로그 헤더의 `Handoff` 필드 사용.
 4. **아이디어 분리**: AI가 생성한 가설/아이디어는 로그가 아닌 `1_Concept/`에 별도 저장 (작은 아이디어 → `13_Ideas/`, 계획 → `12_Planning/`).
 5. **PARA 기반 컨텍스트 관리**: `Archive/` 폴더와 `.claudeignore`를 활용하여 AI의 컨텍스트 오염을 방지. 상세 규칙은 `0_Meta/AI_PARA_Framework.md` 참조.
 6. **Communication Rules**: 객관적이고 드라이한 문체 유지. 비유/은유 금지. 결론 중심의 명확한 전달. 과장 및 감정적 수식어 금지. 상세 규칙은 `0_Meta/EliRule.md` 섹션 3 참조.
@@ -313,7 +312,7 @@ elf status --check       # 발견 시 exit 4 → pre-commit 훅·CI 게이트로
 
 ### 5. AI 에이전트 핸드오프 (선택)
 
-AI 에이전트를 사용하는 경우, 작업 완료 시 `0_Meta/AI_Sync.md`에 수행 내역, 수정 파일, Next Steps를 기록합니다. 포맷은 `LogConvention.md` 섹션 4 참조.
+AI 에이전트를 사용하는 경우, 작업 완료 시 세션 로그의 `Handoff` 필드에 수행 내역, 수정 파일, Next Steps를 기록합니다.
 
 ## 라이선스 (License)
 

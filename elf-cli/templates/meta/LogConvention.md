@@ -134,31 +134,7 @@
 
 ---
 
-## 4. AI_Sync.md 업데이트 규칙
-
-AI 에이전트는 매 작업(쿼리) 종료 시마다 자동으로 업데이트하지 않고, **사용자의 명시적 업데이트 요청(Explicit Request)**이 있을 때에 한하여 과거 대화 내역을 취합해 `0_Meta/AI_Sync.md`에 항목을 추가함.
-
-### 포맷
-```markdown
-## [YYYY-MM-DD / {Agent Name}] {작업 제목}
-
-### 수행한 작업
-- 생성/수정/삭제한 파일 목록 (표 형태)
-- 핵심 결과 요약
-
-### Next Steps
-- 다음 에이전트가 이어서 수행할 구체적 Task
-- 필요한 파일 경로, 함수명 등 명시
-```
-
-### 규칙
-- **최신 항목이 위**에 오도록 작성 (역순)
-- 파일 경로는 프로젝트 루트 기준 상대경로 사용
-- Next Steps에는 구체적인 파일명, 함수 시그니처, 예상 입출력을 포함
-
----
-
-## 5. Cross-reference 규칙
+## 4. Cross-reference 규칙
 
 | From | To | 상대경로 (2_Log 기준) |
 |------|----|----------------------|
@@ -175,7 +151,7 @@ Planning으로 분리된 내용은 원본 Log에 blockquote stub으로 표시:
 
 ---
 
-## 6. 세션 생성 시 체크리스트
+## 5. 세션 생성 시 체크리스트
 
 AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 
@@ -190,7 +166,7 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 - [ ] `2_Log/Wiki/Session_Registry.tsv`에 해당 세션 항목 추가 업데이트
 - [ ] Planning 내용이 포함된 경우 → `1_Concept/`로 분리 + cross-reference
 
-### 6.1 Ticket 작성 SOP (Phase 1 / Phase 2 분리)
+### 5.1 Ticket 작성 SOP (Phase 1 / Phase 2 분리)
 
 각 ticket(t{NN}) 작성 시 두 단계로 분리하여 진행. **Phase 1과 Phase 2 사이에 멈춤점 필수** — 즉흥 실행 방지, 가설-관찰 사이클 closure 강제.
 
@@ -209,7 +185,7 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 - [ ] `### 교훈` 작성
 - [ ] `### 생성 파일` 작성
 
-### 6.2 Session 종료 SOP
+### 5.2 Session 종료 SOP
 
 세션 Status를 `Complete`로 전환 직전:
 - [ ] 본문 말미에 `## 다음 세션 후보 (Next-Session Hypothesis)` 섹션 작성

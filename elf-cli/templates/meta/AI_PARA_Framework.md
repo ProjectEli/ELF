@@ -1,6 +1,6 @@
 # AI PARA Framework & Context Management
 
-이 문서는 프로젝트 내의 방대한 실험 로그와 기획 문서들이 AI 에이전트(Claude Code, Gemini 등)의 컨텍스트 윈도우(Context Window)를 오염시키는 현상(Hallucination)을 막고, 인간-AI 협업 시 최적의 효율을 내기 위한 **AI 맞춤형 PARA (Projects, Areas, Resources, Archives) 파일 관리 규칙**을 정의함.
+이 문서는 프로젝트 내의 방대한 실험 로그와 기획 문서들이 AI 에이전트(예: Claude Code)의 컨텍스트 윈도우(Context Window)를 오염시키는 현상(Hallucination)을 막고, 인간-AI 협업 시 최적의 효율을 내기 위한 **AI 맞춤형 PARA (Projects, Areas, Resources, Archives) 파일 관리 규칙**을 정의함.
 
 ## 1. 파일 격리 원칙 (The Firewall Principle)
 

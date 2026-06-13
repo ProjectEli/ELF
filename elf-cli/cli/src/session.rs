@@ -363,7 +363,7 @@ fn is_open_status(s: &str) -> bool {
 }
 
 /// `## 다음 세션 후보` 섹션에 placeholder(`- [...]`) 아닌 실제 bullet이 1개 이상이면 true.
-/// (LogConvention §6.2 — 섹션 존재 + 작성 완료 게이트)
+/// (LogConvention §5.2 — 섹션 존재 + 작성 완료 게이트)
 pub fn next_section_filled(content: &str) -> bool {
     let mut in_section = false;
     for raw in content.lines() {

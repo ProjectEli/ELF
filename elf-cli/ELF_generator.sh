@@ -220,7 +220,6 @@ cp "$TEMPLATES_DIR/root/.gitignore" .gitignore
 # Meta files
 cp "$TEMPLATES_DIR/meta/LogConvention.md" 0_Meta/LogConvention.md
 cp "$TEMPLATES_DIR/meta/AI_PARA_Framework.md" 0_Meta/AI_PARA_Framework.md
-cp "$TEMPLATES_DIR/meta/AI_Sync.md" 0_Meta/AI_Sync.md
 cp "$TEMPLATES_DIR/meta/highIFjournals.md" 0_Meta/highIFjournals.md
 
 # EliRule is ELF-managed (project-agnostic) — copy as-is (lang은 .elf/config.json로 분리)

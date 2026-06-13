@@ -186,7 +186,7 @@ The `agent-action:` line is a stable marker. An LLM agent driving `elf` can dete
 | Tier | Files | On update |
 |------|-------|-----------|
 | **Managed** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `templates/*`, `.claudeignore`, `.editorconfig` | Replaced with the new version. If you edited one, it is **kept** and the new version is written as `<file>.elf-new` (use `--force` to overwrite) |
-| **Yours** | `ProjectRule.md`, `AI_Sync.md`, `Session_Registry.tsv`, `README.md`, all research data and logs | **Never touched** |
+| **Yours** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, all research data and logs | **Never touched** |
 | **Hybrid** | `.gitignore` | Only the marker block (`# >>> ELF managed >>>` … `# <<< ELF managed <<<`) is replaced; your rules outside the block are preserved |
 
 Customize project rules in `ProjectRule.md` (yours) rather than editing managed files — that way updates never conflict.
