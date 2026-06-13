@@ -1,10 +1,10 @@
 # S{NNN}: [세션 제목]
 
-> **Created**: YYYY-MM-DD
-> **Modified**: YYYY-MM-DD
-> **Status**: ★ 활성
-> **목표**: [이 세션의 핵심 목표 1-2문장]
-> **관련**: [관련 세션/문서, 예: S000, P001_xxx.md]
+> **Created**: YYYY-MM-DD\
+> **Modified**: YYYY-MM-DD\
+> **Status**: ★ 활성\
+> **목표**: [이 세션의 핵심 목표 1-2문장]\
+> **관련**: [관련 세션/문서, 예: S000, P001_xxx.md]\
 > **Handoff**: -
 
 ---

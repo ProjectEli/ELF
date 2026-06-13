@@ -20,6 +20,7 @@ Project_Root/
 │
 │  ─── Core ───────────────────────────────
 │
+├── .elf/                            # ELF control plane (version·config·manifest — do not edit)
 ├── 0_Meta/                          # Project governance & rules
 │   ├── ProjectRule.md               # Project-specific rules and objectives
 │   ├── EliRule.md                   # Folder structure and operational guide
@@ -36,6 +37,8 @@ Project_Root/
 ├── 2_Log/                           # Session logs (S###_log.md)
 │   ├── Wiki/                      # Distilled findings & session registry
 │   └── Archive/                   # Completed session logs
+│
+├── templates/                       # Session/trial markdown stubs
 │
 │  ─── Modules (Optional) ────────────────
 │
@@ -132,21 +135,80 @@ When AI agents (Claude, Gemini, etc.) participate in the project, the following 
 
 ## Quick Start
 
-**Windows (PowerShell 5.1 or later):**
+### 1. Install the `elf` CLI (recommended)
+
+**Windows (PowerShell):**
 
 ```powershell
-cd C:\desired\parent\directory
-powershell -ExecutionPolicy Bypass -File "C:\path\to\ELF\elf-cli\ELF_generator.ps1"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.ps1 | iex"
 ```
 
-**Linux / macOS (Bash):**
+**Linux / macOS:**
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.sh | sh
+```
+
+A self-contained single binary is installed to `~/.elf/bin` and added to PATH — no Node/Python runtime required. Verify with `elf --version` in a new shell.
+
+### 2. Create a project
 
 ```bash
 cd /desired/parent/directory
-bash /path/to/ELF/elf-cli/ELF_generator.sh
+elf init MyProject --lang English                   # default: full preset
+elf init MyProject --preset experimental --lang English   # 6_Exp + 7_Paper only
+elf init MyProject --modules hw,sw --lang English   # custom module selection
 ```
 
-Enter a project name, select a language, and choose a module preset. Core folders (0~2) are always created; module folders (3~7) are included based on your preset selection. Git initialization is optional and prompted only when Git is available.
+Core folders (0~2) are always created; module folders (3~7) are included per preset (`full`/`experimental`/`software`/`minimal`) or `--modules` selection.
+
+> **No-install alternative**: After cloning the repository, the interactive scripts `elf-cli/ELF_generator.ps1` (Windows) / `elf-cli/ELF_generator.sh` (bash) provide equivalent project creation. `update`/`status` are CLI-only.
+
+## CLI Commands & Usage Scenarios
+
+> Full command reference (every flag, exit codes, escalation, file ownership): **[elf-cli/CLI.md](elf-cli/CLI.md)**
+
+| Command | Role |
+|---------|------|
+| `elf init <name> [--preset …] [--modules …] [--lang …]` | Scaffold a new project |
+| `elf update [--dry-run] [--force]` | Update ELF-managed files in a project to the current CLI version — **never touches your files** |
+| `elf status [--check]` | Diagnose managed-file state (read-only). `--check` exits 4 on findings |
+| `elf self-update` (= `elf update --self`) | Update the `elf` binary itself to the latest release |
+
+### Scenario A — Start a new project
+
+```bash
+elf init NIRS_Probe --preset experimental --lang English
+cd NIRS_Probe
+# Read 0_Meta/EliRule.md · LogConvention.md → start research in 2_Log/S001_log.md
+```
+
+### Scenario B — Apply a new ELF version to an existing project
+
+```bash
+elf self-update          # ① update the CLI itself
+cd MyProject
+elf status               # ② diagnose what would change (outdated / edited / missing)
+elf update --dry-run     # ③ preview the action list without writing
+elf update               # ④ update — replaces ELF-managed files only; research data, logs, and your settings are never touched
+```
+
+### Scenario C — When an ELF-managed file you edited conflicts
+
+```bash
+elf update
+# → "edited: 0_Meta/LogConvention.md — kept; new version at ….elf-new"
+#   Your edit is preserved; the new version lands as <file>.elf-new → diff and merge manually
+elf update --force       # or: discard your edits and replace with the canonical version
+```
+
+For `.gitignore`, ELF manages only the marker block (`# >>> ELF managed >>>` … `# <<< ELF managed <<<`); user rules outside the block are always preserved.
+
+### Scenario D — Gate drift in teams/CI
+
+```bash
+elf status --check       # exits 4 on findings → use as a pre-commit hook / CI gate
+```
 
 ## Usage
 

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use clap::{Parser, Subcommand};
-use elf_cli::{embed, init, selfupdate, status, update};
+use elf_cli::{doctor, embed, gallery, init, selfupdate, session, status, update, validate};
 
 /// ELF (Eli's Lab Framework) scaffold & update CLI
 #[derive(Parser)]
@@ -43,6 +43,11 @@ enum Commands {
     /// elf 바이너리 자체를 최신 릴리즈로 갱신 (프로젝트 파일 갱신은 `elf update`)
     #[command(name = "self-update", alias = "selfupdate")]
     SelfUpdate,
+    /// 세션 수명주기 (new: S### 자동 증번 + 로그 생성 + Registry 등록)
+    Session {
+        #[command(subcommand)]
+        cmd: SessionCmd,
+    },
     // (주의: doc comment(`///`)는 help로 노출됨 — 내부 표기 금지, 회귀 테스트가 게이트. P011 t09)
     /// 프로젝트 ELF 파일 상태 진단 (drift/편집/누락 — 읽기전용)
     Status {
@@ -50,9 +55,43 @@ enum Commands {
         #[arg(long)]
         check: bool,
     },
+    /// 세션/Registry/로그 정합 검사 (미등록·유령행·번호 gap·깨진 cross-ref — 읽기전용)
+    Validate {
+        /// 정합 위반(issue) 발견 시 exit 4 — pre-commit/CI 게이트용
+        #[arg(long)]
+        check: bool,
+    },
+    /// 6_Exp/64_Viz/ 스캔 → 세션별 Figure 색인 `_gallery.md` 생성
+    Gallery,
+    /// 환경+프로젝트 종합 진단 (버전·설치·.elf 무결성·managed 상태·git — 읽기전용)
+    Doctor,
 }
 
-// exit code 규약 (clap 표준 수용, 2026-06-12): 0=성공, 1=실행 오류, 2=usage(clap 기본), 3=refuse.
+#[derive(Subcommand)]
+enum SessionCmd {
+    /// 새 세션 로그 생성 + Registry 등록 (S### 자동 증번)
+    New {
+        /// 세션 제목 (Registry에 기록 — 탭 문자 불가)
+        title: String,
+    },
+    /// 활성 세션 종료 — Status를 Complete로, Archive로 이동, Registry 갱신
+    Close {
+        /// 닫을 세션 ID (생략 시 유일한 활성 세션 자동 선택)
+        id: Option<String>,
+        /// '다음 세션 후보' 미작성이어도 강제 종료
+        #[arg(long)]
+        force: bool,
+    },
+    /// 세션 로그 헤더에 CommonMark hard break(`\`) 보정 (Discord 등 렌더러 줄 분리)
+    #[command(name = "fix-headers")]
+    FixHeaders {
+        /// 변경 없이 대상 파일만 출력
+        #[arg(long)]
+        dry_run: bool,
+    },
+}
+
+// exit code 규약: 0=성공, 1=실행 오류, 2=usage(clap 기본), 3=refuse, 4=check 발견, 5=escalation(상위 에이전트 위임).
 fn main() {
     let cli = Cli::parse();
     match cli.command {
@@ -146,6 +185,182 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+        }
+        Commands::Doctor => {
+            let cwd = std::env::current_dir().expect("cwd");
+            let env = doctor::DoctorEnv {
+                version: embed::version().to_string(),
+                receipt_present: doctor::probe_receipt(),
+            };
+            let report = doctor::run_doctor(&cwd, &env);
+            for c in &report.checks {
+                let mark = match c.health {
+                    doctor::Health::Ok => "OK  ",
+                    doctor::Health::Warn => "WARN",
+                    doctor::Health::Info => "INFO",
+                };
+                println!("[elf] [{mark}] {}: {}", c.label, c.detail);
+            }
+            println!("[elf] doctor: {} warning(s)", report.warnings());
+        }
+        Commands::Gallery => {
+            let root = log_root_or_exit();
+            let now = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
+            match gallery::run_gallery(&root, &now) {
+                Ok(r) if !r.viz_present => {
+                    println!("[elf] 6_Exp/64_Viz/ not found — nothing to do");
+                }
+                Ok(r) => {
+                    println!(
+                        "[elf] wrote {} ({} session(s), {} image(s))",
+                        r.output_rel, r.sessions, r.images
+                    );
+                }
+                Err(e) => {
+                    eprintln!("[elf] io error: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Validate { check } => {
+            let root = log_root_or_exit();
+            match validate::run_validate(&root) {
+                Ok(report) => {
+                    for line in &report.lines {
+                        println!("[elf] {line}");
+                    }
+                    println!(
+                        "[elf] validate: {} issue(s), {} warning(s)",
+                        report.issues, report.warnings
+                    );
+                    if check && report.findings() > 0 {
+                        std::process::exit(4);
+                    }
+                }
+                Err(validate::ValidateError::Escalation(e)) => {
+                    eprintln!("[elf] {e}");
+                    std::process::exit(5);
+                }
+                Err(validate::ValidateError::Io(e)) => {
+                    eprintln!("[elf] io error: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Session { cmd } => match cmd {
+            SessionCmd::New { title } => {
+                let root = log_root_or_exit();
+                let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+                let opts = session::SessionNewOptions { title, date };
+                match session::run_session_new(&root, &opts) {
+                    Ok(res) => {
+                        for w in &res.warnings {
+                            println!("[elf] warn: {w}");
+                        }
+                        println!("[elf] created {} ({}) + registry row", res.log_rel, res.id);
+                    }
+                    Err(session::SessionError::Escalation(e)) => {
+                        eprintln!("[elf] {e}");
+                        std::process::exit(5);
+                    }
+                    Err(session::SessionError::Exists(p)) => {
+                        eprintln!("[elf] refuse: {p} already exists");
+                        std::process::exit(3);
+                    }
+                    Err(session::SessionError::BadTitle(m)) => {
+                        eprintln!("[elf] error: {m}");
+                        std::process::exit(1);
+                    }
+                    Err(session::SessionError::Io(e)) => {
+                        eprintln!("[elf] io error: {e}");
+                        std::process::exit(1);
+                    }
+                    // close 전용 변형은 new 경로에서 발생 불가 (공용 enum 망라용)
+                    Err(
+                        e @ (session::SessionError::NoOpenSession
+                        | session::SessionError::MultipleOpen(_)
+                        | session::SessionError::NotFound(_)
+                        | session::SessionError::MissingNextSection(_)),
+                    ) => unreachable!("session new cannot yield close-only error: {e:?}"),
+                }
+            }
+            SessionCmd::Close { id, force } => {
+                let root = log_root_or_exit();
+                match session::run_session_close(&root, &session::CloseOptions { id, force }) {
+                    Ok(r) => println!(
+                        "[elf] closed {} → {} (Status: Complete, registry updated)",
+                        r.id, r.archived_to
+                    ),
+                    Err(session::SessionError::Escalation(e)) => {
+                        eprintln!("[elf] {e}");
+                        std::process::exit(5);
+                    }
+                    Err(session::SessionError::NoOpenSession) => {
+                        eprintln!("[elf] nothing to close: no open session in 2_Log/ (all Complete)");
+                        std::process::exit(1);
+                    }
+                    Err(session::SessionError::MultipleOpen(ids)) => {
+                        eprintln!(
+                            "[elf] multiple open sessions ({}) — specify one: elf session close <S###>",
+                            ids.join(", ")
+                        );
+                        std::process::exit(1);
+                    }
+                    Err(session::SessionError::NotFound(id)) => {
+                        eprintln!("[elf] session not found: {id}");
+                        std::process::exit(1);
+                    }
+                    Err(session::SessionError::MissingNextSection(id)) => {
+                        eprintln!(
+                            "[elf] refuse: {id} has no filled '다음 세션 후보' section (LogConvention §6.2) — fill it or use --force"
+                        );
+                        std::process::exit(3);
+                    }
+                    Err(session::SessionError::Exists(p)) => {
+                        eprintln!("[elf] refuse: {p} already exists");
+                        std::process::exit(3);
+                    }
+                    Err(session::SessionError::BadTitle(m)) => {
+                        eprintln!("[elf] error: {m}");
+                        std::process::exit(1);
+                    }
+                    Err(session::SessionError::Io(e)) => {
+                        eprintln!("[elf] io error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            SessionCmd::FixHeaders { dry_run } => {
+                let root = log_root_or_exit();
+                match session::run_fix_headers(&root, dry_run) {
+                    Ok(files) => {
+                        for f in &files {
+                            println!("[elf] {} {}", if dry_run { "would fix" } else { "fixed" }, f.path);
+                        }
+                        println!(
+                            "[elf] {} file(s) {}",
+                            files.len(),
+                            if dry_run { "would change (dry-run)" } else { "changed" }
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("[elf] io error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+        },
+    }
+}
+
+// session 명령 공용 — `2_Log/` 보유 디렉토리 탐지(`.elf/` 불요; framework _dev도 대상).
+fn log_root_or_exit() -> std::path::PathBuf {
+    let cwd = std::env::current_dir().expect("cwd");
+    match session::find_log_root(&cwd) {
+        Some(r) => r,
+        None => {
+            eprintln!("[elf] error: no 2_Log/ directory found from {}", cwd.display());
+            std::process::exit(1);
         }
     }
 }

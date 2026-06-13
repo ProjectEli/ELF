@@ -9,12 +9,17 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 
 ### Core (항상 포함)
 
+#### `.elf/` — ELF 제어 영역
+`elf` CLI가 프로젝트 상태(버전·설정·관리 파일 목록)를 기록하는 영역입니다. **직접 수정 금지** — `elf init`/`elf update`가 관리합니다.
+
 #### `0_Meta/` — 프로젝트 거버넌스
 연구 데이터가 아닌 프로젝트 운영 규칙을 정의하는 메타 구역입니다.
+- `ProjectRule.md`: 프로젝트 전용 규칙·목표 (**사용자 소유** — 프로젝트에 맞게 자유 수정)
 - `EliRule.md`: 이 문서 (폴더 구조 및 운영 가이드)
 - `LogConvention.md`: 로깅 표준 규칙
 - `AI_PARA_Framework.md`: AI의 환각을 방지하기 위한 상태 기반 파일 관리 및 아카이빙 규칙. AI가 프로젝트를 탐색할 때 가장 중요한 기준 문서
 - `AI_Sync.md`: AI 에이전트 핸드오프 로그
+- `highIFjournals.md`: 외부 문헌 검색용 high-IF 저널 화이트리스트 (§4 참조)
 
 #### `1_Concept/` — 연구 기획 & 아이디어
 연구 방향성, 문헌 고찰, 가설 설정을 실험 데이터와 분리하여 보관합니다.
@@ -30,9 +35,13 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 - `Wiki/`: 핵심 발견 요약 및 Session Registry
 - `Archive/`: 완료된 세션 로그 보관
 
+#### `templates/` — 마크다운 스텁
+- `sessionTemplate.md`: 새 세션 시작 시 `2_Log/S###_log.md`로 복사
+- `trialTemplate.md`: 진행 중 세션에 trial(t##) 추가 시 본문에 붙여넣기
+
 ### Modules (선택적 포함)
 
-> Generator 실행 시 preset 선택으로 필요한 모듈만 포함 가능.
+> `elf init`의 `--preset`(full/experimental/software/minimal) 또는 `--modules` 선택으로 필요한 모듈만 포함 가능.
 
 #### `3_HW/` — 하드웨어 설계
 장치의 물리적 설계를 컴포넌트와 통합 시스템으로 분리합니다.
@@ -102,6 +111,19 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 
 ### 2.6 Data Reusability (데이터 영구 보존 원칙)
 - 단순 Illustration(시각적 도해)을 제외한 모든 Plot/Graph 생성 시, 그래프에 표면적으로 드러나지 않는 메트릭이나 중간 연산 결과일지라도 **향후 재사용이 가능하도록 반드시 `.mat` 파일(또는 `.csv`) 형태로 원본 Data Array를 함께 저장(Export)**하는 것을 원칙으로 합니다.
+
+### 2.7 ELF 관리 파일과 갱신 (`elf update`)
+
+프로젝트 파일은 소유권에 따라 세 가지로 나뉘며, `elf update`는 이 구분을 엄격히 지킵니다:
+
+| 구분 | 파일 | `elf update` 동작 |
+|------|------|-------------------|
+| **ELF 관리** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `templates/*`, `.claudeignore` | 새 버전으로 교체. **직접 수정한 경우 덮어쓰지 않고** 새 버전을 `<파일>.elf-new`로 생성(병합은 사용자 몫, `--force`로 강제 교체 가능) |
+| **사용자 소유** | `ProjectRule.md`, `AI_Sync.md`, `Session_Registry.tsv`, `README.md`, 모든 연구 데이터·로그 | **절대 미접근** |
+| **부분 관리** | `.gitignore` | 마커블록(`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) 안쪽만 교체, 블록 밖 사용자 규칙 보존 |
+
+- 프로젝트 규칙 커스터마이즈는 ELF 관리 파일을 고치는 대신 **`ProjectRule.md`에 작성**하는 것을 권장합니다(갱신 충돌 없음).
+- 상태 확인: `elf status` (변경 없이 진단만, `--check`는 CI/훅 게이트용).
 
 ---
 

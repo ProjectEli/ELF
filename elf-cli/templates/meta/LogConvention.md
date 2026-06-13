@@ -12,7 +12,7 @@
 |------|------|
 | **진행 중 (Active Sandbox)** | 새로운 세션(S{NNN})을 시작할 때는 무조건 **`2_Log/`의 최상단(Root)**에 로그(`S{NNN}_log.md`)를 생성하여 작성합니다. |
 | **결론 요약 (Wiki)** | 세션이 완료되면 핵심 교훈이나 산출된 파라미터를 `Wiki/` 폴더 내의 지식 문서에 한두 줄로 요약합니다. 이 때 반드시 원본 Archive 로그 파일의 절대/상대 경로 링크를 포함합니다. |
-| **보관 (Archive)** | 세션이 종료되면 전체 원본 로그 파일은 **반드시** `Archive/` 폴더로 이동시킵니다. (예: `Archive/[Archived]_S{NNN}_log.md`) |
+| **보관 (Archive)** | 세션이 종료되면 전체 원본 로그 파일은 **반드시** `Archive/` 폴더로 **파일명 그대로** 이동시킵니다. (예: `Archive/S{NNN}_log.md` — 접두 태그 불요, 폴더 위치가 곧 상태) |
 | **내용 규칙** | 시뮬레이션 파라미터, 실행 결과, 에러/해결 등 **순수 Metadata (Fact-Sheet)**만을 기록합니다. |
 | **금지 사항** | 아이디어·기획·방향성 논의는 `2_Log/`에 기록하지 말고 `1_Concept/`로 분리: 작은 snippet·naive 아이디어는 `13_Ideas/`, 다중 세션 계획은 `12_Planning/`. |
 
@@ -23,11 +23,11 @@
 ```markdown
 # S{NNN}: {세션 제목}
 
-> **Created**: YYYY-MM-DD
-> **Modified**: YYYY-MM-DD
-> **Status**: {★ 활성 | In Progress | Complete}
-> **목표**: {세션의 핵심 목표 1-2문장}
-> **관련**: {관련 세션/문서 링크}
+> **Created**: YYYY-MM-DD\
+> **Modified**: YYYY-MM-DD\
+> **Status**: {★ 활성 | In Progress | Complete}\
+> **목표**: {세션의 핵심 목표 1-2문장}\
+> **관련**: {관련 세션/문서 링크}\
 > **Handoff**: {현재 상태; 미완료 작업; 참조 파일}
 
 ---
@@ -85,6 +85,7 @@
 - **작성 언어**: 로그는 `0_Meta/EliRule.md`의 `PROJECT_LANG` 설정에 따른 언어로 작성하되, **토큰 최소화**를 위해 반드시 명사형 종결어미('-음/함/임')와 단어 중심 개조식을 사용한다. 기술 용어인 경우 영어 병기 가능.
 - **Status**: `★ 활성` (현재 작업 중), `In Progress` (중간 단계), `Complete` (완료, 아카이빙 전)
 - **Handoff**: 세미콜론(`;`)으로 3파트 구분 — `현재 상태; 미완료 작업; 참조 파일`. 세션 진행 중 수시 갱신. 다음 세션이 `Read(offset=0, limit=9)` 패턴으로 이 필드만 읽어 맥락을 이어받을 수 있도록 함. 초기값 `-`
+- **헤더 줄바꿈**: 인용구(`>`) 헤더 각 줄 끝의 `\`는 CommonMark **hard break** — Discord 미리보기 등 strict 렌더러에서 줄 분리를 보존(없으면 6개 항목이 한 줄로 합쳐짐). **삭제 금지**. 마지막 줄(Handoff)은 `\` 없음(블록 종료). 헤더는 6줄 유지 → `limit=9` 빠른읽기 불변.
 - **ticket 번호**: `t01`, `t02`, ... 순서대로. 중복 금지
 - **이미지 경로**: `![alt text](../6_Exp/64_Viz/S{NNN}/filename.png)` (2_Log 기준 상대경로)
 - **Figure 인라인 임베딩 필수**: 분석 결과로 생성된 Figure는 반드시 로그 본문의 **해당 결과 섹션에 인라인으로 삽입**하고, alt text에 Figure 번호와 1줄 설명(축, 핵심 관찰)을 기재한다. 파일 목록 테이블에만 나열하고 본문에 임베딩하지 않는 것은 금지.
@@ -128,7 +129,7 @@
 
 | 종류 | 위치 | 비고 |
 |------|------|------|
-| 자동 생성 Figure | `6_Exp/64_Viz/` | 스크립트에서 자동 저장. 산출 후 `elf gallery` (CLI) 실행하여 `_gallery.md` 자동 갱신(향후 CLI 통합 예정). |
+| 자동 생성 Figure | `6_Exp/64_Viz/` | 스크립트에서 자동 저장. (Figure 색인 `_gallery.md`는 `elf gallery` 명령으로 세션별 자동 생성.) |
 | 논문용 Figure | `7_Paper/71_Figs/` | rawFig → processedFig → finalFig |
 
 ---
@@ -214,5 +215,5 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 - [ ] 본문 말미에 `## 다음 세션 후보 (Next-Session Hypothesis)` 섹션 작성
 - [ ] 가설 후보 1-3항 + 예상 후보 1-3항 명시 (명사형, 1줄 list)
 - [ ] `Wiki/`에 핵심 결론 요약 + Archive 경로 링크 추가
-- [ ] `S{NNN}_log.md` → `Archive/[Archived]_S{NNN}_log.md`로 이동
+- [ ] `S{NNN}_log.md` → `Archive/`로 파일명 그대로 이동
 - [ ] `Session_Registry.tsv` 상태 갱신

@@ -20,6 +20,7 @@ Project_Root/
 │
 │  ─── Core ───────────────────────────────
 │
+├── .elf/                            # ELF 제어 영역 (version·config·manifest — 직접 수정 금지)
 ├── 0_Meta/                          # 프로젝트 거버넌스 & 규칙
 │   ├── ProjectRule.md               # 프로젝트 전용 규칙 및 목표
 │   ├── EliRule.md                   # 폴더 구조 및 운영 가이드
@@ -36,6 +37,8 @@ Project_Root/
 ├── 2_Log/                           # 세션 로그 (S###_log.md)
 │   ├── Wiki/                      # 핵심 발견 요약 및 세션 레지스트리
 │   └── Archive/                   # 완료된 세션 로그
+│
+├── templates/                       # 세션/트라이얼 마크다운 스텁
 │
 │  ─── Modules (Optional) ────────────────
 │
@@ -132,21 +135,80 @@ AI 에이전트(Claude, Gemini 등)가 프로젝트에 참여할 때 다음 규�
 
 ## Quick Start
 
-**Windows (PowerShell 5.1 이상):**
+### 1. `elf` CLI 설치 (권장)
+
+**Windows (PowerShell):**
 
 ```powershell
-cd C:\원하는\상위\디렉토리
-powershell -ExecutionPolicy Bypass -File "C:\path\to\ELF\elf-cli\ELF_generator.ps1"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.ps1 | iex"
 ```
 
-**Linux / macOS (Bash):**
+**Linux / macOS:**
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.sh | sh
+```
+
+자기완결 단일 실행파일이 `~/.elf/bin`에 설치되고 PATH에 등록됩니다 — Node/Python 등 런타임 불필요. 새 셸에서 `elf --version`으로 확인하세요.
+
+### 2. 프로젝트 생성
 
 ```bash
 cd /원하는/상위/디렉토리
-bash /path/to/ELF/elf-cli/ELF_generator.sh
+elf init MyProject                                  # 기본: full preset, 한국어
+elf init MyProject --preset experimental            # 6_Exp + 7_Paper만
+elf init MyProject --modules hw,sw --lang English   # custom 모듈 선택
 ```
 
-프로젝트 이름을 입력하고, 언어를 선택하고, 모듈 preset을 선택합니다. Core 폴더(0~2)는 항상 생성되며, Module 폴더(3~7)는 preset 선택에 따라 포함됩니다. Git 초기화는 Git이 설치된 경우에만 선택적으로 수행됩니다.
+Core 폴더(0~2)는 항상 생성되며, Module 폴더(3~7)는 preset(`full`/`experimental`/`software`/`minimal`) 또는 `--modules` 선택에 따라 포함됩니다.
+
+> **설치 없이 쓰기**: 저장소 clone 후 `elf-cli/ELF_generator.ps1`(Windows) / `elf-cli/ELF_generator.sh`(bash)를 실행하는 대화형 스크립트도 제공됩니다. 생성 기능은 동일하나 `update`/`status`는 CLI 전용입니다.
+
+## CLI 명령 & 사용 시나리오
+
+> 전체 명령 레퍼런스(모든 플래그·exit code·escalation·소유권): **[elf-cli/CLI.ko.md](elf-cli/CLI.ko.md)**
+
+| 명령 | 역할 |
+|------|------|
+| `elf init <이름> [--preset …] [--modules …] [--lang …]` | 새 프로젝트 스캐폴드 생성 |
+| `elf update [--dry-run] [--force]` | 프로젝트의 ELF 관리 파일을 현재 CLI 버전으로 갱신 — **사용자 파일 무손실** |
+| `elf status [--check]` | 관리 파일 상태 진단 (읽기전용). `--check`는 발견 시 exit 4 |
+| `elf self-update` (= `elf update --self`) | `elf` 바이너리 자체를 최신 릴리즈로 갱신 |
+
+### 시나리오 A — 새 프로젝트 시작
+
+```bash
+elf init NIRS_Probe --preset experimental
+cd NIRS_Probe
+# 0_Meta/EliRule.md · LogConvention.md 읽기 → 2_Log/S001_log.md에서 연구 시작
+```
+
+### 시나리오 B — ELF 새 버전을 기존 프로젝트에 반영
+
+```bash
+elf self-update          # ① CLI 자체를 최신으로
+cd MyProject
+elf status               # ② 무엇이 바뀔지 진단 (outdated / edited / missing)
+elf update --dry-run     # ③ 변경 없이 작업 목록 미리보기
+elf update               # ④ 갱신 — ELF 관리 파일만 교체, 연구 데이터·로그·설정은 절대 미접근
+```
+
+### 시나리오 C — 내가 수정한 관리 파일과 충돌할 때
+
+```bash
+elf update
+# → "edited: 0_Meta/LogConvention.md — kept; new version at ….elf-new"
+#   내 편집본은 보존되고, 새 버전이 <파일>.elf-new 로 생성됨 → diff 후 직접 병합
+elf update --force       # 또는: 내 편집을 버리고 정본으로 교체
+```
+
+`.gitignore`는 마커블록(`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) 안쪽만 ELF가 관리하며, 블록 밖에 추가한 사용자 규칙은 항상 보존됩니다.
+
+### 시나리오 D — 팀/CI에서 drift 차단
+
+```bash
+elf status --check       # 발견 시 exit 4 → pre-commit 훅·CI 게이트로 사용
+```
 
 ## 사용법 (Usage)
 

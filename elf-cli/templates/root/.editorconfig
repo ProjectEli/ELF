@@ -1,0 +1,16 @@
+# ELF: 에디터 레벨 LF·UTF-8 강제 (.gitattributes는 git만, .editorconfig는 에디터가 읽음)
+root = true
+
+[*]
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Markdown: 줄 끝 공백(전통적 hard break)·세션 헤더 보존 위해 trim 비활성
+[*.md]
+trim_trailing_whitespace = false
+
+# PowerShell: PS 5.1 CJK 파싱 위해 UTF-8 with BOM (Generator_Encoding_Rule)
+[*.ps1]
+charset = utf-8-bom
