@@ -289,6 +289,8 @@ $elfConfig = @"
 "@
 Write-FileUTF8 '.elf/config.json' $elfConfig
 Write-FileUTF8 '.elf/version' "$elfVersion`n"
+# manifest stamp (배포 버전 baseline) — `elf update`/`status`/`doctor` 인식에 필요. 바이트 보존 위해 Copy-Item
+Copy-Item (Join-Path $scriptDir 'manifest.json') '.elf/manifest.json' -Force
 
 Write-Host '[5/7] Meta documents and config files created.'
 

@@ -162,7 +162,7 @@ elf init MyProject --modules hw,sw --lang English   # custom 모듈 선택
 
 Core 폴더(0~2)는 항상 생성되며, Module 폴더(3~7)는 preset(`full`/`experimental`/`software`/`minimal`) 또는 `--modules` 선택에 따라 포함됩니다.
 
-> **설치 없이 쓰기**: 저장소 clone 후 `elf-cli/ELF_generator.ps1`(Windows) / `elf-cli/ELF_generator.sh`(bash)를 실행하는 대화형 스크립트도 제공됩니다. 생성 기능은 동일하나 `update`/`status`는 CLI 전용입니다.
+> **설치 없이 쓰기**: 저장소 clone 후 `elf-cli/ELF_generator.ps1`(Windows) / `elf-cli/ELF_generator.sh`(bash)를 실행하는 대화형 스크립트도 제공됩니다. `.elf/` 포함 동등한 CLI-관리가능 프로젝트를 생성합니다. CLI 설치 후 `elf update` 1회로 잔여 관리 파일을 마저 배포; `update`/`status`/`doctor`는 CLI 전용.
 
 ## CLI 명령 & 사용 시나리오
 
@@ -173,6 +173,12 @@ Core 폴더(0~2)는 항상 생성되며, Module 폴더(3~7)는 preset(`full`/`ex
 | `elf init <이름> [--preset …] [--modules …] [--lang …]` | 새 프로젝트 스캐폴드 생성 |
 | `elf update [--dry-run] [--force]` | 프로젝트의 ELF 관리 파일을 현재 CLI 버전으로 갱신 — **사용자 파일 무손실** |
 | `elf status [--check]` | 관리 파일 상태 진단 (읽기전용). `--check`는 발견 시 exit 4 |
+| `elf validate [--check]` | 세션/Registry/로그 정합 검사 (읽기전용). `--check`는 issue 시 exit 4 |
+| `elf session new <제목>` | 다음 세션 로그 생성 + 등록 (S### 자동 증번) |
+| `elf session close [S###]` | 활성 세션 종료 → Archive 이동 + Registry 갱신 (cross-ref 보정) |
+| `elf session fix-headers` | 세션 로그 헤더 hard break(`\`) 보정 |
+| `elf gallery` | `6_Exp/64_Viz/`에서 Figure 색인 `_gallery.md` 생성 |
+| `elf doctor` | 환경+프로젝트 종합 건강검진 (읽기전용) |
 | `elf self-update` (= `elf update --self`) | `elf` 바이너리 자체를 최신 릴리즈로 갱신 |
 
 ### 시나리오 A — 새 프로젝트 시작
@@ -212,6 +218,8 @@ elf status --check       # 발견 시 exit 4 → pre-commit 훅·CI 게이트로
 
 ## 사용법 (Usage)
 
+> **Tip — 세션 수명주기는 CLI로:** 아래 워크플로는 자동화 가능 — `elf session new`(시작), `elf gallery`(Figure 색인), `elf validate`(정합 검사), `elf session close`(완료). 수동 절차도 그대로 유효하니 CLI는 점진적으로 도입하면 됩니다.
+
 ### 0. 템플릿 (Templates)
 
 `templates/` 폴더에는 즉시 사용 가능한 마크다운 스텁이 포함되어 있습니다:
@@ -239,16 +247,17 @@ elf status --check       # 발견 시 exit 4 → pre-commit 훅·CI 게이트로
 ```markdown
 # S002: 파장 최적화 시뮬레이션
 
-> **Created**: 2026-04-01
-> **Modified**: 2026-04-01
-> **Status**: ★ 활성
-> **목표**: Monte Carlo 시뮬레이션으로 735/810/940 nm 파장별 SNR 비교
-> **관련**: P001_wavelength_optimization.md
+> **Created**: 2026-04-01\
+> **Modified**: 2026-04-01\
+> **Status**: ★ 활성\
+> **목표**: Monte Carlo 시뮬레이션으로 735/810/940 nm 파장별 SNR 비교\
+> **관련**: P001_wavelength_optimization.md\
+> **Handoff**: -
 ```
 
 - 세션 번호(`S001`, `S002`, ...)는 순차 증가 — 빈 번호, 중복 금지.
-- 파일명: `S002_WavelengthOpt.md` (세션 번호 + 짧은 설명).
-- `S001_log.md` 템플릿이 올바른 포맷으로 자동 생성되어 있으므로 참고.
+- 파일명: `S###_log.md` (예: `S002_log.md`).
+- `elf session new "<제목>"`이 템플릿에서 로그 생성 + 자동 등록(S### 자동 증번); 또는 `templates/sessionTemplate.md` 수동 복사.
 
 ### 3. 작업 전개 (t01, t02, ...)
 
@@ -295,10 +304,12 @@ elf status --check       # 발견 시 exit 4 → pre-commit 훅·CI 게이트로
 2. **Wiki 요약**: `2_Log/Wiki/`의 지식 문서에 1-2줄 요약 추가. 아카이브된 로그 경로 링크 포함.
 3. **Session Registry 업데이트**: `2_Log/Wiki/Session_Registry.tsv`에 행 추가:
    ```
-   S002	2026-04-01	파장 최적화	Complete	810 nm 최적	Archive/S002_WavelengthOpt.md
+   S002	2026-04-01	파장 최적화	Complete	810 nm 최적	Archive/S002_log.md
    ```
-4. **로그 아카이빙**: 로그 파일을 `2_Log/Archive/`로 이동.
+4. **로그 아카이빙**: 로그 파일을 `2_Log/Archive/`로 이동 (파일명 그대로).
 5. **스크립트 아카이빙** (1회용인 경우): `Scripts/Archive/`로 이동.
+
+> `elf session close [S###]`이 1·3(Status)·4단계를 자동 수행 — 아카이브 깊이에 맞춰 로그의 상대 cross-ref도 보정. 2·5단계는 수동.
 
 ### 5. AI 에이전트 핸드오프 (선택)
 

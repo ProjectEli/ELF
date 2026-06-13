@@ -162,7 +162,7 @@ elf init MyProject --modules hw,sw --lang English   # custom module selection
 
 Core folders (0~2) are always created; module folders (3~7) are included per preset (`full`/`experimental`/`software`/`minimal`) or `--modules` selection.
 
-> **No-install alternative**: After cloning the repository, the interactive scripts `elf-cli/ELF_generator.ps1` (Windows) / `elf-cli/ELF_generator.sh` (bash) provide equivalent project creation. `update`/`status` are CLI-only.
+> **No-install alternative**: After cloning the repository, the interactive scripts `elf-cli/ELF_generator.ps1` (Windows) / `elf-cli/ELF_generator.sh` (bash) scaffold an equivalent, CLI-manageable project (`.elf/` included). After installing the CLI, run `elf update` once to top off any remaining managed files; `update`/`status`/`doctor` require the CLI.
 
 ## CLI Commands & Usage Scenarios
 
@@ -173,6 +173,12 @@ Core folders (0~2) are always created; module folders (3~7) are included per pre
 | `elf init <name> [--preset …] [--modules …] [--lang …]` | Scaffold a new project |
 | `elf update [--dry-run] [--force]` | Update ELF-managed files in a project to the current CLI version — **never touches your files** |
 | `elf status [--check]` | Diagnose managed-file state (read-only). `--check` exits 4 on findings |
+| `elf validate [--check]` | Check session/registry/log consistency (read-only). `--check` exits 4 on issues |
+| `elf session new <title>` | Create + register the next session log (auto-increments `S###`) |
+| `elf session close [S###]` | Close the active session → archive + update registry (fixes cross-refs) |
+| `elf session fix-headers` | Repair session-log header hard breaks (`\`) |
+| `elf gallery` | Generate the figure index `_gallery.md` from `6_Exp/64_Viz/` |
+| `elf doctor` | Aggregate environment + project health check (read-only) |
 | `elf self-update` (= `elf update --self`) | Update the `elf` binary itself to the latest release |
 
 ### Scenario A — Start a new project
@@ -212,6 +218,8 @@ elf status --check       # exits 4 on findings → use as a pre-commit hook / CI
 
 ## Usage
 
+> **Tip — drive the session lifecycle with the CLI:** the workflow below can be automated — `elf session new` (start), `elf gallery` (figure index), `elf validate` (consistency check), `elf session close` (complete). The manual steps remain valid for any workflow, so adopt the CLI incrementally.
+
 ### 0. Templates
 
 The `templates/` folder provides ready-to-use stubs:
@@ -239,16 +247,17 @@ Create a log file in `2_Log/`:
 ```markdown
 # S002: Wavelength Optimization Simulation
 
-> **Created**: 2026-04-01
-> **Modified**: 2026-04-01
-> **Status**: ★ Active
-> **Goal**: Compare SNR across 735/810/940 nm wavelengths via Monte Carlo simulation
-> **Related**: P001_wavelength_optimization.md
+> **Created**: 2026-04-01\
+> **Modified**: 2026-04-01\
+> **Status**: ★ Active\
+> **Goal**: Compare SNR across 735/810/940 nm wavelengths via Monte Carlo simulation\
+> **Related**: P001_wavelength_optimization.md\
+> **Handoff**: -
 ```
 
 - Session numbers (`S001`, `S002`, ...) increment sequentially — no gaps, no duplicates.
-- File naming: `S002_WavelengthOpt.md` (session number + short descriptor).
-- The `S001_log.md` template is auto-generated with the correct format.
+- File naming: `S###_log.md` (e.g., `S002_log.md`).
+- `elf session new "<title>"` creates the log from the template and registers it automatically (auto-increments `S###`); or copy `templates/sessionTemplate.md` manually.
 
 ### 3. Develop Tasks (t01, t02, ...)
 
@@ -295,10 +304,12 @@ When a session is done:
 2. **Summarize to Wiki**: Add a 1-2 line summary to `2_Log/Wiki/` knowledge documents with a link to the archived log.
 3. **Update Session Registry**: Add a row to `2_Log/Wiki/Session_Registry.tsv`:
    ```
-   S002	2026-04-01	Wavelength Optimization	Complete	810 nm optimal	Archive/S002_WavelengthOpt.md
+   S002	2026-04-01	Wavelength Optimization	Complete	810 nm optimal	Archive/S002_log.md
    ```
-4. **Archive the log**: Move the log file to `2_Log/Archive/`.
+4. **Archive the log**: Move the log file to `2_Log/Archive/` (filename unchanged).
 5. **Archive scripts** (if one-time): Move to `Scripts/Archive/`.
+
+> `elf session close [S###]` automates steps 1, 3 (status), and 4 — including fixing the log's relative cross-references for its new depth. Steps 2 and 5 remain manual.
 
 ### 5. AI Agent Handoff (Optional)
 

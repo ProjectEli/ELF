@@ -3,9 +3,9 @@ use std::path::Path;
 use clap::{Parser, Subcommand};
 use elf_cli::{doctor, embed, gallery, init, selfupdate, session, status, update, validate};
 
-/// ELF (Eli's Lab Framework) scaffold & update CLI
+/// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드·갱신 CLI (research project scaffold & update CLI)
 #[derive(Parser)]
-#[command(name = "elf", version = embed::version(), about, arg_required_else_help = true)]
+#[command(name = "elf", version = embed::version(), arg_required_else_help = true)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -13,79 +13,79 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// 새 ELF 프로젝트 스캐폴드 생성
+    /// 새 ELF 프로젝트 스캐폴드 생성 · Scaffold a new ELF project
     Init {
-        /// 프로젝트 폴더 이름
+        /// 프로젝트 폴더 이름 · project folder name
         name: String,
-        /// 모듈 preset (full | experimental | software | minimal)
+        /// 모듈 preset · module preset (full | experimental | software | minimal)
         #[arg(long, default_value = "full", conflicts_with = "modules")]
         preset: String,
-        /// custom 모듈 선택 (쉼표 구분: hw,fab,sw,exp,paper) — preset 대신 사용
+        /// custom 모듈 선택 · custom modules (쉼표 구분: hw,fab,sw,exp,paper) — preset 대신
         #[arg(long, value_delimiter = ',')]
         modules: Option<Vec<String>>,
-        /// 프로젝트 언어 (AI 에이전트 응답 언어 — .elf/config.json에 기록)
+        /// 프로젝트 언어 · project language (AI 응답 언어 — .elf/config.json)
         #[arg(long, default_value = "한국어")]
         lang: String,
     },
-    /// 프로젝트의 ELF managed/hybrid 파일을 현 CLI 버전으로 갱신
+    /// 프로젝트의 ELF managed/hybrid 파일을 현 CLI 버전으로 갱신 · Update this project's ELF-managed files
     /// (CLI 자체 갱신은 `elf self-update` 또는 `elf update --self`)
     Update {
-        /// 변경 없이 수행될 작업 목록만 출력
+        /// 변경 없이 작업 목록만 출력 · dry-run (preview only)
         #[arg(long)]
         dry_run: bool,
-        /// 사용자 편집 보호를 무시하고 강제 갱신 (managed 덮어쓰기·hybrid 블록 교체·마커 재삽입)
+        /// 사용자 편집 무시 강제 갱신 · force overwrite (managed 덮어쓰기·hybrid 블록 교체)
         #[arg(long)]
         force: bool,
-        /// 프로젝트가 아니라 elf 바이너리 자체를 갱신 (= self-update의 alias)
+        /// elf 바이너리 자체를 갱신 · update the elf binary (= self-update alias)
         #[arg(long = "self", conflicts_with_all = ["dry_run", "force"])]
         update_self: bool,
     },
-    /// elf 바이너리 자체를 최신 릴리즈로 갱신 (프로젝트 파일 갱신은 `elf update`)
+    /// elf 바이너리 자체를 최신 릴리즈로 갱신 · Update the elf binary itself (프로젝트 파일은 `elf update`)
     #[command(name = "self-update", alias = "selfupdate")]
     SelfUpdate,
-    /// 세션 수명주기 (new: S### 자동 증번 + 로그 생성 + Registry 등록)
+    /// 세션 수명주기 · Session lifecycle (new / close / fix-headers)
     Session {
         #[command(subcommand)]
         cmd: SessionCmd,
     },
     // (주의: doc comment(`///`)는 help로 노출됨 — 내부 표기 금지, 회귀 테스트가 게이트. P011 t09)
-    /// 프로젝트 ELF 파일 상태 진단 (drift/편집/누락 — 읽기전용)
+    /// 프로젝트 ELF 파일 상태 진단 · Diagnose managed-file drift (편집/누락 — 읽기전용/read-only)
     Status {
-        /// 발견(outdated/missing/edited) 시 exit 4 — pre-commit/CI 게이트용
+        /// 발견 시 exit 4 · exit 4 on findings — pre-commit/CI 게이트
         #[arg(long)]
         check: bool,
     },
-    /// 세션/Registry/로그 정합 검사 (미등록·유령행·번호 gap·깨진 cross-ref — 읽기전용)
+    /// 세션/Registry/로그 정합 검사 · Validate session/registry/log consistency (읽기전용/read-only)
     Validate {
-        /// 정합 위반(issue) 발견 시 exit 4 — pre-commit/CI 게이트용
+        /// issue 발견 시 exit 4 · exit 4 on issues — pre-commit/CI 게이트
         #[arg(long)]
         check: bool,
     },
-    /// 6_Exp/64_Viz/ 스캔 → 세션별 Figure 색인 `_gallery.md` 생성
+    /// 6_Exp/64_Viz/ → 세션별 Figure 색인 `_gallery.md` 생성 · Generate the figure gallery index
     Gallery,
-    /// 환경+프로젝트 종합 진단 (버전·설치·.elf 무결성·managed 상태·git — 읽기전용)
+    /// 환경+프로젝트 종합 진단 · Environment + project health check (읽기전용/read-only)
     Doctor,
 }
 
 #[derive(Subcommand)]
 enum SessionCmd {
-    /// 새 세션 로그 생성 + Registry 등록 (S### 자동 증번)
+    /// 새 세션 로그 생성 + Registry 등록 · Create + register a new session log (S### 자동 증번)
     New {
-        /// 세션 제목 (Registry에 기록 — 탭 문자 불가)
+        /// 세션 제목 · session title (Registry 기록 — 탭 불가)
         title: String,
     },
-    /// 활성 세션 종료 — Status를 Complete로, Archive로 이동, Registry 갱신
+    /// 활성 세션 종료 · Close the active session (→ Complete + Archive + registry, cross-ref 보정)
     Close {
-        /// 닫을 세션 ID (생략 시 유일한 활성 세션 자동 선택)
+        /// 닫을 세션 ID · session id (생략 시 유일 활성 자동 선택)
         id: Option<String>,
-        /// '다음 세션 후보' 미작성이어도 강제 종료
+        /// '다음 세션 후보' 미작성도 강제 종료 · force close
         #[arg(long)]
         force: bool,
     },
-    /// 세션 로그 헤더에 CommonMark hard break(`\`) 보정 (Discord 등 렌더러 줄 분리)
+    /// 세션 로그 헤더 hard break(`\`) 보정 · Repair session-log header hard breaks
     #[command(name = "fix-headers")]
     FixHeaders {
-        /// 변경 없이 대상 파일만 출력
+        /// 변경 없이 대상 파일만 출력 · dry-run (list targets only)
         #[arg(long)]
         dry_run: bool,
     },

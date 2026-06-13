@@ -258,6 +258,8 @@ cat > .elf/config.json <<EOF
 }
 EOF
 printf '%s\n' "${ELF_VERSION}" > .elf/version
+# manifest stamp (배포 버전 baseline) — 이게 있어야 `elf update`/`status`/`doctor`가 이 프로젝트를 인식
+cp "$SCRIPT_DIR/manifest.json" .elf/manifest.json
 
 echo '[5/7] Meta documents and config files created.'
 
