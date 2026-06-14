@@ -89,6 +89,7 @@
 - **ticket 번호**: `t01`, `t02`, ... 순서대로. 중복 금지
 - **이미지 경로**: `![alt text](../6_Exp/64_Viz/S{NNN}/filename.png)` (2_Log 기준 상대경로)
 - **Figure 인라인 임베딩 필수 (plot = trial 산출물)**: 모든 plot은 특정 trial(`t{NN}`)의 산출물 — trial 추가(base delta)로 figure 생성 시 **그 작업 turn에 즉시** 해당 trial `### 관찰` 절에 인라인 임베딩(`![alt](경로)`)하고, alt text에 Figure 번호 + 1줄 설명(축·핵심 관찰)을 기재한다. **금지**: ① 파일 목록 테이블에 경로만 기재·본문 미임베딩, ② 확정·피드백 대기·중간(v1) 버전을 이유로 미룸(v1도 즉시 embed 후 갱신), ③ 외부 표시(채팅/뷰어 전송)로 로그 임베딩 대체. `elf validate`가 64_Viz 그림↔본문 임베딩 누락을 검출(`--strict`는 issue 승격; 의도적 제외는 `<!-- noembed: file.png -->`).
+- **시행착오 — base-delta trial 전개**: 같은 형태 plot/분석을 **반복 개선**할 때는 각 수정 시도를 독립 trial(`t{NN}`)로 전개. 각 trial은 직전을 base로 `### 조건`에 **delta(변경점) + 이유(직전 시도 문제)**, `### 관찰`에 그 버전 figure embed. plot script가 새로 생성돼도 **버전별 모두 보존**(§3.3), 중간 figure도 각 trial에 남김 → 시행착오가 trial chain으로 재현 가능 보존. **생존 편향 차단**: "조용히 고치고 최종만 보고" 금지(AI 포함) — 각 버전을 그 turn에 trial로 기록(덮어쓰기·사후 회상 금지). 단 **1~2회 소규모 수정**(오타 등 원인 규명 불요)은 한 trial 내 `### 시행착오` 절(표)로 간략 기록(이원 체계). 전개 비용은 §3.3 core+wrapper로 해소.
 - **생성 파일 테이블**: 각 task에서 생성된 자료를 테이블로 정리해 가독성 및 토큰 효율 극대화. 스크립트, 데이터, Figure를 테이블로 정리. 유형(`Script`, `Output`, `Figure`, `Config` 등)과 프로젝트 루트 기준 상대경로를 명시.
 - **코드 사용법**: 코드 블록 (```lang ... ```) 으로 기재
 - **파라미터 표**: 변수명, 값, 단위를 표 형태로 정리
@@ -124,6 +125,8 @@
 - 시뮬 결과: `S{NNN}_{ticket}_{description}.mat`
 - 그래프: `S{NNN}_{description}.png`
 - 스크립트 ticket 구분 필요 시: `S{NNN}_t{NN}.m`, `S{NNN}_t{NN}_postProcess.m`
+- **반복 개선(시행착오) 버전 보존**: script·figure 덮어쓰지 말고 **버전 접미사** 보존 — `S{NNN}_A06a_*`→`_A06b_*`… 또는 `_v1`/`_v2`. 각 버전 ↔ delta trial 1:1. 덮어쓰면 중간본(실패본) 유실 → 재현 불가.
+- **core + wrapper 패턴(전개 비용 해소)**: 버전마다 full script 복제 대신 **공용 core + 버전별 얇은 wrapper**(delta=파라미터) — `S{NNN}_A06_core.m`(변형을 `normMode`·`isoLevels`·`clim` 등 파라미터로 수용) + `S{NNN}_A06{a..}_plot.m`(각 struct 1개 호출 = 그 버전 delta). 코드 diff가 곧 delta라 가독·보존 동시 충족.
 
 ### 3.4 시각화
 
@@ -183,6 +186,7 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 - [ ] **코드 실행 직후 figure 확인**: MATLAB 등 실행 종료 즉시 `6_Exp/64_Viz/S{NNN}/`에 이번 trial이 산출한 figure가 있는지 확인(실행 turn 이탈 전). 있으면 누락 없이 아래 embed 단계 수행 — 확정 대기·피드백·외부표시(채팅/뷰어 전송)를 이유로 미루지 않음.
 - [ ] `### 관찰 (Observation)` 작성 (팩트 + 가설/예상 대조 표)
 - [ ] 생성한 figure를 `### 관찰`에 인라인 embed (`![alt](경로)`; 경로만 표 기재는 embed 아님 — `elf validate`가 검출)
+- [ ] **반복 개선 판정**: 같은 산출물을 파라미터·로직 바꿔 재생성하면 → 다음 trial(delta)로 전개(script 버전 보존 §3.3 + figure embed + `### 조건`에 delta·이유). 단순 1회 수정만 `### 시행착오` 절 표 기록.
 - [ ] `### 해석 (Interpretation)` 작성 (첫 줄: 가설 적중 여부 명시 + 메커니즘 해석)
 - [ ] `### 교훈` 작성
 - [ ] `### 생성 파일` 작성

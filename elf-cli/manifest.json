@@ -4,11 +4,11 @@
   "note": "ELF CLI 배포 명세(deployment spec). src=CLI 번들 상대(elf-cli/ 기준), dest=생성 프로젝트 루트 상대. tier: managed=update 덮어쓰기 / seed=init만(update 미접근) / hybrid=마커 블록만. 버전 SSOT=elf-cli/VERSION. sha256=원본 바이트 기대 해시(향후 elf update edit 감지용; pre-commit 게이트 check.sh는 git hash-object로 별도 비교). elf_gallery는 CLI 명령으로 이관(제외).",
   "files": [
     { "src": "templates/meta/EliRule.md",          "dest": "0_Meta/EliRule.md",               "tier": "managed", "sha256": "521cdfd8e7aca2c04d6913da42e35314b396da0d59ea4cfd33792923dd080ce8" },
-    { "src": "templates/meta/LogConvention.md",     "dest": "0_Meta/LogConvention.md",         "tier": "managed", "sha256": "49cb87590a74b3c8ae58e67123f0e3bb3914d0184877546a1ee19e75d82cd9b4" },
+    { "src": "templates/meta/LogConvention.md",     "dest": "0_Meta/LogConvention.md",         "tier": "managed", "sha256": "8b4a36219580fcbd5ecb44ec38a122a6181eca2054ce597bd5ed5f1280ab04f7" },
     { "src": "templates/meta/AI_PARA_Framework.md", "dest": "0_Meta/AI_PARA_Framework.md",     "tier": "managed", "sha256": "9692e3eeac2ae3a8fd3c95a4bdaf6fe6d7742fc580fce770f97b3116e6adcde8" },
     { "src": "templates/meta/highIFjournals.md",    "dest": "0_Meta/highIFjournals.md",        "tier": "managed", "sha256": "923fe19ba7097b60cb6f9e4613737e3fab568edd564c87ed4d8acba658631d15" },
     { "src": "templates/log/sessionTemplate.md",    "dest": "templates/sessionTemplate.md",    "tier": "managed", "sha256": "dc5aa69f1d905abcee834ab6abeba8409744ab4cdf59c7a54fddda3ff37d6393" },
-    { "src": "templates/log/trialTemplate.md",      "dest": "templates/trialTemplate.md",      "tier": "managed", "sha256": "f1a660659b9448aed3e130b48e3bf6c09d8677ababf05fb1f6a300ba74c5f16c" },
+    { "src": "templates/log/trialTemplate.md",      "dest": "templates/trialTemplate.md",      "tier": "managed", "sha256": "ddf25a290a8732a3c4b988c44fa6a6887c6f7c9420f14cc5e010493bbfa5447b" },
     { "src": "templates/root/.claudeignore",        "dest": ".claudeignore",                   "tier": "managed", "sha256": "106c0a73eb58f9719a1d89d5ea95d9a6e86311902d0642b9871d05959968b37c" },
     { "src": "templates/root/.gitignore",           "dest": ".gitignore",                      "tier": "hybrid",  "sha256": "f463ee15c311e2138b44831375c728c28e182572aa9bde4f0223d08831fe1b33" },
     { "src": "templates/root/.editorconfig",        "dest": ".editorconfig",                   "tier": "managed", "sha256": "0964430fde7b520069a98037263a86564441b92282f1c152c13caa85a500be57" },
