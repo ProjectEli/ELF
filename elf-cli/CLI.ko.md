@@ -83,17 +83,20 @@ elf update            # 적용(기본 안전)
 
 - `--check`: 발견 시 exit **4** — pre-commit 훅·CI 게이트로 사용.
 
-### `elf validate [--check]`
+### `elf validate [--check] [--strict]`
 
-세션 장부 정합을 검사(읽기전용): Registry ↔ 로그 파일(미등록 로그 / 유령 행), 세션 번호(중복 / gap), 활성 세션 복수, 로그 내 깨진 상대 `.md` cross-ref.
+세션 장부 정합을 검사(읽기전용): Registry ↔ 로그 파일(미등록 로그 / 유령 행), 세션 번호(중복 / gap), 활성 세션 복수, 로그 내 깨진 상대 `.md` cross-ref, **figure-embed 누락**(`6_Exp/64_Viz/S###/`에 그림이 있으나 해당 세션 로그 본문에 인라인 임베딩 안 됨 — 표에 경로만 기재한 것은 embed 아님).
 
-- **issue**(Registry/로그 불일치·번호 중복·깨진 링크) vs **warning**(번호 gap·활성 복수) — issue만 게이트.
+- **issue**(Registry/로그 불일치·번호 중복·깨진 링크) vs **warning**(번호 gap·활성 복수·figure-embed 누락) — issue만 게이트.
 - `--check`: issue 발견 시 exit **4** — pre-commit/CI 게이트.
+- `--strict`: figure-embed 누락을 warning→issue로 승격(→ `--check`가 게이트).
+- 의도적 비임베딩(SI/폐기 figure)은 로그에 `<!-- noembed: filename.png -->` 주석으로 제외.
 - Registry 자체가 파싱 불가면 exit **5**(escalation) — "문제 발견"과 "검사 불능"을 구분.
 
 ```bash
-elf validate          # 보고
-elf validate --check   # issue 시 exit 4 (CI 게이트)
+elf validate                   # 보고 (figure-embed 누락은 warning)
+elf validate --check            # issue 시 exit 4 (CI 게이트)
+elf validate --check --strict   # figure-embed 누락도 게이트
 ```
 
 ### `elf session new <제목>`

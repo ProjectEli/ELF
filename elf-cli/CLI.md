@@ -83,17 +83,20 @@ Diagnose managed-file state (read-only). Reports each file as `ok` / `outdated` 
 
 - `--check`: exit **4** if there are any findings — use it as a pre-commit hook or CI gate.
 
-### `elf validate [--check]`
+### `elf validate [--check] [--strict]`
 
-Check session bookkeeping consistency (read-only): registry ↔ log files (unregistered logs / phantom rows), session numbering (duplicates / gaps), multiple active sessions, and broken relative `.md` cross-references inside logs.
+Check session bookkeeping consistency (read-only): registry ↔ log files (unregistered logs / phantom rows), session numbering (duplicates / gaps), multiple active sessions, broken relative `.md` cross-references inside logs, and **figure-embed gaps** (a figure exists in `6_Exp/64_Viz/S###/` but is not inline-embedded in that session's log body — a table path is *not* an embed).
 
-- **issues** (registry/log mismatch, duplicate number, broken cross-ref) vs **warnings** (numbering gap, multiple active) — only issues are gated.
+- **issues** (registry/log mismatch, duplicate number, broken cross-ref) vs **warnings** (numbering gap, multiple active, figure-embed gap) — only issues are gated.
 - `--check`: exit **4** if there are any issues — pre-commit/CI gate.
+- `--strict`: promote figure-embed gaps from warnings to issues (so `--check` gates on them).
+- Exclude an intentional non-embed (SI/deprecated figure) with a `<!-- noembed: filename.png -->` comment in the log.
 - If the registry itself cannot be parsed, `elf` exits **5** (escalation) — it distinguishes "found problems" from "cannot check".
 
 ```bash
-elf validate          # report
-elf validate --check   # exit 4 on issues (CI gate)
+elf validate                   # report (figure-embed gaps as warnings)
+elf validate --check            # exit 4 on issues (CI gate)
+elf validate --check --strict   # also gate on figure-embed gaps
 ```
 
 ### `elf session new <title>`

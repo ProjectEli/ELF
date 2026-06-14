@@ -60,6 +60,9 @@ enum Commands {
         /// issue 발견 시 exit 4 · exit 4 on issues — pre-commit/CI 게이트
         #[arg(long)]
         check: bool,
+        /// figure-embed 누락을 issue로 승격 · promote missing figure-embeds to issues
+        #[arg(long)]
+        strict: bool,
     },
     /// 6_Exp/64_Viz/ → 세션별 Figure 색인 `_gallery.md` 생성 · Generate the figure gallery index
     Gallery,
@@ -222,9 +225,9 @@ fn main() {
                 }
             }
         }
-        Commands::Validate { check } => {
+        Commands::Validate { check, strict } => {
             let root = log_root_or_exit();
-            match validate::run_validate(&root) {
+            match validate::run_validate_opts(&root, strict) {
                 Ok(report) => {
                     for line in &report.lines {
                         println!("[elf] {line}");

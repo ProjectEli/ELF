@@ -3,7 +3,7 @@
 use assert_cmd::Command;
 use elf_cli::init::{InitOptions, run_init};
 use elf_cli::session::{SessionNewOptions, run_session_new};
-use elf_cli::validate::{ValidateError, run_validate};
+use elf_cli::validate::{ValidateError, run_validate, run_validate_opts};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
@@ -131,6 +131,80 @@ fn malformed_registry_escalates() {
         }
         _ => panic!("expected escalation"),
     }
+}
+
+// ── figure-embed (Figure-Embed Enforcement) ──────────
+
+fn seed_fig(root: &Path, name: &str) {
+    let viz = root.join("6_Exp/64_Viz/S001");
+    fs::create_dir_all(&viz).unwrap();
+    fs::write(viz.join(name), b"x").unwrap(); // figure 생성(내용 무관)
+}
+
+fn append_s001(root: &Path, extra: &str) {
+    let p = root.join("2_Log/S001_log.md");
+    let mut c = fs::read_to_string(&p).unwrap();
+    c.push_str(extra);
+    fs::write(&p, c).unwrap();
+}
+
+#[test]
+fn unembedded_figure_is_warning_not_issue() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    seed_fig(&root, "S001_fig.png"); // 생성만, 로그 미임베딩
+    let r = run_validate(&root).unwrap();
+    assert!(
+        r.lines.iter().any(|l| l.contains("S001_fig.png") && l.contains("not embedded")),
+        "{:?}",
+        r.lines
+    );
+    assert_eq!(r.issues, 0, "embed 누락은 기본 warn: {:?}", r.lines);
+    assert!(r.warnings >= 1);
+}
+
+#[test]
+fn embedded_figure_has_no_finding() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    seed_fig(&root, "S001_fig.png");
+    append_s001(&root, "\n### 관찰\n![Fig1: 축 설명](../6_Exp/64_Viz/S001/S001_fig.png)\n");
+    let r = run_validate(&root).unwrap();
+    assert!(!r.lines.iter().any(|l| l.contains("S001_fig.png")), "{:?}", r.lines);
+}
+
+#[test]
+fn table_path_only_still_warns() {
+    // 표에 경로만 기재(임베딩 아님) → 여전히 누락 경고 (S156 t04 갭 재현)
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    seed_fig(&root, "S001_fig.png");
+    append_s001(&root, "\n| Figure | `../6_Exp/64_Viz/S001/S001_fig.png` |\n");
+    let r = run_validate(&root).unwrap();
+    assert!(
+        r.lines.iter().any(|l| l.contains("S001_fig.png") && l.contains("not embedded")),
+        "{:?}",
+        r.lines
+    );
+}
+
+#[test]
+fn noembed_comment_suppresses_warning() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    seed_fig(&root, "S001_fig.png");
+    append_s001(&root, "\n<!-- noembed: S001_fig.png -->\n");
+    let r = run_validate(&root).unwrap();
+    assert!(!r.lines.iter().any(|l| l.contains("S001_fig.png")), "{:?}", r.lines);
+}
+
+#[test]
+fn strict_promotes_embed_miss_to_issue() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    seed_fig(&root, "S001_fig.png");
+    let r = run_validate_opts(&root, true).unwrap();
+    assert!(r.issues >= 1, "strict 시 embed 누락은 issue: {:?}", r.lines);
 }
 
 // ── e2e ──────────────────────────────────────────────

@@ -124,6 +124,63 @@ fn normalize_link_target(raw: &str) -> Option<String> {
     Some(t.to_string())
 }
 
+/// 마크다운 **이미지 임베드** `![alt](target)`의 target 목록(순수).
+/// 표/산문 속 경로 *언급*(앞에 `![` 없음)은 제외 — "표에 경로만 기재 ≠ 임베딩"(G1/G4) 판별의 핵심.
+pub fn extract_image_targets(content: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let b = content.as_bytes();
+    let mut i = 0;
+    while i + 1 < b.len() {
+        if b[i] == b'!' && b[i + 1] == b'[' {
+            // 이미지 패턴: `![` … `](` … `)`
+            if let Some(mid) = content[i + 2..].find("](") {
+                let after = i + 2 + mid + 2;
+                if let Some(close) = content[after..].find(')') {
+                    let target = content[after..after + close]
+                        .split_whitespace()
+                        .next()
+                        .unwrap_or("");
+                    if !target.is_empty() {
+                        out.push(target.to_string());
+                    }
+                    i = after + close + 1;
+                    continue;
+                }
+            }
+        }
+        i += 1;
+    }
+    out
+}
+
+/// 이미지 확장자 여부(case-insensitive) — gallery와 동일 집합(png/jpg/svg).
+fn is_image(name: &str) -> bool {
+    let l = name.to_ascii_lowercase();
+    l.ends_with(".png") || l.ends_with(".jpg") || l.ends_with(".svg")
+}
+
+/// image target 목록에 basename이 `fname`인 임베드가 있으면 true(경로 깊이 무관, 파일명 일치).
+fn embedded_basename(targets: &[String], fname: &str) -> bool {
+    targets
+        .iter()
+        .any(|t| Path::new(t).file_name().and_then(|n| n.to_str()) == Some(fname))
+}
+
+/// `<!-- noembed: a.png, b.svg -->` 주석에서 의도적 제외 파일명 집합(순수). SI/폐기 figure 용.
+pub fn noembed_filenames(content: &str) -> BTreeSet<String> {
+    let mut set = BTreeSet::new();
+    for (idx, _) in content.match_indices("noembed:") {
+        let rest = &content[idx + "noembed:".len()..];
+        let end = rest.find("-->").unwrap_or(rest.len());
+        for tok in rest[..end].split(|c: char| c == ',' || c.is_whitespace()) {
+            if is_image(tok) {
+                set.insert(tok.to_string());
+            }
+        }
+    }
+    set
+}
+
 // ── FS 실행기 ──────────────────────────────────────────────────
 
 /// dir의 `S###_log.md` → (번호, 경로), 번호 오름차순.
@@ -140,8 +197,29 @@ fn scan_logs(dir: &Path) -> Vec<(u32, PathBuf)> {
     v
 }
 
-/// `elf validate`: Registry↔로그 정합 · 번호 중복/gap · 활성 복수 · cross-ref 검사. 읽기전용.
+/// `6_Exp/64_Viz/S{NNN}/`의 이미지 파일명(정렬). 디렉토리 부재 시 빈 벡터.
+fn scan_viz_images(viz: &Path) -> Vec<String> {
+    let mut v = Vec::new();
+    if let Ok(entries) = fs::read_dir(viz) {
+        for e in entries.flatten() {
+            if let Some(name) = e.file_name().to_str()
+                && is_image(name)
+            {
+                v.push(name.to_string());
+            }
+        }
+    }
+    v.sort();
+    v
+}
+
+/// `elf validate`: Registry↔로그 정합 · 번호 중복/gap · 활성 복수 · cross-ref · figure-embed 검사. 읽기전용.
 pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
+    run_validate_opts(root, false)
+}
+
+/// `strict`=true → figure-embed 누락을 warning 대신 **issue**로 승격(`--check`/CI 게이트 대상).
+pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, ValidateError> {
     let reg_text = fs::read_to_string(root.join(crate::session::REGISTRY_REL)).unwrap_or_default();
     let rows = parse_registry(&reg_text).map_err(ValidateError::Escalation)?;
 
@@ -182,14 +260,34 @@ pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
         ));
     }
 
-    // ③ cross-ref (상대 .md 링크 대상 부재)
-    for (_, path) in live.iter().chain(archive.iter()) {
+    // ③ cross-ref (상대 .md 링크 대상 부재) + ⑤ figure-embed (plot=trial; 표 경로 ≠ 임베딩)
+    for (n, path) in live.iter().chain(archive.iter()) {
         let content = fs::read_to_string(path)?;
         let dir = path.parent().unwrap_or(root);
         let fname = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
         for target in extract_md_links(&content) {
             if !dir.join(&target).exists() {
                 report.issue(format!("{fname}: broken cross-ref → {target}"));
+            }
+        }
+        // 동일 세션 64_Viz의 그림이 로그 본문에 인라인 임베딩되지 않으면 보고(strict 시 issue).
+        let images = scan_viz_images(&root.join(format!("6_Exp/64_Viz/S{n:03}")));
+        if !images.is_empty() {
+            let targets = extract_image_targets(&content);
+            let skip = noembed_filenames(&content);
+            for img in images {
+                if skip.contains(&img) || embedded_basename(&targets, &img) {
+                    continue;
+                }
+                let msg = format!(
+                    "S{n:03}: figure '{img}' exists in 64_Viz/ but is not embedded in the log body \
+                     (table path ≠ embed; add ![..](..) or `<!-- noembed: {img} -->`)"
+                );
+                if strict {
+                    report.issue(msg);
+                } else {
+                    report.warn(msg);
+                }
             }
         }
     }
@@ -262,5 +360,26 @@ mod tests {
     fn bracket_without_paren_is_not_a_link() {
         // 템플릿 `> **관련**: [관련 세션/문서, 예: S000, P001_xxx.md]` 형태(파렌 없음) → 추출 안 됨
         assert!(extract_md_links("> **관련**: [예: S000, P001_xxx.md]\\\n").is_empty());
+    }
+
+    #[test]
+    fn image_targets_only_from_image_syntax() {
+        // 표/산문 속 경로 언급(`![` 없음)은 제외, 이미지 임베드만 추출 — G1/G4 판별 핵심.
+        let md = "| Figure | `../6_Exp/64_Viz/S156/foo.png` |\n\n\
+                  ![Fig1: 축 설명](../6_Exp/64_Viz/S156/foo.png)\n[plan](../1_Concept/p.md)";
+        let t = extract_image_targets(md);
+        assert_eq!(t.len(), 1, "{t:?}");
+        assert!(t[0].ends_with("foo.png"));
+        assert!(embedded_basename(&t, "foo.png"));
+        assert!(!embedded_basename(&t, "bar.png"));
+    }
+
+    #[test]
+    fn noembed_parses_image_filenames() {
+        let s = noembed_filenames("본문 <!-- noembed: a.png, b.svg --> 그리고 noembed: c.jpg -->");
+        assert!(s.contains("a.png"));
+        assert!(s.contains("b.svg"));
+        assert!(s.contains("c.jpg"));
+        assert!(!s.contains("noembed")); // 비이미지 토큰 제외
     }
 }

@@ -16,6 +16,7 @@
 
 ### 관찰 (Observation)
 - [Phase 2, 실행 후 작성 — 팩트 나열, Figure 인라인]
+- [Figure는 생성 turn에 즉시 인라인 embed: `![<Fig 번호: 축·핵심 관찰>](../6_Exp/64_Viz/S{NNN}/<file>.png)` — 표 경로 기재로 대체 금지]
 - [가설/예상 대조 표 권장 (2열: `예상` vs `관찰`)]
 
 ### 해석 (Interpretation)
