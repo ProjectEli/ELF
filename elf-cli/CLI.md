@@ -47,7 +47,7 @@ Scaffold a new ELF project in `./<name>`.
 
 | Flag | Default | Meaning |
 |------|---------|---------|
-| `--preset <p>` | `full` | Module set: `full` / `experimental` / `software` / `minimal` |
+| `--preset <p>` | `full` | Module set: `full` / `experimental` / `software` / `minimal`, or **`qa`** (experimental — question-archive archetype, not research) |
 | `--modules <list>` | — | Custom modules (comma-separated): `hw,fab,sw,exp,paper`. Overrides `--preset` |
 | `--lang <lang>` | `한국어` | AI agent response language (written to `.elf/config.json`) |
 
@@ -57,7 +57,11 @@ Core folders (`0_Meta`–`2_Log` + `templates`) are always created; module folde
 elf init NIRS_Probe
 elf init NIRS_Probe --preset experimental --lang English
 elf init NIRS_Probe --modules hw,sw
+elf init my_questions --preset qa                          # experimental: Q&A bundle archive (no categories)
+elf init my_questions --preset qa --categories 일상질문,IT일반질문   # pre-create categories
 ```
+
+> **`qa` preset (experimental).** Scaffolds a *question-archive* archetype instead of the research hierarchy: a root `CLAUDE.md` (auto-loaded operational rules), `templates/bundle_template.md`, and `.elf/`. **No categories are pre-created by default** — create them on demand per `CLAUDE.md`, or pre-create with `--categories a,b,c` (each gets an `archive/`). Q&A is captured as semantic **bundles** (not sessions/trials/figures). Shares the `.elf/` control plane with its own manifest (`manifest.qa.json`), so `elf update` propagates the convention. Isolated from the research preset; subject to change while it is polished.
 
 ### `elf update`
 

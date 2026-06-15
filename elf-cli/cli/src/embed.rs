@@ -9,6 +9,9 @@ pub static TEMPLATES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../templates")
 /// elf-cli/manifest.json (배포 명세: src/dest/tier/sha256) — manifest.rs가 파싱
 pub static MANIFEST_JSON: &str = include_str!("../../manifest.json");
 
+/// elf-cli/manifest.qa.json — QA preset(experimental) 배포 명세 (manifest.rs::embedded_qa가 파싱)
+pub static MANIFEST_QA_JSON: &str = include_str!("../../manifest.qa.json");
+
 /// elf-cli/VERSION 원문 (개행 포함 가능)
 static VERSION_RAW: &str = include_str!("../../VERSION");
 

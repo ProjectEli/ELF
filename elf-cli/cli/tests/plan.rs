@@ -39,6 +39,25 @@ fn manifest_hashes_match_embedded_templates() {
     }
 }
 
+/// qa(experimental) manifest 자기검증 — sha256 stale + src 실존 (연구 게이트의 qa 짝)
+#[test]
+fn qa_manifest_hashes_match_embedded_templates() {
+    let m = manifest::embedded_qa();
+    assert!(!m.files.is_empty(), "qa manifest must list files");
+    for e in &m.files {
+        let rel = e.src.strip_prefix("templates/").unwrap();
+        let file = embed::TEMPLATES
+            .get_file(rel)
+            .unwrap_or_else(|| panic!("qa manifest src not embedded: {}", e.src));
+        let actual = hash::sha256_lf(file.contents());
+        assert_eq!(
+            actual, e.sha256,
+            "qa manifest sha256 stale for {} — 재산출 필요",
+            e.src
+        );
+    }
+}
+
 /// 역방향: embed된 모든 템플릿이 manifest에 등재되어야 함 (orphan = 배포 누락 의심)
 #[test]
 fn every_embedded_template_is_in_manifest() {
@@ -54,9 +73,11 @@ fn every_embedded_template_is_in_manifest() {
     let mut embedded = Vec::new();
     collect(&embed::TEMPLATES, &mut embedded);
 
+    // 연구 + qa(experimental) 두 archetype manifest의 합집합이 전 템플릿을 덮어야 함
     let manifest_srcs: std::collections::BTreeSet<String> = manifest::embedded()
         .files
         .iter()
+        .chain(manifest::embedded_qa().files.iter())
         .map(|e| e.src.strip_prefix("templates/").unwrap().replace('\\', "/"))
         .collect();
 

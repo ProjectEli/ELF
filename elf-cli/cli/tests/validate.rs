@@ -15,6 +15,7 @@ fn new_project(tmp: &Path) -> PathBuf {
             name: "P".into(),
             preset: "minimal".into(),
             modules: None,
+            categories: Vec::new(),
             lang: "한국어".into(),
             date: "2026-06-13".into(),
         },

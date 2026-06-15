@@ -9,6 +9,7 @@ fn opts(name: &str) -> InitOptions {
         name: name.into(),
         preset: "full".into(),
         modules: None,
+        categories: Vec::new(),
         lang: "한국어".into(),
         date: "2026-06-12".into(),
     }
@@ -143,6 +144,71 @@ fn refuse_when_target_exists() {
     match run_init(tmp.path(), &opts("DUP")) {
         Err(InitError::TargetExists(_)) => {}
         other => panic!("expected TargetExists, got {other:?}"),
+    }
+}
+
+#[test]
+fn qa_preset_creates_question_archive_and_skips_research() {
+    let tmp = tempdir().unwrap();
+    let mut o = opts("MyQA");
+    o.preset = "qa".into();
+    let target = run_init(tmp.path(), &o).unwrap();
+
+    // qa archetype 콘텐츠 — 규칙은 루트 CLAUDE.md(LLM 자동 로드)
+    assert!(target.join("CLAUDE.md").is_file());
+    assert!(target.join("templates/bundle_template.md").is_file());
+    assert!(!target.join("0_Meta").exists(), "qa는 0_Meta 미사용");
+    // 기본 = 카테고리 0개 (수요 기반 생성 — CLAUDE.md 규약)
+    assert!(!target.join("일상질문").exists(), "기본 qa는 사전 카테고리 없음");
+    // seed README 치환 (qa도 공용 seed 경로)
+    let readme = std::fs::read_to_string(target.join("README.md")).unwrap();
+    assert!(readme.contains("MyQA") && !readme.contains("PLACEHOLDER_"));
+
+    // 연구 archetype 격리 — 세션·연구 managed 파일 미생성
+    assert!(!target.join("2_Log/S001_log.md").exists());
+    assert!(!target.join("0_Meta/EliRule.md").exists());
+    assert!(!target.join("0_Meta/LogConvention.md").exists());
+    assert!(!target.join("2_Log/Wiki/Session_Registry.tsv").exists());
+    assert!(!target.join("3_HW").exists());
+    // P2: qa는 빈 .gitattributes·LICENSE cruft 없음, 불필요한 templates/.gitkeep 없음
+    assert!(!target.join(".gitattributes").exists());
+    assert!(!target.join("LICENSE").exists());
+    assert!(!target.join("templates/.gitkeep").exists());
+
+    // .elf stamp = qa manifest (update가 qa 파일만 관리)
+    let stamp = std::fs::read_to_string(target.join(".elf/manifest.json")).unwrap();
+    assert_eq!(stamp, embed::MANIFEST_QA_JSON);
+    assert!(manifest::parse(&stamp).is_ok());
+    // 공용 spine — config/version 동일
+    let config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(target.join(".elf/config.json")).unwrap())
+            .unwrap();
+    assert_eq!(config["name"], "MyQA");
+}
+
+#[test]
+fn qa_categories_flag_pre_creates_folders() {
+    let tmp = tempdir().unwrap();
+    let mut o = opts("CatQA");
+    o.preset = "qa".into();
+    o.categories = vec!["일상질문".into(), "메모".into()];
+    let target = run_init(tmp.path(), &o).unwrap();
+    for c in ["일상질문", "일상질문/archive", "메모", "메모/archive"] {
+        assert!(target.join(c).is_dir(), "missing category dir: {c}");
+    }
+    assert!(target.join("일상질문/.gitkeep").is_file());
+    assert!(!target.join("LLMHowto").exists(), "미지정 카테고리는 미생성");
+}
+
+#[test]
+fn qa_invalid_category_is_refused() {
+    let tmp = tempdir().unwrap();
+    let mut o = opts("BadCat");
+    o.preset = "qa".into();
+    o.categories = vec!["../escape".into()];
+    match run_init(tmp.path(), &o) {
+        Err(InitError::Plan(msg)) => assert!(msg.contains("category"), "msg: {msg}"),
+        other => panic!("expected Plan error, got {other:?}"),
     }
 }
 

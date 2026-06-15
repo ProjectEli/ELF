@@ -17,12 +17,15 @@ enum Commands {
     Init {
         /// 프로젝트 폴더 이름 · project folder name
         name: String,
-        /// 모듈 preset · module preset (full | experimental | software | minimal)
+        /// 모듈 preset · module preset (full | experimental | software | minimal | qa[experimental])
         #[arg(long, default_value = "full", conflicts_with = "modules")]
         preset: String,
         /// custom 모듈 선택 · custom modules (쉼표 구분: hw,fab,sw,exp,paper) — preset 대신
         #[arg(long, value_delimiter = ',')]
         modules: Option<Vec<String>>,
+        /// (qa preset) 사전 생성 카테고리 · pre-create categories (쉼표 구분) — 기본 0개(수요 기반)
+        #[arg(long, value_delimiter = ',')]
+        categories: Option<Vec<String>>,
         /// 프로젝트 언어 · project language (AI 응답 언어 — .elf/config.json)
         #[arg(long, default_value = "한국어")]
         lang: String,
@@ -102,6 +105,7 @@ fn main() {
             name,
             preset,
             modules,
+            categories,
             lang,
         } => {
             let date = chrono::Local::now().format("%Y-%m-%d").to_string();
@@ -113,6 +117,7 @@ fn main() {
                 name,
                 preset,
                 modules,
+                categories: categories.unwrap_or_default(),
                 lang,
                 date,
             };

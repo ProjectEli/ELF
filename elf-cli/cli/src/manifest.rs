@@ -67,6 +67,11 @@ pub fn embedded() -> Manifest {
     parse(crate::embed::MANIFEST_JSON).expect("embedded manifest must be valid")
 }
 
+/// QA preset(experimental) 정본 manifest — 질문 아카이브 archetype (연구 manifest와 분리).
+pub fn embedded_qa() -> Manifest {
+    parse(crate::embed::MANIFEST_QA_JSON).expect("embedded qa manifest must be valid")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

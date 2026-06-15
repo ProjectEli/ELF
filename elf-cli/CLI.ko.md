@@ -47,7 +47,7 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases
 
 | 플래그 | 기본값 | 의미 |
 |--------|--------|------|
-| `--preset <p>` | `full` | 모듈 세트: `full` / `experimental` / `software` / `minimal` |
+| `--preset <p>` | `full` | 모듈 세트: `full` / `experimental` / `software` / `minimal`, 또는 **`qa`**(experimental — 질문 아카이브 archetype, 연구 아님) |
 | `--modules <목록>` | — | custom 모듈(쉼표): `hw,fab,sw,exp,paper`. `--preset`보다 우선 |
 | `--lang <언어>` | `한국어` | AI 에이전트 응답 언어(`.elf/config.json`에 기록) |
 
@@ -57,7 +57,11 @@ Core 폴더(`0_Meta`–`2_Log` + `templates`)는 항상 생성, 모듈 폴더(`3
 elf init NIRS_Probe
 elf init NIRS_Probe --preset experimental --lang English
 elf init NIRS_Probe --modules hw,sw
+elf init my_questions --preset qa                          # experimental: Q&A bundle 아카이브 (카테고리 0개)
+elf init my_questions --preset qa --categories 일상질문,IT일반질문   # 카테고리 사전 생성
 ```
+
+> **`qa` preset (experimental).** 연구 계층 대신 *질문 아카이브* archetype을 스캐폴드: 루트 `CLAUDE.md`(LLM 자동 로드 규칙) + `templates/bundle_template.md` + `.elf/`. **기본은 카테고리 0개** — `CLAUDE.md` 규약대로 수요 기반 생성, 또는 `--categories a,b,c`로 사전 생성(각 `archive/` 동반). Q&A를 의미 단위 **bundle**로 기록(session/trial/figure 아님). `.elf/` 제어판 공유 + 자체 manifest(`manifest.qa.json`) → `elf update`로 규칙 전파. 연구 preset과 격리, polish 중이라 변경 가능.
 
 ### `elf update`
 

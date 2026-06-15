@@ -2,6 +2,8 @@
 .claude/
 .ecc/
 CLAUDE.md
+# qa preset 배포 템플릿은 추적 필요 (루트/개인 CLAUDE.md만 무시 의도)
+!elf-cli/templates/qa/CLAUDE.md
 .claudeignore
 
 # === Rust/dist build output (elf-cli — repo 루트는 dist 워크스페이스) ===

@@ -18,6 +18,8 @@ pub struct InitOptions {
     pub preset: String,
     /// custom 모듈 선택 (Some이면 preset 대신 사용)
     pub modules: Option<Vec<String>>,
+    /// (qa preset 전용) 사전 생성할 카테고리 폴더 — 비면 0개(수요 기반 생성). 그 외 preset은 무시.
+    pub categories: Vec<String>,
     pub lang: String,
     /// YYYY-MM-DD — 주입형(테스트 결정성; 프로덕션은 main이 오늘 날짜 주입)
     pub date: String,
@@ -61,7 +63,12 @@ pub fn run_init(parent: &Path, opts: &InitOptions) -> Result<PathBuf, InitError>
         return Err(InitError::TargetExists(target));
     }
 
-    let m = manifest::embedded();
+    // preset에 따라 archetype manifest 선택 — qa(experimental) = 질문 아카이브, 그 외 = 연구
+    let m = if opts.preset == "qa" {
+        manifest::embedded_qa()
+    } else {
+        manifest::embedded()
+    };
 
     // 1. 폴더 scaffold (+ .gitkeep / raw .gitignore) — 데이터 출처 = manifest.dirs
     let dir_plan = match &opts.modules {
@@ -82,9 +89,27 @@ pub fn run_init(parent: &Path, opts: &InitOptions) -> Result<PathBuf, InitError>
         }
     }
 
-    // 2. 빈 루트 파일 (generator parity)
-    fs::write(target.join(".gitattributes"), b"")?;
-    fs::write(target.join("LICENSE"), b"")?;
+    // (qa) 사용자 지정 카테고리 폴더 — `<cat>/` + `<cat>/archive/` (각 .gitkeep).
+    //      비면 0개 = 수요 기반 생성(CLAUDE.md 규약). 경로 탈출 방지 검증.
+    if opts.preset == "qa" {
+        for cat in &opts.categories {
+            if cat.is_empty() || cat.contains('/') || cat.contains('\\') || cat.contains("..") {
+                return Err(InitError::Plan(format!(
+                    "invalid category name (no empty / slash / `..`): {cat:?}"
+                )));
+            }
+            let base = target.join(cat);
+            fs::create_dir_all(base.join("archive"))?;
+            fs::write(base.join(".gitkeep"), b"")?;
+            fs::write(base.join("archive").join(".gitkeep"), b"")?;
+        }
+    }
+
+    // 2. 빈 루트 파일 (generator parity) — 연구 preset만. qa는 불필요(cruft) 생략.
+    if opts.preset != "qa" {
+        fs::write(target.join(".gitattributes"), b"")?;
+        fs::write(target.join("LICENSE"), b"")?;
+    }
 
     // 3. manifest 파일 배치 — managed/hybrid = 정본 그대로, seed = placeholder 치환
     for a in plan::plan_init(&m) {
@@ -108,15 +133,19 @@ pub fn run_init(parent: &Path, opts: &InitOptions) -> Result<PathBuf, InitError>
         }
     }
 
-    // 4. 파생 instance: 2_Log/S001_log.md (sessionTemplate 기반 — init 1회 생성, update 미접근)
-    let session_tpl = embed::TEMPLATES
-        .get_file("log/sessionTemplate.md")
-        .and_then(|f| f.contents_utf8())
-        .ok_or_else(|| InitError::Internal("embedded template missing: sessionTemplate.md".into()))?;
-    let s001 = session_tpl
-        .replace("S{NNN}", "S001")
-        .replace("YYYY-MM-DD", &opts.date);
-    fs::write(target.join("2_Log/S001_log.md"), s001)?;
+    // 4. 파생 instance: 2_Log/S001_log.md — 연구 preset 전용 (qa는 세션/trial 미사용 archetype)
+    if opts.preset != "qa" {
+        let session_tpl = embed::TEMPLATES
+            .get_file("log/sessionTemplate.md")
+            .and_then(|f| f.contents_utf8())
+            .ok_or_else(|| {
+                InitError::Internal("embedded template missing: sessionTemplate.md".into())
+            })?;
+        let s001 = session_tpl
+            .replace("S{NNN}", "S001")
+            .replace("YYYY-MM-DD", &opts.date);
+        fs::write(target.join("2_Log/S001_log.md"), s001)?;
+    }
 
     // 5. .elf/ control plane: config + version stamp + manifest stamp(배포 시점 사본)
     let elf_dir = target.join(".elf");
@@ -130,7 +159,12 @@ pub fn run_init(parent: &Path, opts: &InitOptions) -> Result<PathBuf, InitError>
     config_text.push('\n');
     fs::write(elf_dir.join("config.json"), config_text)?;
     fs::write(elf_dir.join("version"), format!("{}\n", embed::version()))?;
-    fs::write(elf_dir.join("manifest.json"), embed::MANIFEST_JSON)?;
+    let manifest_json = if opts.preset == "qa" {
+        embed::MANIFEST_QA_JSON
+    } else {
+        embed::MANIFEST_JSON
+    };
+    fs::write(elf_dir.join("manifest.json"), manifest_json)?;
 
     // hybrid 배포본 baseline (블록 내 편집 감지의 비교 기준 — t04 update가 사용)
     for e in &m.files {
