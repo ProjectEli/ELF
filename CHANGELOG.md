@@ -1,0 +1,103 @@
+# Changelog
+
+User-facing highlights for the `elf` CLI — new features, new options, and changes
+that affect your projects. (Exhaustive internal history is kept separately by the
+maintainer.) The matching section is shown on each GitHub Release.
+
+## [2.7.1] - 2026-06-16
+
+### Changed
+- **Logging convention — abbreviations**: define an abbreviation on first use
+  (`AR (asymmetry ratio)`) and give an abbreviation legend per trial, so a single
+  trial stays self-readable. Run `elf update` for the new `EliRule.md`.
+
+## [2.7.0] - 2026-06-16
+
+### New
+- **`qa` preset (experimental)** — `elf init <name> --preset qa` scaffolds a
+  *question-archive* project (Q&A "bundles") instead of the research layout.
+  Add `--categories a,b,c` to pre-create category folders (default: none —
+  created on demand). See `elf-cli/CLI.md`.
+
+## [2.6.2] - 2026-06-15
+
+### Changed
+- **Trial-and-error trigger sharpened** — any change to a working figure's
+  appearance (color/axes/font/params) becomes its own delta-trial (even once);
+  only non-appearance fixes / pre-working debugging stay in a `### 시행착오` table.
+  Run `elf update` for the new `LogConvention.md`.
+
+## [2.6.1] - 2026-06-15
+
+### Changed
+- **Logging convention — trial-and-error as base-delta trials**: when iteratively
+  improving a plot/analysis, expand each attempt as its own trial and keep every
+  script/figure version (reproducible, no survivorship bias). Run `elf update` for
+  the new `LogConvention.md`.
+
+## [2.6.0] - 2026-06-14
+
+### New
+- **`elf validate` flags missing figure embeds** — a figure in `6_Exp/64_Viz/S###/`
+  that isn't inline-embedded in its session log is reported (a table path is not an
+  embed). Warning by default; `--strict` makes it a gating issue. Exclude with
+  `<!-- noembed: file.png -->`.
+
+### Changed
+- LogConvention: embed figures inline in the same turn they're generated.
+
+## [2.5.0] - 2026-06-14
+
+### Changed (heads-up)
+- **`0_Meta/AI_Sync.md` deprecated** — new `elf init` no longer creates it; AI-handoff
+  moves to the session log's `Handoff` field + `Session_Registry.tsv`. Existing files
+  in your projects are left untouched (`elf update` won't delete them).
+
+## [2.4.5] - 2026-06-14
+
+### Changed
+- **Bilingual CLI help** — `elf --help` now shows `한국어 · English`.
+- The no-install generator also writes `.elf/manifest.json`, so generated projects
+  are recognized by `elf update`/`status`/`doctor`.
+
+## [2.4.4] - 2026-06-13
+
+### Fixed
+- `elf session close` now fixes a log's relative cross-references (`](../…)`) for its
+  new archive depth.
+
+## [2.4.3] - 2026-06-13
+
+### New
+- **`elf session close [S###]`** — close a session (Status → Complete, move to
+  `2_Log/Archive/`, update the registry).
+- **`elf validate [--check]`** — check session/registry/log consistency (read-only;
+  `--check` exits 4 for CI).
+- **`elf gallery`** — build a per-session figure index (`_gallery.md`) from `6_Exp/64_Viz/`.
+- **`elf doctor`** — environment + project health check (read-only).
+
+## [2.4.2] - 2026-06-12
+
+### New
+- **`elf self-update`** — update the `elf` binary in place.
+- **`elf session new <title>`** — create + register the next session log.
+- **`elf session fix-headers`** — retrofit session-header line breaks (idempotent).
+- Projects now receive a `.editorconfig` (LF / UTF-8) and a CLI reference (`CLI.md`).
+
+### Fixed
+- Cleaner `--help` (internal labels removed); embed/data errors fail gracefully
+  instead of panicking.
+
+## [2.4.1] - 2026-06-12
+
+### Fixed
+- `elf init` no longer panics on a missing embedded template (affected the v2.4.0
+  binary). Use v2.4.1+.
+
+## [2.4.0] - 2026-06-12
+
+### New
+- First Rust **`elf` CLI** — `elf init` (scaffold a project; `--preset`/`--modules`/`--lang`),
+  `elf update` (refresh ELF-managed files; `--dry-run`/`--force`), `elf status`
+  (drift check; `--check` for CI). Single static binary, no Node/npm.
+- Prebuilt installers for Windows/macOS/Linux (x64/arm64).
