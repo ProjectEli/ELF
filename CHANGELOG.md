@@ -4,6 +4,14 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.7.2] - 2026-06-18
+
+### Changed
+- **Logging convention — no-metaphor rule sharpened**: the "no metaphor" rule now
+  lists concrete examples of common LLM metaphors to avoid (lens / navigate /
+  deep dive / journey) and points to plain terms instead. Run `elf update` for the
+  new `EliRule.md`.
+
 ## [2.7.1] - 2026-06-16
 
 ### Changed
