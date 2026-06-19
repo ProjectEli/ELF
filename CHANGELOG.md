@@ -4,6 +4,13 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.7.3] - 2026-06-20
+
+### Changed
+- **Wording — "archetype" → "project type"**: the `qa` preset is described as a
+  *project type* (instead of "archetype") in the CLI reference and the qa project's
+  `CLAUDE.md`, for clarity. Run `elf update` in qa projects for the new `CLAUDE.md`.
+
 ## [2.7.2] - 2026-06-18
 
 ### Changed

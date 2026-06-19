@@ -154,7 +154,7 @@ fn qa_preset_creates_question_archive_and_skips_research() {
     o.preset = "qa".into();
     let target = run_init(tmp.path(), &o).unwrap();
 
-    // qa archetype 콘텐츠 — 규칙은 루트 CLAUDE.md(LLM 자동 로드)
+    // qa 유형 콘텐츠 — 규칙은 루트 CLAUDE.md(LLM 자동 로드)
     assert!(target.join("CLAUDE.md").is_file());
     assert!(target.join("templates/bundle_template.md").is_file());
     assert!(!target.join("0_Meta").exists(), "qa는 0_Meta 미사용");
@@ -164,7 +164,7 @@ fn qa_preset_creates_question_archive_and_skips_research() {
     let readme = std::fs::read_to_string(target.join("README.md")).unwrap();
     assert!(readme.contains("MyQA") && !readme.contains("PLACEHOLDER_"));
 
-    // 연구 archetype 격리 — 세션·연구 managed 파일 미생성
+    // 연구 유형 격리 — 세션·연구 managed 파일 미생성
     assert!(!target.join("2_Log/S001_log.md").exists());
     assert!(!target.join("0_Meta/EliRule.md").exists());
     assert!(!target.join("0_Meta/LogConvention.md").exists());

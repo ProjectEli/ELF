@@ -63,7 +63,7 @@ pub fn run_init(parent: &Path, opts: &InitOptions) -> Result<PathBuf, InitError>
         return Err(InitError::TargetExists(target));
     }
 
-    // preset에 따라 archetype manifest 선택 — qa(experimental) = 질문 아카이브, 그 외 = 연구
+    // preset에 따라 유형 manifest 선택 — qa(experimental) = 질문 아카이브, 그 외 = 연구
     let m = if opts.preset == "qa" {
         manifest::embedded_qa()
     } else {
@@ -133,7 +133,7 @@ pub fn run_init(parent: &Path, opts: &InitOptions) -> Result<PathBuf, InitError>
         }
     }
 
-    // 4. 파생 instance: 2_Log/S001_log.md — 연구 preset 전용 (qa는 세션/trial 미사용 archetype)
+    // 4. 파생 instance: 2_Log/S001_log.md — 연구 preset 전용 (qa는 세션/trial 미사용 유형)
     if opts.preset != "qa" {
         let session_tpl = embed::TEMPLATES
             .get_file("log/sessionTemplate.md")

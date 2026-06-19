@@ -73,7 +73,7 @@ fn every_embedded_template_is_in_manifest() {
     let mut embedded = Vec::new();
     collect(&embed::TEMPLATES, &mut embedded);
 
-    // 연구 + qa(experimental) 두 archetype manifest의 합집합이 전 템플릿을 덮어야 함
+    // 연구 + qa(experimental) 두 유형 manifest의 합집합이 전 템플릿을 덮어야 함
     let manifest_srcs: std::collections::BTreeSet<String> = manifest::embedded()
         .files
         .iter()

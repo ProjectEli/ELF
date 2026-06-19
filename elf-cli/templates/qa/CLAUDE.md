@@ -1,6 +1,6 @@
 # QA PKB — Operational Rules (이 CLAUDE.md는 자동 로드됨)
 
-이 프로젝트는 ELF **질문 아카이브(QA preset, experimental)** 입니다. 당신(LLM)은 여기서 Q&A를 **bundle**(의미 단위)로 capture·분류·archive·recall합니다. 아래 규칙을 LLM·런타임 무관하게 따르십시오. (연구 preset의 session/trial/figure와 **별개 archetype** — 여기선 시간 단위가 아니라 의미 단위가 기본.)
+이 프로젝트는 ELF **질문 아카이브(QA preset, experimental)** 입니다. 당신(LLM)은 여기서 Q&A를 **bundle**(의미 단위)로 capture·분류·archive·recall합니다. 아래 규칙을 LLM·런타임 무관하게 따르십시오. (연구 preset의 session/trial/figure와 **별개 유형** — 여기선 시간 단위가 아니라 의미 단위가 기본.)
 
 > ⚠️ **experimental** — 비안정·polish 중. 연구 워크플로와 혼용 금지. 정식 편입 여부는 별도 결정(issue #5).
 
@@ -43,5 +43,5 @@ thread: <slug>            # 선택 — 사고 chain일 때만(§4). standalone�
 - active bundle을 파일명 + frontmatter(`category`·`tags`·`thread`)로 스캔. thread 슬러그로 체인 복원.
 
 ## 비고
-- 연구 preset과 **아키타입 분리** — 같은 프로젝트에 혼용하지 않음.
+- 연구 preset과 **유형 분리** — 같은 프로젝트에 혼용하지 않음.
 - 본 규칙은 0Q PKB 프로토콜에서 이식. preset 성숙 시 카테고리·recall 자동화 등 polish 예정.
