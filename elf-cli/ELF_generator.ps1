@@ -78,21 +78,45 @@ $langNames = @(
     'Bahasa Indonesia'   # 19
 )
 
+# BCP-47 태그 = 저장값. 메뉴 표시는 'code (native name)', 저장은 code(언어 중립·표준).
+$langCodes = @(
+    '',                  # 0: placeholder
+    'ko-KR',             # 1
+    'en-US',             # 2
+    'ja-JP',             # 3
+    'zh-CN',             # 4
+    'zh-TW',             # 5
+    'fr-FR',             # 6
+    'de-DE',             # 7
+    'es-ES',             # 8
+    'it-IT',             # 9
+    'pt-PT',             # 10
+    'ru-RU',             # 11
+    'ar-SA',             # 12
+    'hi-IN',             # 13
+    'tr-TR',             # 14
+    'vi-VN',             # 15
+    'th-TH',             # 16
+    'nl-NL',             # 17
+    'pl-PL',             # 18
+    'id-ID'              # 19
+)
+
 Write-Host ''
 Write-Host '  Select project language (AI agent response language):'
 for ($i = 1; $i -le 19; $i++) {
-    Write-Host ("   [{0,2}] {1}" -f $i, $langNames[$i])
+    Write-Host ("   [{0,2}] {1} ({2})" -f $i, $langCodes[$i], $langNames[$i])
 }
 Write-Host ''
 $langChoice = Read-Host 'Enter number or type custom language [default: 1]'
 
 if ([string]::IsNullOrWhiteSpace($langChoice)) {
-    $projectLang = $langNames[1]
+    $projectLang = $langCodes[1]
 }
 else {
     $langNum = 0
     if ([int]::TryParse($langChoice.Trim(), [ref]$langNum) -and $langNum -ge 1 -and $langNum -le 19) {
-        $projectLang = $langNames[$langNum]
+        $projectLang = $langCodes[$langNum]
     }
     else {
         $projectLang = $langChoice.Trim()

@@ -65,17 +65,40 @@ declare -a LANG_NAMES=(
     [19]='Bahasa Indonesia'
 )
 
+# BCP-47 태그 = 저장값. 메뉴 표시는 'code (native name)', 저장은 code(언어 중립·표준).
+declare -a LANG_CODES=(
+    [1]='ko-KR'
+    [2]='en-US'
+    [3]='ja-JP'
+    [4]='zh-CN'
+    [5]='zh-TW'
+    [6]='fr-FR'
+    [7]='de-DE'
+    [8]='es-ES'
+    [9]='it-IT'
+    [10]='pt-PT'
+    [11]='ru-RU'
+    [12]='ar-SA'
+    [13]='hi-IN'
+    [14]='tr-TR'
+    [15]='vi-VN'
+    [16]='th-TH'
+    [17]='nl-NL'
+    [18]='pl-PL'
+    [19]='id-ID'
+)
+
 echo ''
 echo '  Select project language (AI agent response language):'
 for i in $(seq 1 19); do
-    printf '   [%2d] %s\n' "$i" "${LANG_NAMES[$i]}"
+    printf '   [%2d] %s (%s)\n' "$i" "${LANG_CODES[$i]}" "${LANG_NAMES[$i]}"
 done
 echo ''
 read -rp 'Enter number or type custom language [default: 1]: ' LANG_CHOICE
 if [[ -z "$LANG_CHOICE" ]]; then
-    PROJECT_LANG="${LANG_NAMES[1]}"
+    PROJECT_LANG="${LANG_CODES[1]}"
 elif [[ "$LANG_CHOICE" =~ ^[0-9]+$ ]] && [[ "$LANG_CHOICE" -ge 1 && "$LANG_CHOICE" -le 19 ]] 2>/dev/null; then
-    PROJECT_LANG="${LANG_NAMES[$LANG_CHOICE]}"
+    PROJECT_LANG="${LANG_CODES[$LANG_CHOICE]}"
 else
     PROJECT_LANG="$LANG_CHOICE"
 fi

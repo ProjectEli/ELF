@@ -20,7 +20,7 @@ fn new_project(tmp: &Path, name: &str) -> PathBuf {
             preset: "minimal".into(),
             modules: None,
             categories: Vec::new(),
-            lang: "한국어".into(),
+            lang: "ko-KR".into(),
             date: "2026-06-12".into(),
         },
     )

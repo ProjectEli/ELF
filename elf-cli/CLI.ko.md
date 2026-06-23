@@ -47,21 +47,24 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases
 
 | 플래그 | 기본값 | 의미 |
 |--------|--------|------|
-| `--preset <p>` | `full` | 모듈 세트: `full` / `experimental` / `software` / `minimal`, 또는 **`qa`**(experimental — 질문 아카이브 유형, 연구 아님) |
+| `--preset <p>` | `full` | 모듈 세트: `full` / `experimental` / `software` / `minimal`. 실험적 유형: **`qa`**(질문 아카이브, 연구 아님), **`general`**(목표지향 비연구) |
 | `--modules <목록>` | — | custom 모듈(쉼표): `hw,fab,sw,exp,paper`. `--preset`보다 우선 |
-| `--lang <언어>` | `한국어` | AI 에이전트 응답 언어(`.elf/config.json`에 기록) |
+| `--lang <언어>` | `ko-KR` | AI 에이전트 응답 언어, BCP-47 태그(`.elf/config.json`에 기록) |
 
 Core 폴더(`0_Meta`–`2_Log` + `templates`)는 항상 생성, 모듈 폴더(`3_HW`–`7_Paper`)는 preset/`--modules`에 따라 추가. `<이름>`이 이미 있으면 exit 3로 거부.
 
 ```bash
 elf init NIRS_Probe
-elf init NIRS_Probe --preset experimental --lang English
+elf init NIRS_Probe --preset experimental --lang en-US
 elf init NIRS_Probe --modules hw,sw
 elf init my_questions --preset qa                          # experimental: Q&A bundle 아카이브 (카테고리 0개)
 elf init my_questions --preset qa --categories 일상질문,IT일반질문   # 카테고리 사전 생성
+elf init my_tool --preset general                          # experimental: 목표지향 비연구 프로젝트
 ```
 
 > **`qa` preset (experimental).** 연구 계층 대신 *질문 아카이브* 유형을 스캐폴드: 루트 `CLAUDE.md`(LLM 자동 로드 규칙) + `templates/bundle_template.md` + `.elf/`. **기본은 카테고리 0개** — `CLAUDE.md` 규약대로 수요 기반 생성, 또는 `--categories a,b,c`로 사전 생성(각 `archive/` 동반). Q&A를 의미 단위 **bundle**로 기록(session/trial/figure 아님). `.elf/` 제어판 공유 + 자체 manifest(`manifest.qa.json`) → `elf update`로 규칙 전파. 연구 preset과 격리, polish 중이라 변경 가능.
+
+> **`general` preset (experimental).** *목표지향 비연구* 프로젝트(도구 개발·제안서·학습·구축)를 스캐폴드 — 연구 preset처럼 session/trial base-delta 로깅, 단 학술 레이어 제외(`6_Exp`/`7_Paper`/figure/sim/문헌 없음). 중립 managed 파일은 연구 preset과 공유하고 general 전용 `EliRule`/`LogConvention`을 자체 manifest(`manifest.general.json`)로 추가. trial 형식 기본 5-section, 프로젝트별 `ProjectRule.md`에서 override. 연구와 격리, polish 중이라 변경 가능.
 
 ### `elf update`
 

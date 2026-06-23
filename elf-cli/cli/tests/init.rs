@@ -10,7 +10,7 @@ fn opts(name: &str) -> InitOptions {
         preset: "full".into(),
         modules: None,
         categories: Vec::new(),
-        lang: "한국어".into(),
+        lang: "ko-KR".into(),
         date: "2026-06-12".into(),
     }
 }
@@ -102,7 +102,7 @@ fn elf_control_plane_written() {
         serde_json::from_str(&std::fs::read_to_string(target.join(".elf/config.json")).unwrap())
             .unwrap();
     assert_eq!(config["name"], "P4");
-    assert_eq!(config["lang"], "한국어");
+    assert_eq!(config["lang"], "ko-KR");
     assert_eq!(config["created"], "2026-06-12");
 
     let version = std::fs::read_to_string(target.join(".elf/version")).unwrap();
@@ -198,6 +198,40 @@ fn qa_categories_flag_pre_creates_folders() {
     }
     assert!(target.join("일상질문/.gitkeep").is_file());
     assert!(!target.join("LLMHowto").exists(), "미지정 카테고리는 미생성");
+}
+
+#[test]
+fn general_preset_scaffolds_neutral_project() {
+    let tmp = tempdir().unwrap();
+    let mut o = opts("MyGen");
+    o.preset = "general".into();
+    let target = run_init(tmp.path(), &o).unwrap();
+
+    // general 전용 EliRule/LogConvention + 공유 AI_PARA·Registry
+    assert!(target.join("0_Meta/EliRule.md").is_file());
+    assert!(target.join("0_Meta/LogConvention.md").is_file());
+    assert!(target.join("0_Meta/AI_PARA_Framework.md").is_file());
+    assert!(target.join("2_Log/Wiki/Session_Registry.tsv").is_file());
+    // general EliRule = 학술 제외(외부 문헌 검색·highIFjournals 부재) + general 명시
+    let eli = std::fs::read_to_string(target.join("0_Meta/EliRule.md")).unwrap();
+    assert!(eli.contains("general"));
+    assert!(!eli.contains("highIFjournals") && !eli.contains("외부 문헌 검색"));
+    assert!(!target.join("0_Meta/highIFjournals.md").exists());
+    // general은 세션 사용 → S001 생성 (qa와 차이)
+    assert!(target.join("2_Log/S001_log.md").is_file());
+    // 학술 폴더 미생성
+    assert!(!target.join("6_Exp").exists());
+    assert!(!target.join("7_Paper").exists());
+    assert!(!target.join("1_Concept/11_Literature").exists());
+    // 공유 spine 템플릿
+    assert!(target.join("templates/sessionTemplate.md").is_file());
+    // general 전용 README (seed 치환)
+    let readme = std::fs::read_to_string(target.join("README.md")).unwrap();
+    assert!(readme.contains("MyGen") && readme.contains("general") && !readme.contains("PLACEHOLDER_"));
+    // .elf stamp = general manifest
+    let stamp = std::fs::read_to_string(target.join(".elf/manifest.json")).unwrap();
+    assert_eq!(stamp, embed::MANIFEST_GENERAL_JSON);
+    assert!(manifest::parse(&stamp).is_ok());
 }
 
 #[test]

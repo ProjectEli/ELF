@@ -1,0 +1,34 @@
+{
+  "schema": "elf-manifest/1",
+  "generated": "2026-06-23",
+  "note": "ELF general preset(experimental) 배포 명세 — 목표지향 비연구 프로젝트 유형. EliRule/LogConvention은 general 전용(학술 제외), 그 외 중립 파일은 연구 manifest(manifest.json)와 동일 src 공유(literal — DRY). `elf init <name> --preset general`가 이 명세로 배포·.elf stamp. sha256=원본 LF 바이트 해시(hash::sha256_lf).",
+  "files": [
+    { "src": "templates/general/EliRule.md",        "dest": "0_Meta/EliRule.md",               "tier": "managed", "sha256": "a8779a802b13afb9cb742071223257f899d6e112d8be065be34f0f20a9223809" },
+    { "src": "templates/general/LogConvention.md",   "dest": "0_Meta/LogConvention.md",         "tier": "managed", "sha256": "72cf459f684c6c04501daac2008cacdaa75c1a603c7ceb8e9aeb45e29db77822" },
+    { "src": "templates/meta/AI_PARA_Framework.md",  "dest": "0_Meta/AI_PARA_Framework.md",     "tier": "managed", "sha256": "9692e3eeac2ae3a8fd3c95a4bdaf6fe6d7742fc580fce770f97b3116e6adcde8" },
+    { "src": "templates/meta/LLMcliche.md",         "dest": "0_Meta/LLMcliche.md",             "tier": "managed", "sha256": "3302e7207de8fad28741bb9ff4f8b6da512123ecf18b89cb37412e652b04d4c1" },
+    { "src": "templates/log/sessionTemplate.md",     "dest": "templates/sessionTemplate.md",    "tier": "managed", "sha256": "da9c5df0a3b2678cc12447f39951d7613ead132215f0fcafaca8158f07eec43e" },
+    { "src": "templates/log/trialTemplate.md",       "dest": "templates/trialTemplate.md",      "tier": "managed", "sha256": "1da8a5860bee844fb23b71510917511bbf96f2fb9fff243578fa68226a0ca910" },
+    { "src": "templates/root/.claudeignore",         "dest": ".claudeignore",                   "tier": "managed", "sha256": "106c0a73eb58f9719a1d89d5ea95d9a6e86311902d0642b9871d05959968b37c" },
+    { "src": "templates/root/.gitignore",            "dest": ".gitignore",                      "tier": "hybrid",  "sha256": "f463ee15c311e2138b44831375c728c28e182572aa9bde4f0223d08831fe1b33" },
+    { "src": "templates/root/.editorconfig",         "dest": ".editorconfig",                   "tier": "managed", "sha256": "0964430fde7b520069a98037263a86564441b92282f1c152c13caa85a500be57" },
+    { "src": "templates/meta/ProjectRule.md",        "dest": "0_Meta/ProjectRule.md",           "tier": "seed",    "sha256": "c5c393fda4c859bba730ab14692b168cab9e88fe58ebfb3ba9a9ba80e8a29b6a" },
+    { "src": "templates/log/Session_Registry.tsv",   "dest": "2_Log/Wiki/Session_Registry.tsv", "tier": "seed",    "sha256": "b4eed8d302ff9e87860c183a3fd0c98412ea10e07314e2d66d7bbd0b32deab9e" },
+    { "src": "templates/general/README.md",          "dest": "README.md",                       "tier": "seed",    "sha256": "29a0c8f59d4841bef6d9f5a130b16c32a5df272ee87cfef77dfa3b0cfbaf1210" }
+  ],
+  "dirs": {
+    "core": [
+      "0_Meta",
+      "1_Concept/12_Planning/Wiki",
+      "1_Concept/12_Planning/Archive",
+      "1_Concept/13_Ideas",
+      "2_Log",
+      "2_Log/Wiki",
+      "2_Log/Archive",
+      "templates"
+    ],
+    "modules": {},
+    "presets": { "general": [] },
+    "raw_data": []
+  }
+}

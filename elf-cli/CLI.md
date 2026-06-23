@@ -47,21 +47,24 @@ Scaffold a new ELF project in `./<name>`.
 
 | Flag | Default | Meaning |
 |------|---------|---------|
-| `--preset <p>` | `full` | Module set: `full` / `experimental` / `software` / `minimal`, or **`qa`** (experimental — question-archive project type, not research) |
+| `--preset <p>` | `full` | Module set: `full` / `experimental` / `software` / `minimal`. Experimental project types: **`qa`** (question-archive, not research), **`general`** (goal-driven non-research) |
 | `--modules <list>` | — | Custom modules (comma-separated): `hw,fab,sw,exp,paper`. Overrides `--preset` |
-| `--lang <lang>` | `한국어` | AI agent response language (written to `.elf/config.json`) |
+| `--lang <lang>` | `ko-KR` | AI agent response language, BCP-47 tag (written to `.elf/config.json`) |
 
 Core folders (`0_Meta`–`2_Log` + `templates`) are always created; module folders (`3_HW`–`7_Paper`) are added per preset or `--modules`. Refuses with exit 3 if `<name>` already exists.
 
 ```bash
 elf init NIRS_Probe
-elf init NIRS_Probe --preset experimental --lang English
+elf init NIRS_Probe --preset experimental --lang en-US
 elf init NIRS_Probe --modules hw,sw
 elf init my_questions --preset qa                          # experimental: Q&A bundle archive (no categories)
-elf init my_questions --preset qa --categories 일상질문,IT일반질문   # pre-create categories
+elf init my_questions --preset qa --categories Daily,ITGeneral   # pre-create categories
+elf init my_tool --preset general                          # experimental: goal-driven non-research project
 ```
 
 > **`qa` preset (experimental).** Scaffolds a *question-archive* project type instead of the research hierarchy: a root `CLAUDE.md` (auto-loaded operational rules), `templates/bundle_template.md`, and `.elf/`. **No categories are pre-created by default** — create them on demand per `CLAUDE.md`, or pre-create with `--categories a,b,c` (each gets an `archive/`). Q&A is captured as semantic **bundles** (not sessions/trials/figures). Shares the `.elf/` control plane with its own manifest (`manifest.qa.json`), so `elf update` propagates the convention. Isolated from the research preset; subject to change while it is polished.
+
+> **`general` preset (experimental).** Scaffolds a *goal-driven non-research* project (tool development, proposal, learning, build) — session/trial base-delta logging like the research preset, minus the academic layer (no `6_Exp`/`7_Paper`/figures/sim/literature). Shares the neutral managed files with the research preset and adds general-specific `EliRule`/`LogConvention` via its own manifest (`manifest.general.json`). Trial format defaults to the 5-section template; override per project in `ProjectRule.md`. Isolated from research; subject to change while polished.
 
 ### `elf update`
 

@@ -72,6 +72,11 @@ pub fn embedded_qa() -> Manifest {
     parse(crate::embed::MANIFEST_QA_JSON).expect("embedded qa manifest must be valid")
 }
 
+/// general preset(experimental) 정본 manifest — 목표지향 비연구 유형 (중립 파일은 연구와 src 공유).
+pub fn embedded_general() -> Manifest {
+    parse(crate::embed::MANIFEST_GENERAL_JSON).expect("embedded general manifest must be valid")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

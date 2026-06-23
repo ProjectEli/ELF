@@ -4,6 +4,27 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.8.0] - 2026-06-23
+
+### New
+- **`general` preset (experimental)** — `elf init <name> --preset general` scaffolds a
+  *goal-oriented, non-research* project (building a tool, preparing a grant
+  proposal, a focused learning project) instead of the research layout. It keeps the
+  session/trial logging spine but drops the academic parts (experiments, paper,
+  literature). See `elf-cli/CLI.md`.
+
+### Changed
+- **`--lang` takes a BCP-47 tag** — the default is now `ko-KR` (was `한국어`); the
+  no-install generator lists languages as `code (native)`, e.g. `ko-KR (한국어)`.
+- **Logging convention — "trial" wording, spelled-out SOP, English labels** — logs use
+  "trial" (not "ticket") throughout; the trial/session procedures are written out as a
+  Standard Operating Procedure; section labels carry English glosses
+  (목표(Goal) / 조건(Conditions) / 교훈(Lessons) / 생성 파일(Files)). Run `elf update`.
+- **EliRule — two governance rules** — a *traceability* principle (record meaningful
+  work/changes/decisions in the session log) and an *LLM cliché ban* (avoid
+  LLM-characteristic filler in English writing, with a non-binding reference list in the
+  new `0_Meta/LLMcliche.md`). Run `elf update` for the new `EliRule.md`.
+
 ## [2.7.3] - 2026-06-20
 
 ### Changed

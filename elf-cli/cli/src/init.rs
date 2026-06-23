@@ -63,9 +63,11 @@ pub fn run_init(parent: &Path, opts: &InitOptions) -> Result<PathBuf, InitError>
         return Err(InitError::TargetExists(target));
     }
 
-    // preset에 따라 유형 manifest 선택 — qa(experimental) = 질문 아카이브, 그 외 = 연구
+    // preset에 따라 유형 manifest 선택 — qa=질문 아카이브, general=목표지향 비연구, 그 외=연구
     let m = if opts.preset == "qa" {
         manifest::embedded_qa()
+    } else if opts.preset == "general" {
+        manifest::embedded_general()
     } else {
         manifest::embedded()
     };
@@ -161,6 +163,8 @@ pub fn run_init(parent: &Path, opts: &InitOptions) -> Result<PathBuf, InitError>
     fs::write(elf_dir.join("version"), format!("{}\n", embed::version()))?;
     let manifest_json = if opts.preset == "qa" {
         embed::MANIFEST_QA_JSON
+    } else if opts.preset == "general" {
+        embed::MANIFEST_GENERAL_JSON
     } else {
         embed::MANIFEST_JSON
     };

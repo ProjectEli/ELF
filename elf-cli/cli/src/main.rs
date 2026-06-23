@@ -17,7 +17,7 @@ enum Commands {
     Init {
         /// 프로젝트 폴더 이름 · project folder name
         name: String,
-        /// 모듈 preset · module preset (full | experimental | software | minimal | qa[experimental])
+        /// 모듈 preset · module preset (full | experimental | software | minimal | qa[exp] | general[exp])
         #[arg(long, default_value = "full", conflicts_with = "modules")]
         preset: String,
         /// custom 모듈 선택 · custom modules (쉼표 구분: hw,fab,sw,exp,paper) — preset 대신
@@ -27,7 +27,7 @@ enum Commands {
         #[arg(long, value_delimiter = ',')]
         categories: Option<Vec<String>>,
         /// 프로젝트 언어 · project language (AI 응답 언어 — .elf/config.json)
-        #[arg(long, default_value = "한국어")]
+        #[arg(long, default_value = "ko-KR")]
         lang: String,
     },
     /// 프로젝트의 ELF managed/hybrid 파일을 현 CLI 버전으로 갱신 · Update this project's ELF-managed files
