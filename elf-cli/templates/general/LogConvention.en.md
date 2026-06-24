@@ -9,7 +9,7 @@
 This document defines the rules every human and AI agent in an ELF `general` project
 follows for writing session logs, saving outputs, and AI handoff.
 
-> **Default trial form = 5-section** (`### 가설`, `### 예상`, `### 관찰`, `### 해석`),
+> **Default trial form = 5-section** (`### 가설 (Hypothesis)`, `### 예상 (Prediction)`, `### 관찰 (Observation)`, `### 해석 (Interpretation)`),
 > on the premise that every intentional change of work has a latent hypothesis and
 > prediction. If a different form fits the project, state the trial form in
 > `0_Meta/ProjectRule.md` to override (a one-time per-project setting — not decided per
@@ -39,8 +39,8 @@ the `.claudeignore` rules. For the detailed principles, see `0_Meta/AI_PARA_Fram
 > **Created**: YYYY-MM-DD\
 > **Modified**: YYYY-MM-DD\
 > **Status**: {★ 활성 | In Progress | Complete}\
-> **목표**: {1-2 sentences on the session's core goal}\
-> **관련**: {related session/document links}\
+> **목표 (Goal)**: {1-2 sentences on the session's core goal}\
+> **관련 (Related)**: {related session/document links}\
 > **Handoff**: {current state; unfinished work; reference files}
 
 ---
@@ -96,21 +96,21 @@ End of session body, at session close:
 
 ### Rules
 - **Writing language**: write logs in the language set by `PROJECT_LANG` in `0_Meta/EliRule.md`, but for **token economy** use nominal endings ('-음/함/임') and word-centered bullet points. English may be added for technical terms.
-- **Status**: `★ 활성` (currently working), `In Progress` (intermediate stage), `Complete` (done, before archiving).
+- **Status**: `★ 활성 (active)` (currently working), `In Progress` (intermediate stage), `Complete` (done, before archiving).
 - **Handoff**: three parts separated by semicolons (`;`) — `current state; unfinished work; reference files`. Update continuously during the session so the next session can pick up context by reading just this field with a `Read(offset=0, limit=9)` pattern. Initial value `-`.
 - **Header line breaks**: the trailing `\` on each blockquote (`>`) header line is a CommonMark **hard break** — it preserves line separation in strict renderers. **Do not delete.** The last line (Handoff) has no `\`. Keep the header at 6 lines → the `limit=9` quick-read stays valid.
 - **Trial numbers**: `t01`, `t02`, … in order. No duplicates.
-- **Base-delta trial expansion**: when regenerating/improving a working output by changing it (parameters, structure, content, style), expand each attempt as an **independent trial (`t{NN}`)**. Each trial takes the previous one as base, recording the **delta (what changed) + reason (problem with the previous attempt)** in `### 조건`. **Version preservation**: do not overwrite outputs/scripts; preserve versions (losing intermediates = not reproducible). **Block survivorship bias**: no "quietly fix and report only the final" (AI included) — record each version as a trial in that turn (no after-the-fact recall). Only pre-working debugging (a failed output → success) stays in the same trial's `### 시행착오` table.
+- **Base-delta trial expansion**: when regenerating/improving a working output by changing it (parameters, structure, content, style), expand each attempt as an **independent trial (`t{NN}`)**. Each trial takes the previous one as base, recording the **delta (what changed) + reason (problem with the previous attempt)** in `### 조건 (Conditions)`. **Version preservation**: do not overwrite outputs/scripts; preserve versions (losing intermediates = not reproducible). **Block survivorship bias**: no "quietly fix and report only the final" (AI included) — record each version as a trial in that turn (no after-the-fact recall). Only pre-working debugging (a failed output → success) stays in the same trial's `### 시행착오 (Trial-and-Error)` table.
 - **Hypothesis/Prediction sections (Phase 1)**: write **before** running the trial. Nominal-form list. If hypotheses exceed 5 items or a reasoning chain exceeds 5 steps, escape to `1_Concept/12_Planning` and leave a one-line cross-ref stub. No paragraph prose. Quantify where possible.
-- **Observation section (Phase 2)**: write **after** running the trial. A comparison table against hypothesis/prediction is recommended (2 columns: `예상` vs `관찰`).
+- **Observation section (Phase 2)**: write **after** running the trial. A comparison table against hypothesis/prediction is recommended (2 columns: `예상 (Prediction)` vs `관찰 (Observation)`).
 - **Interpretation one-line rule**: the first line states one of `Hypothesis hit: hit / miss / partial`. Interpretation from the second line.
-- **Next-Session Hypothesis**: just before closing the session (Status → Complete), write at the end of the body. Carry over into the next session's t01 `### 가설` / `### 예상` to avoid breaking the hypothesis chain across sessions.
+- **Next-Session Hypothesis**: just before closing the session (Status → Complete), write at the end of the body. Carry over into the next session's t01 `### 가설 (Hypothesis)` / `### 예상 (Prediction)` to avoid breaking the hypothesis chain across sessions.
 - **Retroactive policy**: trials/sessions before this rule took effect are not force-backfilled. Applies to new writing from now on.
 
 ---
 
 ## 3. Output-Saving Rules
-- Save work outputs (code, documents, data, assets) in the domain folders the project defines, and record the type + project-root-relative path as a table in the session log's `### 생성 파일`.
+- Save work outputs (code, documents, data, assets) in the domain folders the project defines, and record the type + project-root-relative path as a table in the session log's `### 생성 파일 (Files)`.
 - **Version preservation**: on iterative improvement, do not overwrite; preserve with a version suffix (`_v1`/`_v2`, etc.) — each version ↔ a delta trial 1:1.
 - Record code usage in code blocks (```lang … ```); record parameters as a table of variable name, value, unit.
 
@@ -143,7 +143,7 @@ Write each trial (t{NN}) in two phases. **A stop point between Phase 1 and Phase
 **Phase 2 — after execution (post-execution)**
 - [ ] Run the trial
 - [ ] `### 관찰 (Observation)` (facts + hypothesis/prediction comparison table)
-- [ ] **Iterative-improvement decision**: if you regenerate a working output with changes → expand as the next trial (delta) (version preservation §3 + delta/reason in `### 조건`). Appearance/content changes are delta-trials; only no-change fixes (typo, path) go in a `### 시행착오` table.
+- [ ] **Iterative-improvement decision**: if you regenerate a working output with changes → expand as the next trial (delta) (version preservation §3 + delta/reason in `### 조건 (Conditions)`). Appearance/content changes are delta-trials; only no-change fixes (typo, path) go in a `### 시행착오 (Trial-and-Error)` table.
 - [ ] `### 해석 (Interpretation)` (first line: hypothesis hit) + `### 교훈 (Lessons)` + `### 생성 파일 (Files)`
 
 ### 5.1 Session-close Standard Procedure

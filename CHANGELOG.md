@@ -4,6 +4,14 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.9.1] - 2026-06-24
+
+### Fixed
+- **English companions — section names now glossed** — in the `LogConvention.en.md` companions,
+  bare Korean section tokens referenced in prose (`### 가설`, `### 관찰`, etc.) now carry their
+  English gloss (`### 가설 (Hypothesis)`, …), matching the actual bilingual log headers, so the
+  English companion reads without untranslated Korean. Run `elf update` (English projects).
+
 ## [2.9.0] - 2026-06-24
 
 ### New
