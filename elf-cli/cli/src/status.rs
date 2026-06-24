@@ -38,8 +38,12 @@ pub fn run_status(root: &Path) -> Result<StatusReport, UpdateError> {
         return Err(UpdateError::NotElfProject(root.to_path_buf()));
     }
     let stamp_text = fs::read_to_string(&stamp_path)?;
-    let stamp = manifest::parse(&stamp_text).map_err(UpdateError::BadStamp)?;
-    let new_m = manifest::embedded();
+    // 프로젝트 언어로 stamp·new 해석 — companion/variant를 lang에 맞게 필터 (P016 §9, update와 동일)
+    let lang = update::read_config_lang(root);
+    let stamp = manifest::parse(&stamp_text)
+        .map_err(UpdateError::BadStamp)?
+        .for_lang(&lang);
+    let new_m = manifest::embedded().for_lang(&lang);
 
     let mut report = StatusReport::default();
 

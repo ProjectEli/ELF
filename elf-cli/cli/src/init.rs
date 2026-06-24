@@ -64,13 +64,15 @@ pub fn run_init(parent: &Path, opts: &InitOptions) -> Result<PathBuf, InitError>
     }
 
     // preset에 따라 유형 manifest 선택 — qa=질문 아카이브, general=목표지향 비연구, 그 외=연구
-    let m = if opts.preset == "qa" {
+    let base = if opts.preset == "qa" {
         manifest::embedded_qa()
     } else if opts.preset == "general" {
         manifest::embedded_general()
     } else {
         manifest::embedded()
     };
+    // 프로젝트 언어로 배포 entry 해석 — ko/미지정=base만(현행), en=companion·variant 포함 (P016 §9)
+    let m = base.for_lang(&opts.lang);
 
     // 1. 폴더 scaffold (+ .gitkeep / raw .gitignore) — 데이터 출처 = manifest.dirs
     let dir_plan = match &opts.modules {
@@ -197,6 +199,7 @@ fn substitute_seed(dest: &str, text: &str, o: &InitOptions) -> String {
     match dest {
         "0_Meta/ProjectRule.md" => text
             .replace("[프로젝트명]", &o.name)
+            .replace("[Project Name]", &o.name)
             .replace("YYYY-MM-DD", &o.date),
         "README.md" => text
             .replace("PLACEHOLDER_PROJECT_NAME", &o.name)

@@ -4,6 +4,24 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.9.0] - 2026-06-24
+
+### New
+- **English companion docs (experimental)** — `elf init <name> --lang en-US` now also deploys
+  *informative English companions* of the governance docs (`0_Meta/EliRule.en.md`,
+  `LogConvention.en.md`, etc.) for human reading. The operative rules stay Korean (`*.md`) and
+  the AI agent always operates from them, so project behavior is identical across languages;
+  companions are marked `NOT OPERATIVE`. The user-owned `README.md` and `ProjectRule.md` are
+  scaffolded in English. `elf update` keeps companions in sync; `elf doctor` reports i18n
+  status. English only for now — other languages fall back to Korean. Korean projects are
+  unchanged. See `CLI.md`.
+
+### Changed
+- **EliRule / AI_PARA_Framework** — a companion-firewall rule (English `*.en.md` files are
+  informative, not operative — the AI operates from `*.md`; customize via `ProjectRule.md`) and
+  a note that the Korean sentence-ending rule does not apply to English output. Run
+  `elf update`.
+
 ## [2.8.0] - 2026-06-23
 
 ### New

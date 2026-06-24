@@ -10,6 +10,14 @@
 *   **차단 대상**: `Archive/` 및 `*Archive*` 등 과거의 폐기되거나 종료된 기록물.
 *   **효과**: AI가 "현재 유효한 프로젝트의 상태"만을 바탕으로 대답할 수 있게 보장하며, 예전의 실패한 세팅값(예: 잘못된 파라미터 맵, 폐기된 논문 전개 방향안)을 현재의 사실로 오인하는 것을 완벽히 방지함.
 
+### 1.1 정보용 companion 격리 (Informative Companion)
+
+`*.en.md`(일반화 `*.<lang>.md`) 형식 파일은 거버넌스 문서의 **정보용 번역(read-only human companion)**임 — 국제 사용자의 *독해*용이며 operative source가 아님. operative 정본은 항상 동명 `*.md`(PROJECT_LANG 정본, 기본 한국어)임.
+
+*   **AI 동작 규칙**: AI는 규칙·구조·지시를 **`*.md` 정본에서만** 취함. `*.en.md`는 동작 근거로 삼지 않음(읽더라도 규칙 source 아님). 정본과 companion이 충돌하면 **`*.md` 정본 우선**.
+*   **커스터마이즈 경로**: 프로젝트 규칙 변경은 **`ProjectRule.md`(사용자 소유·operative·프로젝트 언어)**에 작성함 — managed 정본이나 companion을 직접 편집하지 않음(managed는 `elf update`가 교체, companion 편집은 무효).
+*   **효과**: operative 버전을 정본 하나로 고정하여 번역 차이가 AI 동작을 바꾸지 못하게 차단함. 국제 사용자도 ProjectRule로 자기 언어로 override 가능.
+
 ## 2. 하이브리드 PARA 구조 (Focus-and-Filter)
 
 인간을 위한 '인지 부하 감소(Grouping)'와 AI를 위한 '경로 평탄화(Flattening)'를 동시에 달성하기 위해, 프로젝트는 **하이브리드 구조**로 운용됨.

@@ -53,6 +53,36 @@ fn clean_project_all_ok_no_warnings() {
 }
 
 #[test]
+fn en_project_reports_i18n_companions_info() {
+    let tmp = tempdir().unwrap();
+    let root = run_init(
+        tmp.path(),
+        &InitOptions {
+            name: "P".into(),
+            preset: "minimal".into(),
+            modules: None,
+            categories: Vec::new(),
+            lang: "en-US".into(),
+            date: "2026-06-13".into(),
+        },
+    )
+    .unwrap();
+    let r = run_doctor(&root, &env(true));
+    let c = check(&r, "i18n");
+    assert_eq!(c.health, Health::Info, "{:?}", r.checks);
+    assert!(c.detail.contains("companion") && c.detail.contains("operative source = *.md"));
+    assert_eq!(r.warnings(), 0, "{:?}", r.checks); // i18n은 Info — 경고 증가 없음
+}
+
+#[test]
+fn ko_project_has_no_i18n_check() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path()); // lang ko-KR
+    let r = run_doctor(&root, &env(true));
+    assert!(!r.checks.iter().any(|c| c.label == "i18n"), "ko 프로젝트엔 i18n 검사 비적용");
+}
+
+#[test]
 fn version_mismatch_is_warn() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());

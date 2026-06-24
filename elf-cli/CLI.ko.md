@@ -49,7 +49,7 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases
 |--------|--------|------|
 | `--preset <p>` | `full` | 모듈 세트: `full` / `experimental` / `software` / `minimal`. 실험적 유형: **`qa`**(질문 아카이브, 연구 아님), **`general`**(목표지향 비연구) |
 | `--modules <목록>` | — | custom 모듈(쉼표): `hw,fab,sw,exp,paper`. `--preset`보다 우선 |
-| `--lang <언어>` | `ko-KR` | AI 에이전트 응답 언어, BCP-47 태그(`.elf/config.json`에 기록) |
+| `--lang <언어>` | `ko-KR` | AI 에이전트 응답 언어, BCP-47 태그(`.elf/config.json`에 기록). 비한국어 태그(예: `en-US`)면 영어 **companion** 문서도 함께 배포 — 아래 note 참조 |
 
 Core 폴더(`0_Meta`–`2_Log` + `templates`)는 항상 생성, 모듈 폴더(`3_HW`–`7_Paper`)는 preset/`--modules`에 따라 추가. `<이름>`이 이미 있으면 exit 3로 거부.
 
@@ -61,6 +61,13 @@ elf init my_questions --preset qa                          # experimental: Q&A b
 elf init my_questions --preset qa --categories 일상질문,IT일반질문   # 카테고리 사전 생성
 elf init my_tool --preset general                          # experimental: 목표지향 비연구 프로젝트
 ```
+
+> **`--lang en-*` (영어 companion, experimental).** operative 거버넌스 문서는 한국어(`*.md`)
+> 유지 — AI는 항상 한국어 정본으로 동작하므로 언어와 무관하게 프로젝트 동작이 동일함. 비한국어
+> `--lang`이면 ELF가 영어 **정보용 companion**(`0_Meta/EliRule.en.md` 등)을 인간 독해용으로 추가
+> 배포하고, 사용자 소유 `README.md`·`ProjectRule.md`는 영어로 scaffold함. companion은 비operative
+> (`NOT OPERATIVE` 표기) — 규칙 커스터마이즈는 companion이 아니라 `ProjectRule.md`에 작성. `elf update`가
+> companion을 동기화, `elf doctor`가 i18n 상태 보고. 현재 영어(`en`)만 제공, 그 외 언어는 한국어 fallback.
 
 > **`qa` preset (experimental).** 연구 계층 대신 *질문 아카이브* 유형을 스캐폴드: 루트 `CLAUDE.md`(LLM 자동 로드 규칙) + `templates/bundle_template.md` + `.elf/`. **기본은 카테고리 0개** — `CLAUDE.md` 규약대로 수요 기반 생성, 또는 `--categories a,b,c`로 사전 생성(각 `archive/` 동반). Q&A를 의미 단위 **bundle**로 기록(session/trial/figure 아님). `.elf/` 제어판 공유 + 자체 manifest(`manifest.qa.json`) → `elf update`로 규칙 전파. 연구 preset과 격리, polish 중이라 변경 가능.
 

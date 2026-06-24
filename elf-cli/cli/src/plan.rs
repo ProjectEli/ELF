@@ -164,6 +164,8 @@ mod tests {
             dest: dest.into(),
             tier,
             sha256: sha.into(),
+            lang: None,
+            role: None,
         }
     }
 

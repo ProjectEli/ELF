@@ -61,14 +61,14 @@ AI 에이전트는 EliRule.md와 함께 이 문서를 읽어 프로젝트 컨텍
 
 | 구분 | 폴더 | 사용 여부 | 비고 |
 |------|------|-----------|------|
-| Core | `0_Meta/` | ✅ | 거버넌스 |
-| Core | `1_Concept/` | ✅ | |
-| Core | `2_Log/` | ✅ | 세션 로그 |
-| Module | `3_HW/` | ✅ | |
-| Module | `4_Fab/` | ❌ 미사용 | |
-| Module | `5_SW/` | ✅ | |
-| Module | `6_Exp/` | ✅ | |
-| Module | `7_Paper/` | ⏳ 예정 | |
+| Core | `0_Meta/` | 사용 | 거버넌스 |
+| Core | `1_Concept/` | 사용 | |
+| Core | `2_Log/` | 사용 | 세션 로그 |
+| Module | `3_HW/` | 사용 | |
+| Module | `4_Fab/` | 미사용 | |
+| Module | `5_SW/` | 사용 | |
+| Module | `6_Exp/` | 사용 | |
+| Module | `7_Paper/` | 예정 | |
 
 ---
 

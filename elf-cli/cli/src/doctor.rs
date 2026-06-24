@@ -72,6 +72,7 @@ pub fn run_doctor(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
             r.add(Health::Ok, "ELF project", format!("root: {}", root.display()));
             check_elf(&root, env, &mut r);
             check_status(&root, &mut r);
+            check_i18n(&root, &mut r);
         }
     }
 
@@ -124,6 +125,46 @@ fn check_status(root: &Path, r: &mut DoctorReport) {
         ),
         Err(e) => r.add(Health::Warn, "managed files", format!("status failed: {e}")),
     }
+}
+
+/// i18n 위상 advisory (P016 M4) — 비-ko 프로젝트의 companion 상태·operative 정본 안내.
+/// 누락·편집의 actionable 분류는 `check_status`가 담당(중복 경고 회피) → 여기선 Info 위주 framing.
+fn check_i18n(root: &Path, r: &mut DoctorReport) {
+    let lang = update::read_config_lang(root);
+    let p = manifest::lang_primary(&lang);
+    if p.is_empty() || p == "ko" {
+        return; // base(ko) 프로젝트 — companion 비적용
+    }
+    let Some(stamp) = fs::read_to_string(root.join(".elf").join("manifest.json"))
+        .ok()
+        .and_then(|t| manifest::parse(&t).ok())
+    else {
+        return; // stamp 문제는 check_elf가 이미 보고
+    };
+    let companions: Vec<String> = stamp
+        .for_lang(&lang)
+        .files
+        .iter()
+        .filter(|e| e.role == Some(manifest::Role::Companion))
+        .map(|e| e.dest.clone())
+        .collect();
+    if companions.is_empty() {
+        r.add(
+            Health::Info,
+            "i18n",
+            format!("lang={lang}: no companions available — KO fallback (operative source = *.md)"),
+        );
+        return;
+    }
+    let present = companions.iter().filter(|d| root.join(d).is_file()).count();
+    r.add(
+        Health::Info,
+        "i18n",
+        format!(
+            "lang={lang}: {present}/{} EN companion(s) present — informative; operative source = *.md (customize via ProjectRule)",
+            companions.len()
+        ),
+    );
 }
 
 fn check_git(cwd: &Path, r: &mut DoctorReport) {

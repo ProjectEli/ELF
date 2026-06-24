@@ -52,9 +52,11 @@ fn full_init_creates_expected_tree() {
 #[test]
 fn managed_and_hybrid_are_byte_identical_to_embed() {
     let tmp = tempdir().unwrap();
-    let target = run_init(tmp.path(), &opts("P2")).unwrap();
+    let o = opts("P2");
+    let target = run_init(tmp.path(), &o).unwrap();
 
-    for e in &manifest::embedded().files {
+    // 배포된 lang view 기준 (ko = base만; en companion은 ko 프로젝트에 미배포) — P016
+    for e in &manifest::embedded().for_lang(&o.lang).files {
         if e.tier == manifest::Tier::Seed {
             continue;
         }
@@ -81,6 +83,36 @@ fn seed_substitution_applied_and_no_placeholders_remain() {
 
     let registry = std::fs::read_to_string(target.join("2_Log/Wiki/Session_Registry.tsv")).unwrap();
     assert!(!registry.contains("YYYY-MM-DD"));
+}
+
+/// P016: `--lang en` → KO operative 정본 유지 + EN companion 동반 + seed는 EN variant로 대체
+#[test]
+fn en_init_deploys_companions_and_variants() {
+    let tmp = tempdir().unwrap();
+    let o = InitOptions { lang: "en-US".into(), ..opts("EnProj") };
+    let target = run_init(tmp.path(), &o).unwrap();
+
+    // KO operative 정본은 그대로 배포
+    assert!(target.join("0_Meta/EliRule.md").is_file());
+
+    // EN companion 동반 배포 + embed 정본과 byte-identical (managed, 비치환)
+    let comp = std::fs::read(target.join("0_Meta/EliRule.en.md")).unwrap();
+    let expected = embed::TEMPLATES.get_file("meta/EliRule.en.md").unwrap().contents();
+    assert_eq!(comp, expected, "EN companion must be byte-identical to embed");
+    for c in ["LogConvention", "AI_PARA_Framework", "LLMcliche", "highIFjournals"] {
+        assert!(target.join(format!("0_Meta/{c}.en.md")).is_file(), "missing companion: {c}");
+    }
+
+    // seed variant: README.md = EN 내용(base 대체) + placeholder 치환
+    let readme = std::fs::read_to_string(target.join("README.md")).unwrap();
+    assert!(readme.contains("Project Overview"), "README should be EN variant");
+    assert!(!readme.contains("프로젝트 개요"), "README should not be KO base");
+    assert!(readme.contains("EnProj") && !readme.contains("PLACEHOLDER_"));
+
+    // ProjectRule = EN scaffold + name 치환
+    let pr = std::fs::read_to_string(target.join("0_Meta/ProjectRule.md")).unwrap();
+    assert!(pr.contains("Project Overview"), "ProjectRule should be EN scaffold");
+    assert!(pr.contains("EnProj") && !pr.contains("[Project Name]"));
 }
 
 #[test]

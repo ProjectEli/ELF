@@ -113,14 +113,15 @@ fn every_embedded_template_is_in_manifest() {
 #[test]
 fn dests_and_srcs_are_unique() {
     let m = manifest::embedded();
-    let mut dests: Vec<_> = m.files.iter().map(|e| &e.dest).collect();
+    // (dest, lang) 단위 유일성 — base(lang=None)와 그 en variant는 같은 dest를 의도적으로 공유 (P016)
+    let mut dests: Vec<_> = m.files.iter().map(|e| (&e.dest, &e.lang)).collect();
     let mut srcs: Vec<_> = m.files.iter().map(|e| &e.src).collect();
     dests.sort();
     srcs.sort();
     let (dn, sn) = (dests.len(), srcs.len());
     dests.dedup();
     srcs.dedup();
-    assert_eq!(dn, dests.len(), "duplicate dest in manifest");
+    assert_eq!(dn, dests.len(), "duplicate (dest, lang) in manifest");
     assert_eq!(sn, srcs.len(), "duplicate src in manifest");
 }
 

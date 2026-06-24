@@ -20,4 +20,4 @@ ELF **general preset (experimental)** 로 생성된 목표지향 비연구 프�
 ## 프로젝트 규칙
 프로젝트 전용 규칙·목표는 `0_Meta/ProjectRule.md`. 구조·운영 상세는 `0_Meta/EliRule.md`. 로깅 규칙은 `0_Meta/LogConvention.md`. AI 컨텍스트 관리는 `0_Meta/AI_PARA_Framework.md`.
 
-> ⚠️ 실험적 preset — 비안정. 학술연구 프로젝트는 `elf init <name> --preset full`(기본)을 사용하세요.
+> 주의: 실험적 preset — 비안정. 학술연구 프로젝트는 `elf init <name> --preset full`(기본)을 사용하세요.

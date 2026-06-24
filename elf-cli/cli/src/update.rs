@@ -84,14 +84,28 @@ pub fn find_project_root(start: &Path) -> Option<PathBuf> {
         .map(Path::to_path_buf)
 }
 
+/// `.elf/config.json`의 `lang`(BCP-47). 부재·파싱 실패 시 "" (= base만, ko 동작). (P016)
+pub(crate) fn read_config_lang(root: &Path) -> String {
+    fs::read_to_string(root.join(".elf").join("config.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get("lang").and_then(|l| l.as_str()).map(String::from))
+        .unwrap_or_default()
+}
+
 pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, UpdateError> {
     let stamp_path = root.join(".elf").join("manifest.json");
     if !stamp_path.is_file() {
         return Err(UpdateError::NotElfProject(root.to_path_buf()));
     }
     let stamp_text = fs::read_to_string(&stamp_path)?;
-    let stamp = manifest::parse(&stamp_text).map_err(UpdateError::BadStamp)?;
-    let new_m = manifest::embedded();
+    // 프로젝트 언어로 stamp·new 둘 다 해석 — companion/variant가 lang에 맞게 일관 필터됨 (P016 §9).
+    // stamp는 init이 전체 JSON으로 찍으므로, 같은 lang으로 필터해야 obsolete 오탐 방지.
+    let lang = read_config_lang(root);
+    let stamp = manifest::parse(&stamp_text)
+        .map_err(UpdateError::BadStamp)?
+        .for_lang(&lang);
+    let new_m = manifest::embedded().for_lang(&lang);
 
     let mut report = UpdateReport::default();
     warn_if_git_dirty(root, &mut report);

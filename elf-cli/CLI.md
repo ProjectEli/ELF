@@ -49,7 +49,7 @@ Scaffold a new ELF project in `./<name>`.
 |------|---------|---------|
 | `--preset <p>` | `full` | Module set: `full` / `experimental` / `software` / `minimal`. Experimental project types: **`qa`** (question-archive, not research), **`general`** (goal-driven non-research) |
 | `--modules <list>` | — | Custom modules (comma-separated): `hw,fab,sw,exp,paper`. Overrides `--preset` |
-| `--lang <lang>` | `ko-KR` | AI agent response language, BCP-47 tag (written to `.elf/config.json`) |
+| `--lang <lang>` | `ko-KR` | AI agent response language, BCP-47 tag (written to `.elf/config.json`). For a non-Korean tag (e.g. `en-US`), English **companion** docs are also deployed — see note below |
 
 Core folders (`0_Meta`–`2_Log` + `templates`) are always created; module folders (`3_HW`–`7_Paper`) are added per preset or `--modules`. Refuses with exit 3 if `<name>` already exists.
 
@@ -61,6 +61,16 @@ elf init my_questions --preset qa                          # experimental: Q&A b
 elf init my_questions --preset qa --categories Daily,ITGeneral   # pre-create categories
 elf init my_tool --preset general                          # experimental: goal-driven non-research project
 ```
+
+> **`--lang en-*` (English companions, experimental).** The operative governance docs
+> stay Korean (`*.md`) — the AI agent always operates from the Korean originals, so project
+> behavior is identical across languages. For a non-Korean `--lang`, ELF additionally
+> deploys **informative English companions** (`0_Meta/EliRule.en.md`, etc.) for human
+> reading, and the user-owned `README.md` / `ProjectRule.md` are scaffolded in English.
+> Companions are non-operative (marked `NOT OPERATIVE`) — customize rules via
+> `ProjectRule.md`, not the companion. `elf update` keeps companions in sync and
+> `elf doctor` reports i18n status. English (`en`) is provided today; other languages fall
+> back to Korean.
 
 > **`qa` preset (experimental).** Scaffolds a *question-archive* project type instead of the research hierarchy: a root `CLAUDE.md` (auto-loaded operational rules), `templates/bundle_template.md`, and `.elf/`. **No categories are pre-created by default** — create them on demand per `CLAUDE.md`, or pre-create with `--categories a,b,c` (each gets an `archive/`). Q&A is captured as semantic **bundles** (not sessions/trials/figures). Shares the `.elf/` control plane with its own manifest (`manifest.qa.json`), so `elf update` propagates the convention. Isolated from the research preset; subject to change while it is polished.
 
