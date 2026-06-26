@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use clap::{Parser, Subcommand};
 use elf_cli::{doctor, embed, gallery, init, selfupdate, session, status, update, validate};
 
@@ -13,10 +11,22 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// 새 ELF 프로젝트 스캐폴드 생성 · Scaffold a new ELF project
+    /// 새 ELF 프로젝트 스캐폴드 생성 · Scaffold an ELF project (생략 시 현재 폴더에 in-place)
     Init {
-        /// 프로젝트 폴더 이름 · project folder name
-        name: String,
+        /// 프로젝트 폴더 이름 (생략 시 현재 폴더 in-place) · project folder name (omit = in-place here)
+        name: Option<String>,
+        /// 현재 폴더에 in-place 강제 · force in-place in the current directory
+        #[arg(long)]
+        here: bool,
+        /// 확인 프롬프트 생략 · skip the confirmation prompt
+        #[arg(long)]
+        yes: bool,
+        /// 변경 없이 계획만 출력 · preview only, write nothing
+        #[arg(long = "dry-run")]
+        dry_run: bool,
+        /// 기존 파일도 덮어씀 · overwrite existing files
+        #[arg(long)]
+        force: bool,
         /// 모듈 preset · module preset (full | experimental | software | minimal | qa[exp] | general[exp])
         #[arg(long, default_value = "full", conflicts_with = "modules")]
         preset: String,
@@ -103,35 +113,100 @@ fn main() {
     match cli.command {
         Commands::Init {
             name,
+            here,
+            yes,
+            dry_run,
+            force,
             preset,
             modules,
             categories,
             lang,
         } => {
+            let cwd = std::env::current_dir().expect("cwd");
+            // mode: 무명 · `--here` · `.` → 현재 폴더 in-place (P018 name-presence)
+            let dot = name.as_deref() == Some(".");
+            let in_place = here || name.is_none() || dot;
+            // project name: in-place는 cwd basename(또는 `--here <name>`), 그 외는 인자명
+            let proj_name = if in_place {
+                match name.clone().filter(|n| n != ".") {
+                    Some(n) => n,
+                    None => cwd
+                        .file_name()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("project")
+                        .to_string(),
+                }
+            } else {
+                name.clone().expect("subfolder requires a name")
+            };
             let date = chrono::Local::now().format("%Y-%m-%d").to_string();
             let label = match &modules {
                 Some(keys) => format!("custom({})", keys.join(",")),
                 None => preset.clone(),
             };
             let opts = init::InitOptions {
-                name,
+                name: proj_name,
                 preset,
                 modules,
                 categories: categories.unwrap_or_default(),
                 lang,
                 date,
             };
-            match init::run_init(Path::new("."), &opts) {
-                Ok(target) => {
+
+            // graduated confirm (P018 §4): in-place + cwd 비어있지않음 + !yes + !dry-run → 위치 echo
+            if in_place && !yes && !dry_run {
+                let non_empty = std::fs::read_dir(&cwd)
+                    .map(|mut r| r.next().is_some())
+                    .unwrap_or(false);
+                if non_empty {
+                    use std::io::Write;
+                    print!(
+                        "[elf] Initialize ELF in {}? Existing files are left untouched. [Y/n] ",
+                        cwd.display()
+                    );
+                    let _ = std::io::stdout().flush();
+                    let mut line = String::new();
+                    let _ = std::io::stdin().read_line(&mut line);
+                    let ans = line.trim();
+                    if !(ans.is_empty() || ans.eq_ignore_ascii_case("y") || ans.eq_ignore_ascii_case("yes"))
+                    {
+                        eprintln!("[elf] aborted.");
+                        std::process::exit(0);
+                    }
+                }
+            }
+
+            match init::run_init_ex(&cwd, &opts, in_place, dry_run, force) {
+                Ok(report) => {
+                    if dry_run {
+                        println!("[elf] dry-run — nothing written");
+                    }
                     println!(
-                        "[elf] created {} (ELF {}, preset: {}, lang: {})",
-                        target.display(),
+                        "[elf] {} {} (ELF {}, preset: {}, lang: {})",
+                        if dry_run { "would init" } else { "created" },
+                        report.target.display(),
                         embed::version(),
                         label,
                         opts.lang
                     );
+                    if in_place {
+                        println!(
+                            "[elf]   added {}, skipped {} (kept), .elf-new {}",
+                            report.created.len(),
+                            report.skipped.len(),
+                            report.elf_new.len()
+                        );
+                        for s in &report.skipped {
+                            println!("[elf]     kept your {s}");
+                        }
+                        for n in &report.elf_new {
+                            println!("[elf]     ELF version at {n}");
+                        }
+                        println!("[elf]   existing files left untouched");
+                    }
+                    println!("[elf] next: open 0_Meta/ProjectRule.md");
                 }
-                Err(e @ init::InitError::TargetExists(_)) => {
+                Err(e @ (init::InitError::TargetExists(_) | init::InitError::AlreadyElf(_))) => {
                     eprintln!("[elf] {e}");
                     std::process::exit(3);
                 }

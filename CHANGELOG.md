@@ -4,6 +4,23 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.10.0] - 2026-06-26
+
+### New
+- **`elf init` in place** — running `elf init` with **no name now initializes the current
+  folder in place** (like `git init`); `elf init <name>` still creates a fresh `./<name>/`
+  subfolder. In place, ELF is added to an existing folder **without overwriting anything**:
+  missing ELF files are created, your files are kept, and a colliding ELF-managed file is
+  written alongside as `<file>.elf-new` (your `.gitignore`, `README`, etc. are never
+  clobbered; user-owned seed files are skipped). A non-empty folder gets one confirmation
+  echoing the path; an already-initialized project is refused (use `elf update`). New flags:
+  `--here`, `--yes`, `--dry-run`, `--force`. See `CLI.md`.
+
+### Changed
+- **`elf init` defaults to the current folder** — the no-name form used to error (a name was
+  required); it now initializes in place. `elf init <name>` is unchanged, so existing usage
+  stays backward-compatible.
+
 ## [2.9.1] - 2026-06-24
 
 ### Fixed

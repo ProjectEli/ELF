@@ -26,7 +26,7 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases
 
 | 명령 | 용도 |
 |------|------|
-| `elf init <이름>` | 새 ELF 프로젝트 생성 |
+| `elf init [이름]` | ELF 프로젝트 생성 (현재 폴더 또는 `./<이름>`) |
 | `elf update` | 현재 프로젝트의 managed 파일 갱신 |
 | `elf status` | managed 파일 drift 진단(읽기전용) |
 | `elf validate` | 세션/Registry/로그 정합 검사(읽기전용) |
@@ -41,25 +41,33 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases
 
 ## 명령
 
-### `elf init <이름>`
+### `elf init [이름]`
 
-`./<이름>`에 새 ELF 프로젝트를 생성합니다.
+ELF 프로젝트를 생성합니다. **이름을 생략하면 `elf init`은 현재 폴더를 제자리(in-place)로 초기화**합니다(`git init`처럼). 이름을 주면 새 `./<이름>/` 하위폴더를 만듭니다.
 
 | 플래그 | 기본값 | 의미 |
 |--------|--------|------|
+| `--here` | off | 이름을 줘도 현재 폴더에 in-place 강제(그 이름을 프로젝트명으로 사용) |
+| `--yes` | off | in-place 확인 프롬프트 생략(스크립트/CI) |
+| `--dry-run` | off | 계획만 출력, 미기록 |
+| `--force` | off | 기존 파일도 덮어씀(기본은 사용자 것 유지) |
 | `--preset <p>` | `full` | 모듈 세트: `full` / `experimental` / `software` / `minimal`. 실험적 유형: **`qa`**(질문 아카이브, 연구 아님), **`general`**(목표지향 비연구) |
 | `--modules <목록>` | — | custom 모듈(쉼표): `hw,fab,sw,exp,paper`. `--preset`보다 우선 |
 | `--lang <언어>` | `ko-KR` | AI 에이전트 응답 언어, BCP-47 태그(`.elf/config.json`에 기록). 비한국어 태그(예: `en-US`)면 영어 **companion** 문서도 함께 배포 — 아래 note 참조 |
 
-Core 폴더(`0_Meta`–`2_Log` + `templates`)는 항상 생성, 모듈 폴더(`3_HW`–`7_Paper`)는 preset/`--modules`에 따라 추가. `<이름>`이 이미 있으면 exit 3로 거부.
+Core 폴더(`0_Meta`–`2_Log` + `templates`)는 항상 생성, 모듈 폴더(`3_HW`–`7_Paper`)는 preset/`--modules`에 따라 추가.
+
+**In-place(이름 생략)**는 기존 폴더에 ELF를 **아무것도 덮어쓰지 않고** 도입합니다: 누락된 ELF 파일만 추가하고 사용자 파일은 유지하며, 충돌하는 ELF managed 파일은 `<파일>.elf-new`로 병기합니다(사용자 `.gitignore`·`README` 등은 절대 미클로버). 폴더가 비어있지 않으면 경로를 echo하는 확인 1회를 거치고, 프로젝트명은 폴더명으로 기본 설정됩니다. 이미 ELF 프로젝트(`.elf/` 존재)면 exit 3로 거부 — `elf update`를 사용하세요. 이름(하위폴더) 형식은 `./<이름>`이 이미 있으면 종전대로 exit 3 거부.
 
 ```bash
-elf init NIRS_Probe
+elf init                              # in-place: 현재 폴더에 ELF 도입
+elf init --here --preset general      # in-place, 목표지향 유형
+elf init . --yes                      # in-place, 프롬프트 없이(스크립트/CI)
+elf init NIRS_Probe                   # 하위폴더: ./NIRS_Probe/ 생성
 elf init NIRS_Probe --preset experimental --lang en-US
 elf init NIRS_Probe --modules hw,sw
 elf init my_questions --preset qa                          # experimental: Q&A bundle 아카이브 (카테고리 0개)
 elf init my_questions --preset qa --categories 일상질문,IT일반질문   # 카테고리 사전 생성
-elf init my_tool --preset general                          # experimental: 목표지향 비연구 프로젝트
 ```
 
 > **`--lang en-*` (영어 companion, experimental).** operative 거버넌스 문서는 한국어(`*.md`)

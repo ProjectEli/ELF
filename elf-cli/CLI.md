@@ -26,7 +26,7 @@ Installs the binary to `~/.elf/bin` and adds it to PATH. Open a new shell and ve
 
 | Command | Purpose |
 |---------|---------|
-| `elf init <name>` | Scaffold a new ELF project |
+| `elf init [name]` | Scaffold an ELF project (in place, or in `./<name>`) |
 | `elf update` | Update managed files in the current project |
 | `elf status` | Diagnose managed-file drift (read-only) |
 | `elf validate` | Check session/registry/log consistency (read-only) |
@@ -41,25 +41,33 @@ Global flags: `elf --version`, `elf --help`, `elf <command> --help`.
 
 ## Commands
 
-### `elf init <name>`
+### `elf init [name]`
 
-Scaffold a new ELF project in `./<name>`.
+Scaffold an ELF project. **With no name, `elf init` initializes the current folder in place** (like `git init`); with a name, it creates a fresh `./<name>/` subfolder.
 
 | Flag | Default | Meaning |
 |------|---------|---------|
+| `--here` | off | Force in-place in the current folder even if a name is given (uses the name as the project name) |
+| `--yes` | off | Skip the in-place confirmation prompt (for scripts/CI) |
+| `--dry-run` | off | Preview the plan; write nothing |
+| `--force` | off | Overwrite existing files (default keeps yours) |
 | `--preset <p>` | `full` | Module set: `full` / `experimental` / `software` / `minimal`. Experimental project types: **`qa`** (question-archive, not research), **`general`** (goal-driven non-research) |
 | `--modules <list>` | — | Custom modules (comma-separated): `hw,fab,sw,exp,paper`. Overrides `--preset` |
 | `--lang <lang>` | `ko-KR` | AI agent response language, BCP-47 tag (written to `.elf/config.json`). For a non-Korean tag (e.g. `en-US`), English **companion** docs are also deployed — see note below |
 
-Core folders (`0_Meta`–`2_Log` + `templates`) are always created; module folders (`3_HW`–`7_Paper`) are added per preset or `--modules`. Refuses with exit 3 if `<name>` already exists.
+Core folders (`0_Meta`–`2_Log` + `templates`) are always created; module folders (`3_HW`–`7_Paper`) are added per preset or `--modules`.
+
+**In-place (no name)** adopts ELF into an existing folder **without overwriting anything**: missing ELF files are added, your existing files are kept, and a colliding ELF-managed file is written alongside as `<file>.elf-new` (your `.gitignore`, `README`, etc. are never clobbered). When the folder is non-empty you get one confirmation echoing the path; the project name defaults to the folder name. If the folder is already an ELF project (`.elf/` present) it refuses with exit 3 — use `elf update`. The named (subfolder) form still refuses with exit 3 if `./<name>` already exists.
 
 ```bash
-elf init NIRS_Probe
+elf init                              # in-place: adopt ELF into the current folder
+elf init --here --preset general      # in-place, goal-driven project type
+elf init . --yes                      # in-place, no prompt (scripts/CI)
+elf init NIRS_Probe                   # subfolder: create ./NIRS_Probe/
 elf init NIRS_Probe --preset experimental --lang en-US
 elf init NIRS_Probe --modules hw,sw
 elf init my_questions --preset qa                          # experimental: Q&A bundle archive (no categories)
 elf init my_questions --preset qa --categories Daily,ITGeneral   # pre-create categories
-elf init my_tool --preset general                          # experimental: goal-driven non-research project
 ```
 
 > **`--lang en-*` (English companions, experimental).** The operative governance docs
