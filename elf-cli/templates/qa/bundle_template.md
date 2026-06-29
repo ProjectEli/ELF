@@ -6,16 +6,16 @@ status: active
 # thread: [thread-slug]   ← 선택: 사고 chain의 일부일 때만 추가(CLAUDE.md §4). 아니면 이 줄 삭제.
 ---
 
-# 내 생각
-
-
----
 # 목표 (Objective)
 (LLM 자동 작성: 무엇을 알아내거나 해결하려 했는가? 1-2문장)
 
 ---
 # 교훈 (Lessons Learned)
 (LLM 자동 작성: 핵심 기술·전략 깨달음 2-3줄)
+
+---
+# 내 생각
+
 
 ---
 # 질문 원본

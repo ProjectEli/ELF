@@ -23,7 +23,7 @@ phrasing, and replace with **concrete, active, direct** statements. English outp
 
 | Category | Example vocabulary |
 |---|---|
-| Cliché verbs | represent · serve/stand/act as · delve · navigate · leverage · harness · showcase · underscore · foster · enhance · unlock · elevate · streamline · spearhead · embark · garner · bolster · revolutionize · shed light on · (vague) yield |
+| Cliché verbs | represent · serve/stand/act as · delve · navigate · leverage · harness · showcase · underscore · foster · enhance · alleviate · unlock · elevate · streamline · spearhead · embark · garner · bolster · revolutionize · shed light on · (vague) yield |
 | Vague adjectives | crucial · vital · pivotal · essential · seamless · intricate · profound · paramount · nuanced · multifaceted · holistic · vibrant · innovative · cutting-edge · meticulous · (vague) robust · (vague) comprehensive · (vague) trivial |
 | Cliché nouns | tapestry · landscape · realm · paradigm · testament · cornerstone · beacon · myriad · plethora · synergy · ecosystem |
 | Overused connectors | Moreover · Furthermore · Consequently · Additionally · sentence-initial runs of However · Notably · Importantly · Indeed |

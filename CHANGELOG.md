@@ -4,6 +4,33 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.12.0] - 2026-06-29
+
+### Added
+- **Source-reliability rule in governance** — `EliRule.md` gains a Source Reliability rule:
+  do not cite namu.wiki or other anonymous/collectively-edited wikis, or unattributed
+  blogs/community posts, as sources; cross-check against reliable sources (institutions,
+  academic societies, governments, primary/official materials) and cite those; set
+  `blocked_domains: ["namu.wiki"]` in WebSearch; and list verified sources under `## 출처`
+  (or `## Sources`) for any web-grounded answer or document. Applies to research and
+  `general` projects (and the `qa` preset via its new §7). Run `elf update`.
+- **More high-IF journal domains** — `highIFjournals.md` adds `pubs.rsc.org` (Lab on a Chip,
+  Chemical Science, Chem Soc Rev, …), `link.springer.com` / `*.springeropen.com` (eLight,
+  PhotoniX, Nano-Micro Letters), `iopscience.iop.org`, and `journals.aps.org` (Reviews of
+  Modern Physics, Physical Review X). Run `elf update` (research projects).
+- **`qa` preset — behavior rules & rolling capture** — the `qa` preset `CLAUDE.md` gains a
+  §7 (source reliability, no-emoji, tone, language, persona, proactive capture) and a
+  rolling-capture protocol (per-turn thread classification, turn-1 deferral, roll-forward).
+  `qa` stays experimental.
+
+### Changed
+- **`qa` bundle — `# 내 생각` moved** — the reflection section now sits after `# 교훈`
+  (was at the top), so the on-read order matches the writing order.
+
+### Fixed
+- **LLMcliche — `alleviate` restored** — the cliché verb `alleviate`, missing from the §1
+  verb list, is restored. Run `elf update`.
+
 ## [2.11.0] - 2026-06-29
 
 ### New

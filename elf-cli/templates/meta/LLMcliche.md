@@ -10,7 +10,7 @@
 
 | 카테고리 | 예시 어휘 |
 |---|---|
-| 상투 동사 | represent · serve/stand/act as · delve · navigate · leverage · harness · showcase · underscore · foster · enhance · unlock · elevate · streamline · spearhead · embark · garner · bolster · revolutionize · shed light on · (막연한) yield |
+| 상투 동사 | represent · serve/stand/act as · delve · navigate · leverage · harness · showcase · underscore · foster · enhance · alleviate · unlock · elevate · streamline · spearhead · embark · garner · bolster · revolutionize · shed light on · (막연한) yield |
 | 막연 형용사 | crucial · vital · pivotal · essential · seamless · intricate · profound · paramount · nuanced · multifaceted · holistic · vibrant · innovative · cutting-edge · meticulous · (막연한) robust · (막연한) comprehensive · (막연한) trivial |
 | 상투 명사 | tapestry · landscape · realm · paradigm · testament · cornerstone · beacon · myriad · plethora · synergy · ecosystem |
 | 과용 연결어 | Moreover · Furthermore · Consequently · Additionally · 문두 연속 However · Notably · Importantly · Indeed |

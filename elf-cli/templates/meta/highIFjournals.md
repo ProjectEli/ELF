@@ -17,6 +17,10 @@
 | `opg.optica.org`, `optica.org` | Optica, Optics Express, Optics Letters, Advanced Photonics, Photonics Research, Biomedical Optics Express | 광학 전문 |
 | `ieeexplore.ieee.org` | IEEE TBME, JBHI, Sensors Journal, TMI 등 | 일부 abstract-only |
 | `sciencedirect.com` | Biosensors and Bioelectronics, Biomaterials 등 (Elsevier) | 대개 abstract-only |
+| `pubs.rsc.org` | Lab on a Chip, Chemical Science, Energy & Environmental Science, Materials Horizons, Nanoscale, Chemical Society Reviews | RSC |
+| `link.springer.com`, `*.springeropen.com` | eLight, PhotoniX, Nano-Micro Letters | Springer (nature.com 외) |
+| `iopscience.iop.org` | Biofabrication, 2D Materials, Nanotechnology, Reports on Progress in Physics | IOP |
+| `journals.aps.org` | Reviews of Modern Physics, Physical Review X, Physical Review Letters | APS (물리 종설·원저) |
 
 ## 2. OA full-text 미러 (403 우회)
 

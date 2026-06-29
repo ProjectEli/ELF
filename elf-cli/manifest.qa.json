@@ -3,8 +3,8 @@
   "generated": "2026-06-15",
   "note": "ELF QA preset(experimental) 배포 명세 — 질문 아카이브 유형. 연구 manifest(manifest.json)와 분리(isolation). src=elf-cli 상대, dest=프로젝트 루트 상대. `elf init <name> --preset qa`가 이 명세로 배포·.elf stamp. sha256=원본 LF 바이트 해시(hash::sha256_lf).",
   "files": [
-    { "src": "templates/qa/CLAUDE.md",          "dest": "CLAUDE.md",                   "tier": "managed", "sha256": "1eb8537d7659b6ee577bbea88f341ce2caf0df957d13f1dfb186837e702cf67b" },
-    { "src": "templates/qa/bundle_template.md", "dest": "templates/bundle_template.md", "tier": "managed", "sha256": "70dfd26db190deeea6c18c22a101458161e020183889ff4744b80b84514860f9" },
+    { "src": "templates/qa/CLAUDE.md",          "dest": "CLAUDE.md",                   "tier": "managed", "sha256": "af1db6037767748e21d2e1cdd19c16f0258bfbe5d91270c9648cc1238259ad73" },
+    { "src": "templates/qa/bundle_template.md", "dest": "templates/bundle_template.md", "tier": "managed", "sha256": "dbc2a60b68f536f45c80ec042ddcbe462909f55128ebd06d91b677c88374cd26" },
     { "src": "templates/qa/README.md",          "dest": "README.md",                   "tier": "seed",    "sha256": "5a7ee6fa928f930c1eb021193c8dedeb7ac5d74365fa67abb5ac8c32cb00c1c0" }
   ],
   "dirs": {

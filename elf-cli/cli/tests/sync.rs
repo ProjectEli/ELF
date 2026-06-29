@@ -49,7 +49,7 @@ fn section3_universal_rules_match_between_research_and_general() {
     assert!(!general.is_empty(), "general §3 규칙 파싱 실패 — 헤더 포맷 변경?");
 
     // 보편 규칙: 두 유형에서 byte-identical 유지 (silent drift 차단)
-    const UNIVERSAL: [u32; 8] = [1, 2, 3, 7, 8, 9, 11, 12];
+    const UNIVERSAL: [u32; 9] = [1, 2, 3, 7, 8, 9, 11, 12, 13];
     // 의도적 분기(도메인 특화) — 동일성 미강제
     const DIVERGENT: [u32; 4] = [4, 5, 6, 10];
 

@@ -24,6 +24,10 @@ target subset (submission order, etc.) in each project's `ProjectRule.md`.
 | `opg.optica.org`, `optica.org` | Optica, Optics Express, Optics Letters, Advanced Photonics, Photonics Research, Biomedical Optics Express | optics-specialized |
 | `ieeexplore.ieee.org` | IEEE TBME, JBHI, Sensors Journal, TMI, etc. | some abstract-only |
 | `sciencedirect.com` | Biosensors and Bioelectronics, Biomaterials, etc. (Elsevier) | usually abstract-only |
+| `pubs.rsc.org` | Lab on a Chip, Chemical Science, Energy & Environmental Science, Materials Horizons, Nanoscale, Chemical Society Reviews | RSC |
+| `link.springer.com`, `*.springeropen.com` | eLight, PhotoniX, Nano-Micro Letters | Springer (non-nature.com) |
+| `iopscience.iop.org` | Biofabrication, 2D Materials, Nanotechnology, Reports on Progress in Physics | IOP |
+| `journals.aps.org` | Reviews of Modern Physics, Physical Review X, Physical Review Letters | APS (physics review/primary) |
 
 ## 2. OA Full-text Mirrors (403 bypass)
 
