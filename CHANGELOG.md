@@ -4,6 +4,24 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.11.0] - 2026-06-29
+
+### New
+- **Optional `### 배경 (Background)` section in trial logs** — research and `general`
+  projects can add a `### 배경 (Background)` section above `### 목표 (Goal)` in a trial to
+  preserve the *thinking flow* behind it (entry intent, **initiator**, a rejected entry
+  path) without duplicating the verbatim query — the session transcript already keeps the
+  raw query. It is **conditional** (only when context exceeds the goal, e.g. synthesizing a
+  prior session; ordinary trials let the goal absorb it), kept light (1-2 lines), and never
+  enforced by `elf validate`. Run `elf update`.
+
+### Changed
+- **LogConvention — initiator & rejected-alternative placement** — trials name the
+  **initiator** of a task/pivot in one word (user-raised / AI-originated), and rejected
+  alternatives have a defined home by timing (entry → `### 배경`, scope → `### 조건`,
+  result-based → `### 해석`·`### 교훈`). Applies to both research and `general` presets
+  (plus English companions). Run `elf update`.
+
 ## [2.10.0] - 2026-06-26
 
 ### New

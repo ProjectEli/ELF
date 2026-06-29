@@ -43,6 +43,11 @@ scheme and the `.claudeignore` rules. For the detailed principles, see
 
 ## t{NN}: {task title}
 
+### 배경 (Background)  (optional: only when context exceeds the goal — prior-session synthesis, multiple inputs; omit for ordinary trials)
+- {trial entry intent/context}
+- **발의 (Initiator)**: {user-raised / AI-originated}
+- {one line on a path rejected at entry — only if any; no Phase-1 after-the-fact editing}
+
 ### 목표 (Goal)
 - {state the concrete task goal}
 
@@ -110,6 +115,9 @@ scheme and the `.claudeignore` rules. For the detailed principles, see
 - **Observation section (Phase 2)**: write **after** running the trial. A comparison table against hypothesis/prediction is recommended (2 columns: `예상 (Prediction)` vs `관찰 (Observation)`).
 - **Interpretation one-line rule**: the first line states one of `Hypothesis hit: hit / miss / partial`. Mechanism interpretation from the second line.
 - **Next-Session Hypothesis**: just before closing the session (Status → Complete), write a `## 다음 세션 후보 (Next-Session Hypothesis)` section at the end of the body. 1-3 hypothesis candidates + 1-3 prediction candidates. At the next session S{NNN+1}, carry them over into t01's `### 가설 (Hypothesis)` / `### 예상 (Prediction)` to avoid breaking the hypothesis chain across sessions.
+- **Background section (optional, conditional)**: separate `### 배경 (Background)` above `### 목표` **only when context exceeds the goal** (prior-session synthesis, multiple inputs). Ordinary trials let the goal absorb it — no standing heading, no empty background. Keep it light (1-2 lines).
+- **Initiator**: name the initiator of the work/pivot in the background (or goal) in one word (`user-raised` / `AI-originated`) — preserves the provenance of the thinking flow. The verbatim original query is preserved by the session JSONL, so it is not duplicated in the log (SSOT = absorbed into the trial body).
+- **Rejected-alternative placement (by timing)**: path rejected at entry → `### 배경` (one line, no Phase-1 after-the-fact editing) / scope exclusion → `### 조건` / result-based rejection → `### 해석`·`### 교훈`. Do not dump all into the background (timing inversion / post-hoc rationalization).
 - **Retroactive policy**: trials/sessions before this rule took effect are not force-backfilled. **Applies to new writing from now on.** For a trial about to enter the archive, filling one line in retrospect is recommended.
 
 ---
@@ -188,6 +196,7 @@ Write each trial (t{NN}) in two phases. **A stop point between Phase 1 and Phase
 
 **Phase 1 — before execution (pre-execution, stop point)**
 - [ ] Write the `## t{NN}: [task title]` header
+- [ ] (optional) `### 배경 (Background)` — only when context exceeds the goal: entry intent + **initiator** (user-raised/AI-originated) + (one line on a rejected entry path)
 - [ ] Write `### 목표 (Goal)` (the what of the task)
 - [ ] Write `### 조건 (Conditions)` (fix parameters/constraints)
 - [ ] Write `### 가설 (Hypothesis)` (3-5 suspected mechanisms/effects, nominal form)
