@@ -25,7 +25,7 @@ phrasing, and replace with **concrete, active, direct** statements. English outp
 |---|---|
 | Cliché verbs | represent · serve/stand/act as · delve · navigate · leverage · harness · showcase · underscore · foster · enhance · alleviate · unlock · elevate · streamline · spearhead · embark · garner · bolster · revolutionize · shed light on · (vague) yield |
 | Vague adjectives | crucial · vital · pivotal · essential · seamless · intricate · profound · paramount · nuanced · multifaceted · holistic · vibrant · innovative · cutting-edge · meticulous · (vague) robust · (vague) comprehensive · (vague) trivial |
-| Cliché nouns | tapestry · landscape · realm · paradigm · testament · cornerstone · beacon · myriad · plethora · synergy · ecosystem |
+| Cliché nouns | tapestry · landscape · realm · paradigm · testament · cornerstone · beacon · myriad · plethora · synergy · ecosystem · verdict (elevates an evaluation/check result into courtroom register — use result/pass-fail) |
 | Overused connectors | Moreover · Furthermore · Consequently · Additionally · sentence-initial runs of However · Notably · Importantly · Indeed |
 | Cliché phrases | "it is worth/important noting that" · "plays a crucial/pivotal role" · "pave the way" · "at the forefront of" · "in the realm of" · "a wide range/array of" · "rich tapestry" · "ever/rapidly evolving" · "revolutionize the way" |
 | Emphasis adverbs | uniquely · fundamentally · primarily · meticulously · crystallize |
@@ -83,6 +83,7 @@ denotation**. Examples:
 | The signal is **uniquely governed** by geometry | The signal **is governed** by geometry |
 | **By leveraging** the calibration | **Using** the calibration |
 | The result is, **importantly**, **not trivial** | The effect **is 3× the baseline** (hedge removed, magnitude stated) |
+| The checker returns its **verdict** | The checker **returns a result / passes or fails** |
 
 ---
 

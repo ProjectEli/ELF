@@ -12,7 +12,7 @@
 |---|---|
 | 상투 동사 | represent · serve/stand/act as · delve · navigate · leverage · harness · showcase · underscore · foster · enhance · alleviate · unlock · elevate · streamline · spearhead · embark · garner · bolster · revolutionize · shed light on · (막연한) yield |
 | 막연 형용사 | crucial · vital · pivotal · essential · seamless · intricate · profound · paramount · nuanced · multifaceted · holistic · vibrant · innovative · cutting-edge · meticulous · (막연한) robust · (막연한) comprehensive · (막연한) trivial |
-| 상투 명사 | tapestry · landscape · realm · paradigm · testament · cornerstone · beacon · myriad · plethora · synergy · ecosystem |
+| 상투 명사 | tapestry · landscape · realm · paradigm · testament · cornerstone · beacon · myriad · plethora · synergy · ecosystem · verdict(평가·검사 결과를 사법 register로 격상 — result/pass-fail로) |
 | 과용 연결어 | Moreover · Furthermore · Consequently · Additionally · 문두 연속 However · Notably · Importantly · Indeed |
 | 상투 구문 | "it is worth/important noting that" · "plays a crucial/pivotal role" · "pave the way" · "at the forefront of" · "in the realm of" · "a wide range/array of" · "rich tapestry" · "ever/rapidly evolving" · "revolutionize the way" |
 | 강조 부사 | uniquely · fundamentally · primarily · meticulously · crystallize |
@@ -67,6 +67,7 @@
 | The signal is **uniquely governed** by geometry | The signal **is governed** by geometry |
 | **By leveraging** the calibration | **Using** the calibration |
 | The result is, **importantly**, **not trivial** | The effect **is 3× the baseline** (헤지 삭제·크기 명시) |
+| The checker returns its **verdict** | The checker **returns a result / passes or fails** |
 
 ---
 

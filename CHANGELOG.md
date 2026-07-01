@@ -4,6 +4,14 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.12.1] - 2026-07-02
+
+### Changed
+- **LLMcliche — `verdict` added** — the §1 cliché-noun list gains `verdict` (elevates an
+  evaluation or check result into courtroom register — use *result* / *pass-fail*), with a
+  matching before/after example. meta and general presets, plus the EN companion. Run
+  `elf update`.
+
 ## [2.12.0] - 2026-06-29
 
 ### Added

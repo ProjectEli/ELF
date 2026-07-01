@@ -7,7 +7,7 @@
     { "src": "templates/meta/LogConvention.md",     "dest": "0_Meta/LogConvention.md",         "tier": "managed", "sha256": "bac910e4f780c4c885c0719c341abea6f7741012a2fd638d64b44548cb735367" },
     { "src": "templates/meta/AI_PARA_Framework.md", "dest": "0_Meta/AI_PARA_Framework.md",     "tier": "managed", "sha256": "0d158937485cafb0974a833efd6bee831eb6666ee55d4ce5987134967715675b" },
     { "src": "templates/meta/highIFjournals.md",    "dest": "0_Meta/highIFjournals.md",        "tier": "managed", "sha256": "de95da602672cf2b2045ade5d5c2742eee82af125917a0f2c64ec30eead4cdf1" },
-    { "src": "templates/meta/LLMcliche.md",         "dest": "0_Meta/LLMcliche.md",             "tier": "managed", "sha256": "d433e1f2099149a580fd3e42a125f9b450075871c34b82ff3a16ef7ea5ac37fe" },
+    { "src": "templates/meta/LLMcliche.md",         "dest": "0_Meta/LLMcliche.md",             "tier": "managed", "sha256": "aa39ead7b016c9e1507bb97c86ea03556575abbaecd8d8fac6c288472dbc60e9" },
     { "src": "templates/log/sessionTemplate.md",    "dest": "templates/sessionTemplate.md",    "tier": "managed", "sha256": "da9c5df0a3b2678cc12447f39951d7613ead132215f0fcafaca8158f07eec43e" },
     { "src": "templates/log/trialTemplate.md",      "dest": "templates/trialTemplate.md",      "tier": "managed", "sha256": "71423ff20a0774d73158acee4beaf2b31736d7a9678350b9791bcb3a661ca614" },
     { "src": "templates/root/.claudeignore",        "dest": ".claudeignore",                   "tier": "managed", "sha256": "106c0a73eb58f9719a1d89d5ea95d9a6e86311902d0642b9871d05959968b37c" },
@@ -20,7 +20,7 @@
     { "src": "templates/meta/LogConvention.en.md",     "dest": "0_Meta/LogConvention.en.md",      "tier": "managed", "sha256": "83949dcca136385bc13dfc28c0e904e79ec097c44c3e270ce544b985f6e11d37", "lang": "en", "role": "companion" },
     { "src": "templates/meta/AI_PARA_Framework.en.md", "dest": "0_Meta/AI_PARA_Framework.en.md",  "tier": "managed", "sha256": "3cd59b28fd6c7e0004ebb975671f72e0b16cbe000d7f24838cded66b5edbb080", "lang": "en", "role": "companion" },
     { "src": "templates/meta/highIFjournals.en.md",    "dest": "0_Meta/highIFjournals.en.md",     "tier": "managed", "sha256": "3fb29e3bdb0847518393f3728a05a71c54e74d34182b2eade4e9f57ad219ce34", "lang": "en", "role": "companion" },
-    { "src": "templates/meta/LLMcliche.en.md",         "dest": "0_Meta/LLMcliche.en.md",          "tier": "managed", "sha256": "3acfc89946e532ec640990cd2b54bb036407bce8e3a1fd2d9ff9b74b8debb23e", "lang": "en", "role": "companion" },
+    { "src": "templates/meta/LLMcliche.en.md",         "dest": "0_Meta/LLMcliche.en.md",          "tier": "managed", "sha256": "3d3f1a81063de0bee0374905d2d8931154ac63deb7dd0864d92a97fe89568388", "lang": "en", "role": "companion" },
     { "src": "templates/meta/ProjectRule.en.md",       "dest": "0_Meta/ProjectRule.md",           "tier": "seed",    "sha256": "6c30279a21a5d0df9a985b1622405a42fc683772d0af58c202e35cce99b1f40f", "lang": "en", "role": "variant" },
     { "src": "templates/root/README.en.md",            "dest": "README.md",                       "tier": "seed",    "sha256": "18d6a010ca08d7e988568b0d26feaaebdb92297b78f8320c944032aa04141701", "lang": "en", "role": "variant" }
   ],
