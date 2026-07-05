@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use elf_cli::{doctor, embed, gallery, init, selfupdate, session, status, update, validate};
+use elf_cli::{doctor, embed, gallery, init, selfupdate, session, status, trial, update, validate};
 
 /// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드·갱신 CLI (research project scaffold & update CLI)
 #[derive(Parser)]
@@ -61,6 +61,11 @@ enum Commands {
         #[command(subcommand)]
         cmd: SessionCmd,
     },
+    /// trial 스캐폴드 · Trial scaffold (활성 로그에 정본 stub 추가 / append the canonical stub)
+    Trial {
+        #[command(subcommand)]
+        cmd: TrialCmd,
+    },
     // (주의: doc comment(`///`)는 help로 노출됨 — 내부 표기 금지, 회귀 테스트가 게이트. P011 t09)
     /// 프로젝트 ELF 파일 상태 진단 · Diagnose managed-file drift (편집/누락 — 읽기전용/read-only)
     Status {
@@ -104,6 +109,18 @@ enum SessionCmd {
         /// 변경 없이 대상 파일만 출력 · dry-run (list targets only)
         #[arg(long)]
         dry_run: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum TrialCmd {
+    /// 활성 세션 로그에 현행 trialTemplate stub 추가 · Append the current canonical trial stub to the active session log
+    New {
+        /// trial 제목 · trial title (생략 시 placeholder 유지 / omit = keep placeholder)
+        title: Option<String>,
+        /// 대상 세션 · target session (S### — 생략 시 유일 활성 자동 선택)
+        #[arg(long)]
+        session: Option<String>,
     },
 }
 
@@ -428,6 +445,44 @@ fn main() {
                     }
                     Err(e) => {
                         eprintln!("[elf] io error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+        },
+        Commands::Trial { cmd } => match cmd {
+            TrialCmd::New { title, session: sess } => {
+                let root = log_root_or_exit();
+                let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+                let opts = trial::TrialNewOptions { title, session: sess, date };
+                match trial::run_trial_new(&root, &opts) {
+                    Ok(r) => {
+                        println!("[elf] appended {} to {} ({})", r.trial, r.log_rel, r.session);
+                        println!(
+                            "[elf] next: Phase 1 — fill 목표/조건/가설/예상, then stop before execution (LogConvention §5.1)"
+                        );
+                    }
+                    Err(session::SessionError::NoOpenSession) => {
+                        eprintln!("[elf] no open session in 2_Log/ — start one with `elf session new \"<title>\"`");
+                        std::process::exit(1);
+                    }
+                    Err(session::SessionError::MultipleOpen(ids)) => {
+                        eprintln!(
+                            "[elf] multiple open sessions ({}) — specify one: elf trial new --session <S###>",
+                            ids.join(", ")
+                        );
+                        std::process::exit(1);
+                    }
+                    Err(session::SessionError::NotFound(id)) => {
+                        eprintln!("[elf] session not found: {id}");
+                        std::process::exit(1);
+                    }
+                    Err(session::SessionError::Io(e)) => {
+                        eprintln!("[elf] io error: {e}");
+                        std::process::exit(1);
+                    }
+                    Err(e) => {
+                        eprintln!("[elf] error: {e:?}");
                         std::process::exit(1);
                     }
                 }

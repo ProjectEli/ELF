@@ -73,6 +73,7 @@ pub fn run_doctor(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
             check_elf(&root, env, &mut r);
             check_status(&root, &mut r);
             check_i18n(&root, &mut r);
+            check_l2(&root, &mut r);
         }
     }
 
@@ -165,6 +166,56 @@ fn check_i18n(root: &Path, r: &mut DoctorReport) {
             companions.len()
         ),
     );
+}
+
+/// L2 진입 파일 연결 진단 (S021 t04·t06) — AGENTS.md(managed 상태는 check_status 소관)와
+/// CLAUDE.md 포인터의 **연결 상태**를 봄: 포인터 부재 = Claude Code가 AGENTS.md 미로드.
+/// stamp에 AGENTS.md entry가 없는 구버전 프로젝트는 조용히 skip(missing은 status가 안내).
+fn check_l2(root: &Path, r: &mut DoctorReport) {
+    let Some(stamp) = fs::read_to_string(root.join(".elf").join("manifest.json"))
+        .ok()
+        .and_then(|t| manifest::parse(&t).ok())
+    else {
+        return; // stamp 문제는 check_elf가 이미 보고
+    };
+    if !stamp.files.iter().any(|e| e.dest == "AGENTS.md") {
+        return; // pre-L2 stamp — `elf update` 후 활성화
+    }
+    match fs::read_to_string(root.join("CLAUDE.md")) {
+        Err(_) => r.add(
+            Health::Warn,
+            "agent entry",
+            "CLAUDE.md missing — Claude Code will not load AGENTS.md; run `elf update` (creates the pointer)",
+        ),
+        Ok(c) if !c.contains("@AGENTS.md") => r.add(
+            Health::Warn,
+            "agent entry",
+            "CLAUDE.md lacks a `@AGENTS.md` line — Claude Code will not load AGENTS.md; add the line (your other content can stay)",
+        ),
+        Ok(c) => {
+            let lines = c.lines().count();
+            if lines > 15 {
+                r.add(
+                    Health::Info,
+                    "agent entry",
+                    format!(
+                        "CLAUDE.md loads @AGENTS.md but carries {lines} lines of extra content — check for duplication with AGENTS.md"
+                    ),
+                );
+            } else {
+                r.add(Health::Ok, "agent entry", "CLAUDE.md → @AGENTS.md pointer connected");
+            }
+        }
+    }
+    for f in ["AGENTS.md.elf-new", "CLAUDE.md.elf-new"] {
+        if root.join(f).is_file() {
+            r.add(
+                Health::Warn,
+                "agent entry",
+                format!("{f} pending — review and merge or delete"),
+            );
+        }
+    }
 }
 
 fn check_git(cwd: &Path, r: &mut DoctorReport) {

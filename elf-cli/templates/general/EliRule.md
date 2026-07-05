@@ -61,8 +61,9 @@
 
 | 구분 | 파일 | `elf update` 동작 |
 |------|------|-------------------|
-| **ELF 관리** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `LLMcliche.md`, `templates/*`, `.claudeignore` | 새 버전으로 교체. **직접 수정한 경우 덮어쓰지 않고** `<파일>.elf-new`로 생성(병합은 사용자 몫, `--force`로 강제 교체) |
+| **ELF 관리** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `LLMcliche.md`, `templates/*`, `.claudeignore`, `AGENTS.md` | 새 버전으로 교체. **직접 수정한 경우 덮어쓰지 않고** `<파일>.elf-new`로 생성(병합은 사용자 몫, `--force`로 강제 교체) |
 | **사용자 소유** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, 모든 작업 데이터·로그 | **절대 미접근** |
+| **포인터(생성만)** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(내용 무관 — 기존 파일 소유권 존중). `@AGENTS.md` 로드 여부는 `elf doctor`가 점검 |
 | **부분 관리** | `.gitignore` | 마커블록(`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) 안쪽만 교체, 블록 밖 사용자 규칙 보존 |
 
 - 프로젝트 규칙 커스터마이즈는 ELF 관리 파일을 고치는 대신 **`ProjectRule.md`에 작성**하는 것을 권장합니다(갱신 충돌 없음).

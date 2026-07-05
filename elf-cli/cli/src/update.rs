@@ -154,6 +154,12 @@ fn apply(
         UpdateAction::SkipSeed { dest } => {
             report.note(format!("seed (untouched): {dest}"));
         }
+        UpdateAction::KeepPointer { dest } => {
+            // t06: 기존 파일 절대 불변경 + 공지 — `.elf-new` 병기도 하지 않음(1줄 병합은 사용자 몫)
+            report.note(format!(
+                "pointer (kept as-is): {dest} — ensure it loads AGENTS.md (`@AGENTS.md` line); `elf doctor` checks"
+            ));
+        }
         UpdateAction::Obsolete { dest } => {
             report.warn(format!(
                 "obsolete (no longer managed by ELF — left in place): {dest}"

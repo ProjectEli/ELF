@@ -197,7 +197,8 @@ pub fn run_init_ex(
 
         if dest.exists() && !force {
             match a.tier {
-                Tier::Seed => report.skipped.push(a.dest.clone()),
+                // seed·pointer: 기존 파일 유지(불변경). pointer는 `.elf-new` 병기도 없음 (t06)
+                Tier::Seed | Tier::Pointer => report.skipped.push(a.dest.clone()),
                 Tier::Managed | Tier::Hybrid => {
                     if !dry_run {
                         let newp = elf_new_path(&dest);
@@ -217,7 +218,8 @@ pub fn run_init_ex(
                 fs::create_dir_all(dir)?;
             }
             match a.tier {
-                Tier::Managed | Tier::Hybrid => fs::write(&dest, file.contents())?,
+                // pointer도 정본 바이트 그대로 (placeholder 없음 — sha 비교 성립 유지)
+                Tier::Managed | Tier::Hybrid | Tier::Pointer => fs::write(&dest, file.contents())?,
                 Tier::Seed => {
                     let text = file.contents_utf8().expect("seed templates must be UTF-8");
                     fs::write(&dest, substitute_seed(&a.dest, text, opts))?;

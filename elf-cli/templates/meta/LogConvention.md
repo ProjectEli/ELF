@@ -105,6 +105,7 @@
 - **배경 절 (선택·조건부)**: `### 목표` 위 `### 배경 (Background)`은 **맥락이 목표를 초과할 때만** 분리(선행 세션 종합·다중 입력 등). 일반 trial은 목표가 흡수 — 상시 heading·빈 배경 금지. 경량(1-2줄).
 - **발의주체**: 작업·전환의 발의 주체를 배경(없으면 목표)에 1단어 명시(`사용자 제기` / `AI 발상`) — 사고흐름 provenance 보존. 원본 쿼리 verbatim은 세션 JSONL이 보존하므로 로그엔 비병기(SSOT=trial 본문 흡수).
 - **버린 대안 위치(시점 기준)**: 진입 시 기각 경로 → `### 배경`(1줄, Phase1 사후편집 금지) / 범위 제외 → `### 조건` / 결과 기반 기각 → `### 해석`·`### 교훈`. 일괄 배경 삽입 금지(시점 역행·사후합리화 방지).
+- **정본 우선(선례≠규범)**: 과거 세션/trial 로그는 참고 자료일 뿐 형식·규칙의 규범이 아님 — 규범 정본은 본 문서와 `templates/`(sessionTemplate·trialTemplate). 선례가 정본과 다르면 정본을 따르고 그 일탈을 모방하지 말 것(발견 시 사용자에게 보고). trial 추가는 `elf trial new`(현행 정본 stub을 활성 로그에 append; CLI 미설치 시 trialTemplate 수동 복사) 권장.
 - **소급 정책**: 본 규칙 시행 시점 이전 trial/session은 backfill 강제 X. **현시점 이후 신규 작성분부터 적용**. archive 진입 직전 trial은 회고 시 1줄 채움 권장.
 
 ---
@@ -182,7 +183,7 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 각 trial(t{NN}) 작성 시 두 단계로 분리하여 진행. **Phase 1과 Phase 2 사이에 멈춤점 필수** — 즉흥 실행 방지, 가설-관찰 사이클 closure 강제.
 
 **Phase 1 — 실행 전 (pre-execution, 멈춤점)**
-- [ ] `## t{NN}: [작업 제목]` 헤더 작성
+- [ ] trial stub 생성: `elf trial new [제목]` 권장(현행 trialTemplate을 활성 로그에 append; CLI 미설치 시 `templates/trialTemplate.md` 수동 복사 또는 `## t{NN}: [작업 제목]` 헤더 수동 작성)
 - [ ] (선택) `### 배경 (Background)` — 맥락이 목표를 초과할 때만: 진입 의도 + **발의주체**(사용자 제기/AI 발상) + (진입 기각 경로 1줄)
 - [ ] `### 목표 (Goal)` 작성 (task의 what)
 - [ ] `### 조건 (Conditions)` 작성 (parameter·제약 확정)

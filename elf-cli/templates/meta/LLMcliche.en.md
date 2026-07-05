@@ -23,11 +23,11 @@ phrasing, and replace with **concrete, active, direct** statements. English outp
 
 | Category | Example vocabulary |
 |---|---|
-| Cliché verbs | represent · serve/stand/act as · delve · navigate · leverage · harness · showcase · underscore · foster · enhance · alleviate · unlock · elevate · streamline · spearhead · embark · garner · bolster · revolutionize · shed light on · (vague) yield |
+| Cliché verbs | represent · serve/stand/act as · delve · navigate · leverage · harness · showcase · underscore · foster · enhance · alleviate · unlock · elevate · streamline · spearhead · embark · garner · bolster · revolutionize · shed light on · (vague) yield · constitute (vague copula "X constitutes Y" — use is) · intensify (vague escalation — use increase; quantitative intensity: §4) · tie (A to B) (bonding cliché — use link) |
 | Vague adjectives | crucial · vital · pivotal · essential · seamless · intricate · profound · paramount · nuanced · multifaceted · holistic · vibrant · innovative · cutting-edge · meticulous · (vague) robust · (vague) comprehensive · (vague) trivial |
-| Cliché nouns | tapestry · landscape · realm · paradigm · testament · cornerstone · beacon · myriad · plethora · synergy · ecosystem · verdict (elevates an evaluation/check result into courtroom register — use result/pass-fail) |
-| Overused connectors | Moreover · Furthermore · Consequently · Additionally · sentence-initial runs of However · Notably · Importantly · Indeed |
-| Cliché phrases | "it is worth/important noting that" · "plays a crucial/pivotal role" · "pave the way" · "at the forefront of" · "in the realm of" · "a wide range/array of" · "rich tapestry" · "ever/rapidly evolving" · "revolutionize the way" |
+| Cliché nouns | tapestry · landscape · realm · paradigm · testament · cornerstone · beacon · myriad · plethora · synergy · ecosystem · verdict (elevates an evaluation/check result into courtroom register — use result/pass-fail) · readout (vague nominalization of a measured result — use measurement/signal; hardware readout path: §4) · X family (non-academic metaphorical grouping of methods — use concrete terms such as methods; defined family terms: §4) |
+| Overused connectors | Moreover · Furthermore · Consequently · Additionally · sentence-initial runs of However · Notably · Importantly · Indeed · Nonetheless |
+| Cliché phrases | "it is worth/important noting that" · "plays a crucial/pivotal role" · "pave the way" · "at the forefront of" · "in the realm of" · "a wide range/array of" · "rich tapestry" · "ever/rapidly evolving" · "revolutionize the way" · "in parallel (with)" (vague narrative linking) |
 | Emphasis adverbs | uniquely · fundamentally · primarily · meticulously · crystallize |
 
 - Metaphorical substitutions (lens · navigate · deep dive · journey · shed light on · crystallize) are governed by `EliRule §3 rule 3` (no metaphor) — this section centers on non-metaphor vocabulary/register.
@@ -71,6 +71,9 @@ denotation**. Examples:
 | essential | standard terms such as essential amino acid |
 | yield | quantitative: yield strength · reaction yield · yield curve |
 | trivial | definitional: trivial/non-trivial solution in math/CS |
+| readout | hardware readout circuitry/signal path (detector readout, etc.) — for a general result/signal use measurement/signal |
+| family | defined family terms such as a family of curves/distributions (math/statistics) or a protocol family (networking) — vague metaphorical groupings like "the X family of methods" are excluded |
+| intensify | quantitative increase of a physical intensity — vague escalation/worsening is excluded |
 
 - **Domain homonyms** (e.g., energy/fitness `landscape`, experimental-psychology `paradigm`, `realm`) differ per project → **declare a carve-out in `ProjectRule.md`**. This document and EliRule keep only the general principle (no accumulation of per-project whitelists).
 
@@ -84,6 +87,7 @@ denotation**. Examples:
 | **By leveraging** the calibration | **Using** the calibration |
 | The result is, **importantly**, **not trivial** | The effect **is 3× the baseline** (hedge removed, magnitude stated) |
 | The checker returns its **verdict** | The checker **returns a result / passes or fails** |
+| X **constitutes** a limitation that **intensifies** over time | X **is** a limitation that **increases** over time |
 
 ---
 

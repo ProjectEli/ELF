@@ -3,9 +3,9 @@
 # 사용자 규칙은 블록 아래(사용자 영역)에 추가하세요.
 
 # === Claude Code & AI Toolkit ===
+# (CLAUDE.md는 ELF 진입 포인터라 추적 대상 — clone에도 유지되어야 AGENTS.md가 로드됨)
 .claude/
 .ecc/
-CLAUDE.md
 .claudeignore
 
 # === MATLAB Autosave files (자동 저장 파일) ===

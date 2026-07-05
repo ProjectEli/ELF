@@ -4,6 +4,46 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.13.0] - 2026-07-06
+
+### Added
+- **`AGENTS.md` agent entry file (all presets)** — every project now ships a root
+  `AGENTS.md`: a governance digest (logging duties, `elf trial new`, canon-over-precedent,
+  re-read the Handoff after a context rebuild, customization pointers) that vendor-neutral
+  coding agents load, plus a `CLAUDE.md` loader pointer (`@AGENTS.md`) for Claude Code.
+  `CLAUDE.md` uses a new **pointer tier**: created if missing, **never modified if
+  present** — an existing hand-written `CLAUDE.md` stays untouched (no `.elf-new` either);
+  `elf doctor` checks the link. The `qa` preset's operational rules move from `CLAUDE.md`
+  into `AGENTS.md` (an unedited `CLAUDE.md` converts to the pointer automatically on
+  `elf update`). English companions (`AGENTS.en.md`) deploy for `--lang en-*` projects.
+  Run `elf update`.
+- **`elf trial new [title]`** — appends the current canonical trial stub to the active
+  session log: auto-numbered `t##`, `S###` paths substituted, header `Modified` refreshed,
+  inserted before the next-session section (`--session S###` when several are open). Keeps
+  the imitation target canonical, so a drifted precedent never propagates.
+- **`elf validate` — trial structure checks** — active logs are checked for non-canonical
+  `###` headings, section order, the `가설 적중 여부` first line of `### 해석`, and missing
+  Phase-1 sections when `### 관찰` exists. Warnings by default (promoted to issues with
+  `--strict`); archived logs are skipped — the convention applies to new writing, not
+  backfill.
+- **`elf doctor` — agent-entry check** — warns when `CLAUDE.md` lacks the `@AGENTS.md`
+  line (Claude Code would not load the rules), and flags heavy extra content in the
+  pointer and pending `AGENTS.md.elf-new` / `CLAUDE.md.elf-new` files.
+
+### Changed
+- **LogConvention — canon over precedent** — past session/trial logs are reference, not
+  the norm: follow the canonical templates, do not imitate a drifted precedent (report it),
+  and prefer `elf trial new` for new trials. The session template now carries a two-line
+  reminder comment (canonical sources + how to add trials + re-read the Handoff after a
+  context rebuild). Research + general presets, EN companions. Run `elf update`.
+- **`.gitignore` template — `CLAUDE.md` no longer ignored** — the pointer is project
+  infrastructure (it must survive a clone so agents load `AGENTS.md`), not personal AI
+  config. Unedited managed blocks pick this up on `elf update`.
+- **LLMcliche — 7 clichés added** — verbs `constitute` / `intensify` / `tie (A to B)`,
+  nouns `readout` / `X family`, connector `Nonetheless`, phrase `"in parallel (with)"`,
+  with precise-use exceptions (§4) and a before/after example (from a Mastication
+  manuscript-editing proposal). Run `elf update`.
+
 ## [2.12.1] - 2026-07-02
 
 ### Changed

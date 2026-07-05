@@ -33,6 +33,7 @@ Installs the binary to `~/.elf/bin` and adds it to PATH. Open a new shell and ve
 | `elf session new <title>` | Create + register the next session log |
 | `elf session close [S###]` | Close the active session → archive + update registry |
 | `elf session fix-headers` | Repair session-log header rendering |
+| `elf trial new [title]` | Append the canonical trial stub to the active session log |
 | `elf gallery` | Generate the figure index `_gallery.md` from `6_Exp/64_Viz/` |
 | `elf doctor` | Aggregate environment + project health check (read-only) |
 | `elf self-update` | Update the `elf` binary itself |
@@ -80,7 +81,7 @@ elf init my_questions --preset qa --categories Daily,ITGeneral   # pre-create ca
 > `elf doctor` reports i18n status. English (`en`) is provided today; other languages fall
 > back to Korean.
 
-> **`qa` preset (experimental).** Scaffolds a *question-archive* project type instead of the research hierarchy: a root `CLAUDE.md` (auto-loaded operational rules), `templates/bundle_template.md`, and `.elf/`. **No categories are pre-created by default** — create them on demand per `CLAUDE.md`, or pre-create with `--categories a,b,c` (each gets an `archive/`). Q&A is captured as semantic **bundles** (not sessions/trials/figures). Shares the `.elf/` control plane with its own manifest (`manifest.qa.json`), so `elf update` propagates the convention. Isolated from the research preset; subject to change while it is polished.
+> **`qa` preset (experimental).** Scaffolds a *question-archive* project type instead of the research hierarchy: a root `AGENTS.md` (operational rules) + `CLAUDE.md` (loader pointer), `templates/bundle_template.md`, and `.elf/`. **No categories are pre-created by default** — create them on demand per `CLAUDE.md`, or pre-create with `--categories a,b,c` (each gets an `archive/`). Q&A is captured as semantic **bundles** (not sessions/trials/figures). Shares the `.elf/` control plane with its own manifest (`manifest.qa.json`), so `elf update` propagates the convention. Isolated from the research preset; subject to change while it is polished.
 
 > **`general` preset (experimental).** Scaffolds a *goal-driven non-research* project (tool development, proposal, learning, build) — session/trial base-delta logging like the research preset, minus the academic layer (no `6_Exp`/`7_Paper`/figures/sim/literature). Shares the neutral managed files with the research preset and adds general-specific `EliRule`/`LogConvention` via its own manifest (`manifest.general.json`). Trial format defaults to the 5-section template; override per project in `ProjectRule.md`. Isolated from research; subject to change while polished.
 
@@ -110,11 +111,11 @@ Diagnose managed-file state (read-only). Reports each file as `ok` / `outdated` 
 
 ### `elf validate [--check] [--strict]`
 
-Check session bookkeeping consistency (read-only): registry ↔ log files (unregistered logs / phantom rows), session numbering (duplicates / gaps), multiple active sessions, broken relative `.md` cross-references inside logs, and **figure-embed gaps** (a figure exists in `6_Exp/64_Viz/S###/` but is not inline-embedded in that session's log body — a table path is *not* an embed).
+Check session bookkeeping consistency (read-only): registry ↔ log files (unregistered logs / phantom rows), session numbering (duplicates / gaps), multiple active sessions, broken relative `.md` cross-references inside logs, **figure-embed gaps** (a figure exists in `6_Exp/64_Viz/S###/` but is not inline-embedded in that session's log body — a table path is *not* an embed), and **trial structure** in active logs (non-canonical `###` headings, section order, the `가설 적중 여부` first line of `### 해석`, and Phase-1 sections missing while `### 관찰` exists). Structure checks skip `Archive/` (the convention applies to new writing, not backfill) and only cover the stable core of the format — content quality is not machine-checked.
 
-- **issues** (registry/log mismatch, duplicate number, broken cross-ref) vs **warnings** (numbering gap, multiple active, figure-embed gap) — only issues are gated.
+- **issues** (registry/log mismatch, duplicate number, broken cross-ref) vs **warnings** (numbering gap, multiple active, figure-embed gap, trial structure) — only issues are gated.
 - `--check`: exit **4** if there are any issues — pre-commit/CI gate.
-- `--strict`: promote figure-embed gaps from warnings to issues (so `--check` gates on them).
+- `--strict`: promote figure-embed gaps and trial-structure findings from warnings to issues (so `--check` gates on them).
 - Exclude an intentional non-embed (SI/deprecated figure) with a `<!-- noembed: filename.png -->` comment in the log.
 - If the registry itself cannot be parsed, `elf` exits **5** (escalation) — it distinguishes "found problems" from "cannot check".
 
@@ -154,6 +155,21 @@ Refuses with exit **3** if the next-session section is unfilled (fill it or pass
 
 Add CommonMark hard breaks (`\`) to the blockquote headers of existing session logs so the metadata renders on separate lines in strict Markdown renderers (e.g. Discord preview). Idempotent and CRLF-safe. Operates on `2_Log/` + `2_Log/Archive/`.
 
+### `elf trial new [title]`
+
+Append the **current canonical trial stub** (`templates/trialTemplate.md`, embedded in the CLI) to the active session log: the next `t##` is auto-numbered, `S{NNN}` paths are substituted, the header `Modified` date is refreshed, and the stub is inserted before the `## 다음 세션 후보` section. With no title the `[작업 제목]` placeholder is kept.
+
+| Flag | Meaning |
+|------|---------|
+| `--session <S###>` | Target a specific session when several are open |
+
+```bash
+elf trial new "Wavelength sweep v2"   # append t## to the single active session
+elf trial new --session S007          # several sessions open — name one
+```
+
+Why a command: agents (and humans) imitate whatever the previous trial looked like. `elf trial new` keeps the imitation target canonical — the stub always comes from the *installed* template version, so a drifted precedent never propagates. Errors: no open session → exit 1 (start one with `elf session new`); several open without `--session` → exit 1 with the list.
+
 ### `elf gallery`
 
 Scan `6_Exp/64_Viz/` and regenerate `6_Exp/64_Viz/_gallery.md` — a figure index grouped by session subdirectory. Each `.png` / `.jpg` / `.svg` becomes an embedded image link. Sessions with no images are skipped. If `6_Exp/64_Viz/` does not exist, it prints a notice and exits **0** (nothing to do).
@@ -174,6 +190,7 @@ Aggregate health check (read-only). Reports each item as `OK` / `WARN` / `INFO`:
 - **environment** — `elf` version, install receipt presence (self-update availability)
 - **project** (if inside one) — `.elf/` stamp parses, version matches the CLI, baseline present
 - **managed files** — a `elf status` summary (pending / conflicts)
+- **agent entry** — `CLAUDE.md` loads `@AGENTS.md` (warns when the pointer line is missing — Claude Code would not load the rules), flags heavy extra content in the pointer and pending `AGENTS.md.elf-new`/`CLAUDE.md.elf-new` files
 - **git** — repository and `pre-commit` hook presence
 
 Works outside an ELF project too (environment checks only). Does not hit the network. Always exits **0**.
@@ -209,13 +226,14 @@ The `agent-action:` line is a stable marker. An LLM agent driving `elf` can dete
 
 ## File ownership
 
-`elf update` respects three ownership tiers:
+`elf update` respects four ownership tiers:
 
 | Tier | Files | On update |
 |------|-------|-----------|
-| **Managed** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `templates/*`, `.claudeignore`, `.editorconfig` | Replaced with the new version. If you edited one, it is **kept** and the new version is written as `<file>.elf-new` (use `--force` to overwrite) |
+| **Managed** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `templates/*`, `.claudeignore`, `.editorconfig`, `AGENTS.md` | Replaced with the new version. If you edited one, it is **kept** and the new version is written as `<file>.elf-new` (use `--force` to overwrite) |
 | **Yours** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, all research data and logs | **Never touched** |
 | **Hybrid** | `.gitignore` | Only the marker block (`# >>> ELF managed >>>` … `# <<< ELF managed <<<`) is replaced; your rules outside the block are preserved |
+| **Pointer** | `CLAUDE.md` | Created if missing; if present it is **never modified** (no `.elf-new` either) — an existing hand-written `CLAUDE.md` stays exactly yours. Add a `@AGENTS.md` line yourself to load the ELF rules; `elf doctor` checks the link |
 
 Customize project rules in `ProjectRule.md` (yours) rather than editing managed files — that way updates never conflict.
 

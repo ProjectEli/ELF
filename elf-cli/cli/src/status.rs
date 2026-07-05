@@ -78,6 +78,9 @@ fn classify(root: &Path, action: &UpdateAction, new_m: &Manifest, report: &mut S
     match action {
         UpdateAction::NoChange { dest } => report.lines.push(format!("ok: {dest}")),
         UpdateAction::SkipSeed { dest } => report.lines.push(format!("seed: {dest}")),
+        UpdateAction::KeepPointer { dest } => report
+            .lines
+            .push(format!("pointer (user content, kept): {dest} (`elf doctor` checks @AGENTS.md)")),
         UpdateAction::Overwrite { dest } => {
             report.pending += 1;
             report.lines.push(format!("outdated: {dest} (run `elf update`)"));

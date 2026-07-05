@@ -10,11 +10,11 @@
 
 | 카테고리 | 예시 어휘 |
 |---|---|
-| 상투 동사 | represent · serve/stand/act as · delve · navigate · leverage · harness · showcase · underscore · foster · enhance · alleviate · unlock · elevate · streamline · spearhead · embark · garner · bolster · revolutionize · shed light on · (막연한) yield |
+| 상투 동사 | represent · serve/stand/act as · delve · navigate · leverage · harness · showcase · underscore · foster · enhance · alleviate · unlock · elevate · streamline · spearhead · embark · garner · bolster · revolutionize · shed light on · (막연한) yield · constitute("X constitutes Y" 막연 계사 — is로) · intensify(막연 심화 과장 — increase로; 물리 강도 정량은 §4) · tie (A to B)(결속 상투 — link로) |
 | 막연 형용사 | crucial · vital · pivotal · essential · seamless · intricate · profound · paramount · nuanced · multifaceted · holistic · vibrant · innovative · cutting-edge · meticulous · (막연한) robust · (막연한) comprehensive · (막연한) trivial |
-| 상투 명사 | tapestry · landscape · realm · paradigm · testament · cornerstone · beacon · myriad · plethora · synergy · ecosystem · verdict(평가·검사 결과를 사법 register로 격상 — result/pass-fail로) |
-| 과용 연결어 | Moreover · Furthermore · Consequently · Additionally · 문두 연속 However · Notably · Importantly · Indeed |
-| 상투 구문 | "it is worth/important noting that" · "plays a crucial/pivotal role" · "pave the way" · "at the forefront of" · "in the realm of" · "a wide range/array of" · "rich tapestry" · "ever/rapidly evolving" · "revolutionize the way" |
+| 상투 명사 | tapestry · landscape · realm · paradigm · testament · cornerstone · beacon · myriad · plethora · synergy · ecosystem · verdict(평가·검사 결과를 사법 register로 격상 — result/pass-fail로) · readout(계측 결과의 막연 명사화 — measurement/signal로; 하드웨어 판독 맥락은 §4) · X family(방법론의 비학술 은유 분류 — methods 등 구체 분류어로; 정의된 분류 용법은 §4) |
+| 과용 연결어 | Moreover · Furthermore · Consequently · Additionally · 문두 연속 However · Notably · Importantly · Indeed · Nonetheless |
+| 상투 구문 | "it is worth/important noting that" · "plays a crucial/pivotal role" · "pave the way" · "at the forefront of" · "in the realm of" · "a wide range/array of" · "rich tapestry" · "ever/rapidly evolving" · "revolutionize the way" · "in parallel (with)"(막연 병렬 서술 연결구) |
 | 강조 부사 | uniquely · fundamentally · primarily · meticulously · crystallize |
 
 - metaphor성 치환(렌즈/lens · navigate · deep dive · journey · shed light on · crystallize)은 `EliRule §3 rule 3`(비유 금지) 소관 — 본 항목은 비은유 어휘·register 중심.
@@ -55,6 +55,9 @@
 | essential | essential amino acid 등 표준 용어 |
 | yield | yield strength · 반응 수율 · yield curve 등 정량 |
 | trivial | 수학·CS의 trivial/non-trivial solution 등 정의어 |
+| readout | 계측 하드웨어의 판독 회로·신호 경로 (detector readout 등) — 결과·신호 일반 지칭은 measurement/signal |
+| family | 수학·통계의 family of curves/distributions, 네트워크 protocol family 등 정의된 분류 단위 — "the X family of methods"식 막연 은유 분류는 배제 |
+| intensify | 물리량 강도(intensity)의 정량 증가 — 막연한 심화·악화 표현은 배제 |
 
 - **도메인 동음어**(예: energy/fitness `landscape`, 실험심리 `paradigm`, `realm`)는 프로젝트마다 다름 → **`ProjectRule.md`에 carve-out 선언**. 본 문서·EliRule은 일반 원칙만 유지(프로젝트별 whitelist 비축적).
 
@@ -68,6 +71,7 @@
 | **By leveraging** the calibration | **Using** the calibration |
 | The result is, **importantly**, **not trivial** | The effect **is 3× the baseline** (헤지 삭제·크기 명시) |
 | The checker returns its **verdict** | The checker **returns a result / passes or fails** |
+| X **constitutes** a limitation that **intensifies** over time | X **is** a limitation that **increases** over time |
 
 ---
 

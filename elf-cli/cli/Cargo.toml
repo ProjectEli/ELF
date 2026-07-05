@@ -1,7 +1,7 @@
 [package]
 name = "elf-cli"
 # semver 매핑: elf-cli/VERSION "v2.4.1" ↔ "2.4.1" (표시 버전 SSOT = VERSION, 규칙 = Versioning_Policy)
-version = "2.12.1"
+version = "2.13.0"
 edition = "2024"
 description = "ELF (Eli's Lab Framework) scaffold & update CLI"
 repository = "https://github.com/ProjectEli/ELF"

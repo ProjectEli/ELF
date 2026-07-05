@@ -181,6 +181,103 @@ pub fn noembed_filenames(content: &str) -> BTreeSet<String> {
     set
 }
 
+// ── trial 구조 검사 (안정 코어 — S021 t05/t07) ─────────────────
+//
+// 검사 대상 = LogConvention §2의 **기계 판정 가능·개정 빈도 낮은 코어**만:
+// ① 비정본 `###` 헤딩 ② 코어 절 순서 ③ 해석 첫 줄 규칙 ④ Phase 절 존재(관찰 있는데 가설/예상 없음).
+// 문체·내용 수준 규칙은 검사하지 않음(기계 판정 불가·정본↔검사기 동기 부채 방지).
+// 활성 로그 전용 — Archive 제외(소급 정책 §2: 신규 작성분부터 적용).
+
+/// 코어 절의 정본 순서 (배경=0 … 생성 파일=8). `시행착오`는 위치 자유(순서 검사 제외).
+const TRIAL_SECTIONS: [&str; 9] =
+    ["배경", "목표", "조건", "가설", "예상", "관찰", "해석", "교훈", "생성 파일"];
+
+/// `### 헤딩 (Gloss)` → 한국어 키("생성 파일" 등 공백 포함). `### ` 아닌 줄은 None.
+fn section_key(line: &str) -> Option<&str> {
+    let rest = line.trim_end_matches('\r').strip_prefix("### ")?;
+    let key = match rest.find(" (") {
+        Some(i) => &rest[..i],
+        None => rest,
+    };
+    Some(key.trim())
+}
+
+/// 로그 본문의 trial 구조 발견 사항(순수). 메시지는 trial id 포함, 파일명은 호출자가 접두.
+pub fn trial_structure_findings(content: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    // trial 블록 분할: `## tNN:` ~ 다음 `## `
+    let mut current: Option<(String, Vec<String>)> = None; // (trial id, 헤딩 키 순서)
+    let mut interp_pending = false; // 해석 헤딩 직후 첫 내용 줄 검사 대기
+
+    let flush = |trial: &str, keys: &[String], out: &mut Vec<String>| {
+        // ② 코어 절 순서 (등장한 것들끼리 단조 증가 — 시행착오 등 비코어는 제외)
+        let mut last: Option<usize> = None;
+        for k in keys {
+            let Some(idx) = TRIAL_SECTIONS.iter().position(|s| s == k) else { continue };
+            if let Some(prev) = last
+                && idx < prev
+            {
+                out.push(format!(
+                    "{trial}: '### {k}' out of canonical order (after '### {}') — spec: LogConvention §2",
+                    TRIAL_SECTIONS[prev]
+                ));
+            }
+            last = Some(last.map_or(idx, |p| p.max(idx)));
+        }
+        // ④ Phase 절 존재: 관찰 있는데 가설/예상 없음
+        let has = |k: &str| keys.iter().any(|x| x == k);
+        if has("관찰") && (!has("가설") || !has("예상")) {
+            out.push(format!(
+                "{trial}: has '### 관찰' but missing '### 가설'/'### 예상' — Phase 1 sections are written before execution (LogConvention §5.1)"
+            ));
+        }
+    };
+
+    for line in content.lines() {
+        let l = line.trim_end_matches('\r');
+        if let Some(rest) = l.strip_prefix("## ") {
+            // 새 trial 헤더 또는 타 섹션 — 진행 중 trial 마감
+            if let Some((trial, keys)) = current.take() {
+                flush(&trial, &keys, &mut out);
+            }
+            interp_pending = false;
+            let is_trial = rest.starts_with('t')
+                && rest[1..].chars().take_while(|c| c.is_ascii_digit()).count() > 0
+                && rest[1..].trim_start_matches(|c: char| c.is_ascii_digit()).starts_with(':');
+            if is_trial {
+                let id: String = rest.chars().take_while(|c| *c != ':').collect();
+                current = Some((id, Vec::new()));
+            }
+            continue;
+        }
+        let Some((trial, keys)) = current.as_mut() else { continue };
+        if let Some(key) = section_key(l) {
+            // ① 비정본 헤딩
+            if !TRIAL_SECTIONS.contains(&key) && key != "시행착오" {
+                out.push(format!(
+                    "{trial}: non-canonical heading '### {key}' — canonical: 배경/목표/조건/가설/예상/관찰/해석/교훈/생성 파일/시행착오 (LogConvention §2)"
+                ));
+            }
+            interp_pending = key == "해석";
+            keys.push(key.to_string());
+            continue;
+        }
+        // ③ 해석 첫 내용 줄 = `가설 적중 여부: …`
+        if interp_pending && !l.trim().is_empty() {
+            if !l.contains("가설 적중 여부") {
+                out.push(format!(
+                    "{trial}: '### 해석' must start with '가설 적중 여부: 적중/탈락/부분 적중' (LogConvention §2)"
+                ));
+            }
+            interp_pending = false;
+        }
+    }
+    if let Some((trial, keys)) = current.take() {
+        flush(&trial, &keys, &mut out);
+    }
+    out
+}
+
 // ── FS 실행기 ──────────────────────────────────────────────────
 
 /// dir의 `S###_log.md` → (번호, 경로), 번호 오름차순.
@@ -292,6 +389,27 @@ pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, Va
         }
     }
 
+    // ⑥ trial 구조 (활성 로그만 — Archive 제외 = 소급 정책; 정본 헤딩·순서·해석 1줄·Phase 절)
+    let mut structure_hit = false;
+    for (_n, path) in &live {
+        let content = fs::read_to_string(path)?;
+        let fname = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        for f in trial_structure_findings(&content) {
+            structure_hit = true;
+            let msg = format!("{fname}: {f}");
+            if strict {
+                report.issue(msg);
+            } else {
+                report.warn(msg);
+            }
+        }
+    }
+    if structure_hit {
+        report.lines.push(
+            "hint: add trials with `elf trial new` (appends the canonical stub) — spec: 0_Meta/LogConvention.md §2".into(),
+        );
+    }
+
     if report.lines.is_empty() {
         report
             .lines
@@ -381,5 +499,49 @@ mod tests {
         assert!(s.contains("b.svg"));
         assert!(s.contains("c.jpg"));
         assert!(!s.contains("noembed")); // 비이미지 토큰 제외
+    }
+
+    // ── trial 구조 검사 ────────────────────────────────
+
+    #[test]
+    fn canonical_trial_passes_structure_check() {
+        let log = "# S001: T\n\n## t01: 작업\n\n### 배경 (Background)\n- 맥락\n\n### 목표 (Goal)\n- x\n\n### 조건 (Conditions)\n- c\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n\n### 관찰 (Observation)\n- o\n\n### 해석 (Interpretation)\n- 가설 적중 여부: 적중\n\n### 교훈 (Lessons)\n- l\n\n### 생성 파일 (Files)\n\n| 유형 | 파일 |\n|---|---|\n\n## 다음 세션 후보\n- 후보\n";
+        assert!(trial_structure_findings(log).is_empty());
+    }
+
+    #[test]
+    fn phase1_only_trial_is_clean() {
+        // 진행 중 trial(멈춤점 상태) — 관찰 이후 절 부재는 정상
+        let log = "## t02: 진행중\n\n### 목표 (Goal)\n- x\n\n### 조건 (Conditions)\n- c\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n";
+        assert!(trial_structure_findings(log).is_empty());
+    }
+
+    #[test]
+    fn detects_unknown_heading_and_order() {
+        let log = "## t01: 작업\n\n### 결과 (Results)\n- r\n\n### 가설 (Hypothesis)\n- h\n\n### 목표 (Goal)\n- x\n";
+        let f = trial_structure_findings(log);
+        assert!(f.iter().any(|m| m.contains("non-canonical heading '### 결과'")), "{f:?}");
+        assert!(f.iter().any(|m| m.contains("'### 목표' out of canonical order")), "{f:?}");
+    }
+
+    #[test]
+    fn detects_missing_phase1_and_interpretation_rule() {
+        let log = "## t03: 작업\n\n### 목표 (Goal)\n- x\n\n### 관찰 (Observation)\n- o\n\n### 해석 (Interpretation)\n- 그냥 해석\n";
+        let f = trial_structure_findings(log);
+        assert!(f.iter().any(|m| m.contains("missing '### 가설'/'### 예상'")), "{f:?}");
+        assert!(f.iter().any(|m| m.contains("가설 적중 여부")), "{f:?}");
+    }
+
+    #[test]
+    fn sihaengchago_is_allowed_anywhere() {
+        let log = "## t01: 작업\n\n### 목표 (Goal)\n- x\n\n### 조건 (Conditions)\n- c\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n\n### 관찰 (Observation)\n- o\n\n### 시행착오\n\n| 시도 | 결과 |\n|---|---|\n\n### 해석 (Interpretation)\n- 가설 적중 여부: 탈락\n\n### 교훈 (Lessons)\n- l\n\n### 생성 파일 (Files)\n- f\n";
+        assert!(trial_structure_findings(log).is_empty());
+    }
+
+    #[test]
+    fn non_trial_sections_are_ignored() {
+        // trial 밖(세션 헤더·다음 세션 후보)의 `###`는 검사 대상 아님
+        let log = "# S001: T\n\n### 임의 절\n\n## 다음 세션 후보\n\n### 가설 후보\n- x\n";
+        assert!(trial_structure_findings(log).is_empty());
     }
 }

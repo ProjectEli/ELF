@@ -58,6 +58,9 @@ pub enum Tier {
     Seed,
     /// 마커블록만 ELF 소유 — 블록 교체 + 사용자 영역 보존 (S007 §4.1)
     Hybrid,
+    /// 부재 시 생성(init·update 공통), 존재 시 **절대 불변경**(내용 무관 — `.elf-new` 병기도 없음).
+    /// 얇은 진입 어댑터(CLAUDE.md `@AGENTS.md` 포인터) 전용 — 기존 사용자 파일 소유권 존중 (S021 t06)
+    Pointer,
 }
 
 /// i18n entry 역할 (P016 §9). 비operative companion vs base 대체 variant.

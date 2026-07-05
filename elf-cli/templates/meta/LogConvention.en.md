@@ -118,6 +118,7 @@ scheme and the `.claudeignore` rules. For the detailed principles, see
 - **Background section (optional, conditional)**: separate `### 배경 (Background)` above `### 목표` **only when context exceeds the goal** (prior-session synthesis, multiple inputs). Ordinary trials let the goal absorb it — no standing heading, no empty background. Keep it light (1-2 lines).
 - **Initiator**: name the initiator of the work/pivot in the background (or goal) in one word (`user-raised` / `AI-originated`) — preserves the provenance of the thinking flow. The verbatim original query is preserved by the session JSONL, so it is not duplicated in the log (SSOT = absorbed into the trial body).
 - **Rejected-alternative placement (by timing)**: path rejected at entry → `### 배경` (one line, no Phase-1 after-the-fact editing) / scope exclusion → `### 조건` / result-based rejection → `### 해석`·`### 교훈`. Do not dump all into the background (timing inversion / post-hoc rationalization).
+- **Canon over precedent (precedent ≠ norm)**: past session/trial logs are reference material only, not the norm for format or rules — the canonical sources are this document and `templates/` (sessionTemplate, trialTemplate). When a precedent deviates from the canon, follow the canon and do not imitate the deviation (report it to the user). Adding a trial via `elf trial new` (appends the current canonical stub to the active log; without the CLI, copy trialTemplate manually) is recommended.
 - **Retroactive policy**: trials/sessions before this rule took effect are not force-backfilled. **Applies to new writing from now on.** For a trial about to enter the archive, filling one line in retrospect is recommended.
 
 ---
@@ -195,7 +196,7 @@ When an AI agent starts a new session (S{NNN}):
 Write each trial (t{NN}) in two phases. **A stop point between Phase 1 and Phase 2 is required** — it prevents ad-hoc execution and forces hypothesis-observation cycle closure.
 
 **Phase 1 — before execution (pre-execution, stop point)**
-- [ ] Write the `## t{NN}: [task title]` header
+- [ ] Create the trial stub: `elf trial new [title]` recommended (appends the current trialTemplate to the active log; without the CLI, copy `templates/trialTemplate.md` manually or write the `## t{NN}: [task title]` header by hand)
 - [ ] (optional) `### 배경 (Background)` — only when context exceeds the goal: entry intent + **initiator** (user-raised/AI-originated) + (one line on a rejected entry path)
 - [ ] Write `### 목표 (Goal)` (the what of the task)
 - [ ] Write `### 조건 (Conditions)` (fix parameters/constraints)

@@ -33,6 +33,7 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases
 | `elf session new <제목>` | 다음 세션 로그 생성 + 등록 |
 | `elf session close [S###]` | 활성 세션 종료 → Archive 이동 + Registry 갱신 |
 | `elf session fix-headers` | 세션 로그 헤더 렌더링 보정 |
+| `elf trial new [제목]` | 활성 세션 로그에 정본 trial stub 추가 |
 | `elf gallery` | `6_Exp/64_Viz/`에서 Figure 색인 `_gallery.md` 생성 |
 | `elf doctor` | 환경+프로젝트 종합 건강검진(읽기전용) |
 | `elf self-update` | `elf` 바이너리 자체 갱신 |
@@ -77,7 +78,7 @@ elf init my_questions --preset qa --categories 일상질문,IT일반질문   # �
 > (`NOT OPERATIVE` 표기) — 규칙 커스터마이즈는 companion이 아니라 `ProjectRule.md`에 작성. `elf update`가
 > companion을 동기화, `elf doctor`가 i18n 상태 보고. 현재 영어(`en`)만 제공, 그 외 언어는 한국어 fallback.
 
-> **`qa` preset (experimental).** 연구 계층 대신 *질문 아카이브* 유형을 스캐폴드: 루트 `CLAUDE.md`(LLM 자동 로드 규칙) + `templates/bundle_template.md` + `.elf/`. **기본은 카테고리 0개** — `CLAUDE.md` 규약대로 수요 기반 생성, 또는 `--categories a,b,c`로 사전 생성(각 `archive/` 동반). Q&A를 의미 단위 **bundle**로 기록(session/trial/figure 아님). `.elf/` 제어판 공유 + 자체 manifest(`manifest.qa.json`) → `elf update`로 규칙 전파. 연구 preset과 격리, polish 중이라 변경 가능.
+> **`qa` preset (experimental).** 연구 계층 대신 *질문 아카이브* 유형을 스캐폴드: 루트 `AGENTS.md`(운영 규칙 정본) + `CLAUDE.md`(로드용 포인터) + `templates/bundle_template.md` + `.elf/`. **기본은 카테고리 0개** — `CLAUDE.md` 규약대로 수요 기반 생성, 또는 `--categories a,b,c`로 사전 생성(각 `archive/` 동반). Q&A를 의미 단위 **bundle**로 기록(session/trial/figure 아님). `.elf/` 제어판 공유 + 자체 manifest(`manifest.qa.json`) → `elf update`로 규칙 전파. 연구 preset과 격리, polish 중이라 변경 가능.
 
 > **`general` preset (experimental).** *목표지향 비연구* 프로젝트(도구 개발·제안서·학습·구축)를 스캐폴드 — 연구 preset처럼 session/trial base-delta 로깅, 단 학술 레이어 제외(`6_Exp`/`7_Paper`/figure/sim/문헌 없음). 중립 managed 파일은 연구 preset과 공유하고 general 전용 `EliRule`/`LogConvention`을 자체 manifest(`manifest.general.json`)로 추가. trial 형식 기본 5-section, 프로젝트별 `ProjectRule.md`에서 override. 연구와 격리, polish 중이라 변경 가능.
 
@@ -107,11 +108,11 @@ elf update            # 적용(기본 안전)
 
 ### `elf validate [--check] [--strict]`
 
-세션 장부 정합을 검사(읽기전용): Registry ↔ 로그 파일(미등록 로그 / 유령 행), 세션 번호(중복 / gap), 활성 세션 복수, 로그 내 깨진 상대 `.md` cross-ref, **figure-embed 누락**(`6_Exp/64_Viz/S###/`에 그림이 있으나 해당 세션 로그 본문에 인라인 임베딩 안 됨 — 표에 경로만 기재한 것은 embed 아님).
+세션 장부 정합을 검사(읽기전용): Registry ↔ 로그 파일(미등록 로그 / 유령 행), 세션 번호(중복 / gap), 활성 세션 복수, 로그 내 깨진 상대 `.md` cross-ref, **figure-embed 누락**(`6_Exp/64_Viz/S###/`에 그림이 있으나 해당 세션 로그 본문에 인라인 임베딩 안 됨 — 표에 경로만 기재한 것은 embed 아님), **trial 구조**(활성 로그의 비정본 `###` 헤딩·절 순서·`### 해석` 첫 줄 `가설 적중 여부` 규칙·`### 관찰` 존재 시 Phase 1 절 누락). 구조 검사는 `Archive/` 제외(소급 정책 — 신규 작성분부터) + 형식의 안정 코어만 대상(내용 품질은 기계 검사 안 함).
 
-- **issue**(Registry/로그 불일치·번호 중복·깨진 링크) vs **warning**(번호 gap·활성 복수·figure-embed 누락) — issue만 게이트.
+- **issue**(Registry/로그 불일치·번호 중복·깨진 링크) vs **warning**(번호 gap·활성 복수·figure-embed 누락·trial 구조) — issue만 게이트.
 - `--check`: issue 발견 시 exit **4** — pre-commit/CI 게이트.
-- `--strict`: figure-embed 누락을 warning→issue로 승격(→ `--check`가 게이트).
+- `--strict`: figure-embed 누락·trial 구조 발견을 warning→issue로 승격(→ `--check`가 게이트).
 - 의도적 비임베딩(SI/폐기 figure)은 로그에 `<!-- noembed: filename.png -->` 주석으로 제외.
 - Registry 자체가 파싱 불가면 exit **5**(escalation) — "문제 발견"과 "검사 불능"을 구분.
 
@@ -151,6 +152,21 @@ elf session close S007        # 특정 세션 종료
 
 기존 세션 로그의 인용구 헤더에 CommonMark hard break(`\`)를 부여해, strict Markdown 렌더러(예: Discord 미리보기)에서 메타데이터가 줄 단위로 표시되게 합니다. 멱등·CRLF-safe. `2_Log/` + `2_Log/Archive/` 대상.
 
+### `elf trial new [제목]`
+
+**현행 정본 trial stub**(`templates/trialTemplate.md`, CLI에 embed)을 활성 세션 로그에 추가합니다: 다음 `t##` 자동 증번, `S{NNN}` 경로 치환, 헤더 `Modified` 날짜 갱신, `## 다음 세션 후보` 섹션 앞에 삽입. 제목 생략 시 `[작업 제목]` placeholder 유지.
+
+| 플래그 | 의미 |
+|--------|------|
+| `--session <S###>` | 활성 세션이 여럿일 때 대상 지정 |
+
+```bash
+elf trial new "파장 스윕 v2"      # 유일 활성 세션에 t## 추가
+elf trial new --session S007     # 활성 복수 — 대상 지정
+```
+
+명령이 존재하는 이유: 에이전트(와 사람)는 직전 trial의 모양을 모방합니다. `elf trial new`는 모방 대상을 정본으로 유지합니다 — stub이 항상 *설치된* 템플릿 버전에서 나오므로, drift된 선례가 전파되지 않습니다. 오류: 활성 세션 없음 → exit 1(`elf session new`로 시작); `--session` 없이 활성 복수 → exit 1 + 목록 안내.
+
 ### `elf gallery`
 
 `6_Exp/64_Viz/`를 스캔해 `6_Exp/64_Viz/_gallery.md`(세션 하위 디렉토리별 Figure 색인)를 재생성합니다. 각 `.png`/`.jpg`/`.svg`가 이미지 링크로 삽입되고, 이미지 없는 세션은 건너뜁니다. `6_Exp/64_Viz/`가 없으면 안내 후 exit **0**(할 일 없음).
@@ -171,6 +187,7 @@ elf gallery
 - **환경** — `elf` 버전, install receipt 유무(self-update 가능 여부)
 - **프로젝트**(프로젝트 내일 때) — `.elf/` stamp 파싱·version이 CLI와 일치·baseline 존재
 - **managed 파일** — `elf status` 요약(pending / conflict)
+- **agent entry** — `CLAUDE.md`가 `@AGENTS.md`를 로드하는지(포인터 줄 부재 시 경고 — Claude Code가 규칙을 로드하지 못함), 포인터에 과다 콘텐츠·`AGENTS.md.elf-new`/`CLAUDE.md.elf-new` 대기 여부
 - **git** — 저장소·`pre-commit` 훅 존재
 
 프로젝트 밖에서도 동작(환경 검사만). 네트워크를 쓰지 않으며 항상 exit **0**.
@@ -206,13 +223,14 @@ agent-action: fix the line to match the schema, then re-run (this tool will not 
 
 ## 파일 소유권
 
-`elf update`는 3가지 소유권 tier를 지킵니다:
+`elf update`는 4가지 소유권 tier를 지킵니다:
 
 | Tier | 파일 | update 동작 |
 |------|------|-------------|
-| **Managed** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `templates/*`, `.claudeignore`, `.editorconfig` | 새 버전으로 교체. 편집한 경우 **보존**하고 새 버전을 `<파일>.elf-new`로 생성(`--force`로 덮어쓰기) |
+| **Managed** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `templates/*`, `.claudeignore`, `.editorconfig`, `AGENTS.md` | 새 버전으로 교체. 편집한 경우 **보존**하고 새 버전을 `<파일>.elf-new`로 생성(`--force`로 덮어쓰기) |
 | **사용자 소유** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, 모든 연구 데이터·로그 | **절대 미접근** |
 | **Hybrid** | `.gitignore` | 마커 블록(`# >>> ELF managed >>>` … `# <<< ELF managed <<<`)만 교체, 블록 밖 사용자 규칙은 보존 |
+| **Pointer** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(`.elf-new` 병기도 없음) — 수제 `CLAUDE.md`는 온전히 사용자 것. ELF 규칙 로드는 `@AGENTS.md` 1줄을 직접 추가; 연결 여부는 `elf doctor`가 점검 |
 
 프로젝트 규칙은 managed 파일을 고치는 대신 `ProjectRule.md`(사용자 소유)에 작성하세요 — 그러면 update 충돌이 없습니다.
 

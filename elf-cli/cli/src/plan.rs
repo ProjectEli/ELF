@@ -96,6 +96,8 @@ pub enum UpdateAction {
     Conflict { dest: String },
     /// seed tier — update 절대 미접근 (부재여도 미접근)
     SkipSeed { dest: String },
+    /// pointer tier — 존재하면 내용 무관 불변경(생성은 부재 시 CreateMissing 경로)
+    KeepPointer { dest: String },
     /// hybrid — 마커블록만 교체(마커 부재/블록 편집의 세부 분기는 t04가 내용 기반 처리)
     MergeBlock { dest: String },
     /// 구버전 stamp에만 있고 새 manifest에 없음 — 자동 삭제하지 않고 경고만
@@ -115,6 +117,12 @@ pub fn plan_update(new_m: &Manifest, stamp: &Manifest, current: &CurrentState) -
         let cur = current.get(e.dest.as_str()).cloned().flatten();
         let action = match e.tier {
             Tier::Seed => UpdateAction::SkipSeed { dest: e.dest.clone() },
+            // pointer: 부재 → 생성 / 정본과 동일 → 최신 / 그 외(사용자 내용) → 불변경(공지만)
+            Tier::Pointer => match cur {
+                None => UpdateAction::CreateMissing { dest: e.dest.clone() },
+                Some(c) if c == e.sha256 => UpdateAction::NoChange { dest: e.dest.clone() },
+                Some(_) => UpdateAction::KeepPointer { dest: e.dest.clone() },
+            },
             Tier::Hybrid => match cur {
                 None => UpdateAction::CreateMissing { dest: e.dest.clone() },
                 // 파일 전체가 새 정본과 동일 = 블록 최신 + 사용자 영역 무변경 → 머지 불필요
@@ -142,10 +150,10 @@ pub fn plan_update(new_m: &Manifest, stamp: &Manifest, current: &CurrentState) -
 
     // 새 manifest에서 사라진 항목: 삭제는 자동 수행하지 않음 (P009 §7 삭제/원자성).
     // seed는 제외 — 사용자 소유 콘텐츠라 "obsolete" 경고가 사용자 콘텐츠 삭제를 유도할 위험
-    // (ELF가 seeding을 중단했을 뿐, 사용자가 할 일 없음).
+    // (ELF가 seeding을 중단했을 뿐, 사용자가 할 일 없음). pointer도 동일(생성 후 사용자 소유 승계).
     let new_dests: BTreeSet<&str> = new_m.files.iter().map(|e| e.dest.as_str()).collect();
     for e in &stamp.files {
-        if e.tier != Tier::Seed && !new_dests.contains(e.dest.as_str()) {
+        if e.tier != Tier::Seed && e.tier != Tier::Pointer && !new_dests.contains(e.dest.as_str()) {
             out.push(UpdateAction::Obsolete { dest: e.dest.clone() });
         }
     }
@@ -288,6 +296,40 @@ mod tests {
                 vec![UpdateAction::SkipSeed { dest: "0_Meta/s.md".into() }]
             );
         }
+    }
+
+    #[test]
+    fn pointer_missing_creates_existing_kept_latest_nochange() {
+        let new_m = manifest(vec![entry("templates/root/CLAUDE.md", "CLAUDE.md", Tier::Pointer, "ptr")]);
+        let stamp = manifest(vec![entry("templates/root/CLAUDE.md", "CLAUDE.md", Tier::Pointer, "old-ptr")]);
+        // 부재 → 생성 (update에서도 — seed와의 차이 핵심)
+        assert_eq!(
+            plan_update(&new_m, &stamp, &cur(&[])),
+            vec![UpdateAction::CreateMissing { dest: "CLAUDE.md".into() }]
+        );
+        // 정본과 동일 → 최신
+        assert_eq!(
+            plan_update(&new_m, &stamp, &cur(&[("CLAUDE.md", Some("ptr"))])),
+            vec![UpdateAction::NoChange { dest: "CLAUDE.md".into() }]
+        );
+        // 사용자 내용(수제 CLAUDE.md 포함) → 절대 불변경 — Conflict(.elf-new) 아님
+        for c in [
+            cur(&[("CLAUDE.md", Some("user-file"))]),
+            cur(&[("CLAUDE.md", Some("old-ptr"))]), // 구버전 포인터라도 불변경(내용 무관)
+        ] {
+            assert_eq!(
+                plan_update(&new_m, &stamp, &c),
+                vec![UpdateAction::KeepPointer { dest: "CLAUDE.md".into() }]
+            );
+        }
+    }
+
+    #[test]
+    fn stamp_only_pointer_is_not_flagged_obsolete() {
+        // pointer = 생성 후 사용자 소유 승계 — seeding 중단 시 경고 대상 아님
+        let new_m = manifest(vec![]);
+        let stamp = manifest(vec![entry("templates/root/CLAUDE.md", "CLAUDE.md", Tier::Pointer, "ptr")]);
+        assert_eq!(plan_update(&new_m, &stamp, &cur(&[("CLAUDE.md", Some("ptr"))])), vec![]);
     }
 
     #[test]

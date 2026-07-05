@@ -357,8 +357,8 @@ pub fn header_status(content: &str) -> Option<String> {
     })
 }
 
-/// Complete가 아니면 열린(닫을 수 있는) 세션.
-fn is_open_status(s: &str) -> bool {
+/// Complete가 아니면 열린(닫을 수 있는) 세션. (trial.rs 활성 세션 탐지와 공용)
+pub(crate) fn is_open_status(s: &str) -> bool {
     !s.starts_with("Complete")
 }
 

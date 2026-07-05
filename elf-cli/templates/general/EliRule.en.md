@@ -75,8 +75,9 @@ Project files fall into three ownership classes, which `elf update` strictly res
 
 | Class | Files | `elf update` behavior |
 |------|------|-------------------|
-| **ELF-managed** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `LLMcliche.md`, `templates/*`, `.claudeignore` | Replaced with the new version. **If you edited it, it is not overwritten**; the new version is written as `<file>.elf-new` (merging is up to you; `--force` replaces) |
+| **ELF-managed** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `LLMcliche.md`, `templates/*`, `.claudeignore`, `AGENTS.md` | Replaced with the new version. **If you edited it, it is not overwritten**; the new version is written as `<file>.elf-new` (merging is up to you; `--force` replaces) |
 | **User-owned** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, all work data and logs | **Never touched** |
+| **Pointer (create-only)** | `CLAUDE.md` | Created if missing; if present it is **never modified** (regardless of content — existing-file ownership is respected). `elf doctor` checks whether it loads `@AGENTS.md` |
 | **Partially managed** | `.gitignore` | Only the marker block (`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) is replaced; user rules outside the block are preserved |
 
 - For project-rule customization, prefer **writing in `ProjectRule.md`** instead of editing ELF-managed files (no update conflicts).
