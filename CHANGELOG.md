@@ -4,6 +4,33 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.14.0] - 2026-07-07
+
+### Changed
+- **LogConvention — the header `Handoff` is a replace-style snapshot (fold)** — the field
+  is now specified as three parts: `currently valid conclusion (the fold of what
+  accumulated); pending; references (where the synthesis lives)`, rewritten as a whole on
+  each update. Do not accumulate history or completed timelines — the session overview
+  belongs to the registry key finding (same fold principle), details to the trial bodies.
+  The session-close checklist gains "clean the Handoff" and "rewrite the key finding as
+  the final conclusion", and `elf trial new` prints a one-line reminder of the fold style.
+  Research + general presets, EN companions. Run `elf update`.
+- **`elf session close` — pending-handoff warning** — closing a session whose `Handoff`
+  still lists pending items prints a **non-blocking** warning quoting the leftovers
+  (resolve them or carry them into the next-session section); a note after closing
+  reminds you to rewrite the registry key finding as the session's final conclusion.
+  Part boundaries are anchored as a semicolon **immediately followed by a label**
+  (`미완료`/`pending`, `참조`/`refs`), so a semicolon or a label word inside the state
+  text cannot confuse the warning; logs without labeled boundaries are left alone
+  (no format enforcement). Semicolons are reserved for part boundaries — use `·`/`,`
+  inside a part.
+- **`elf update` — smarter dirty-tree warning** — the warning now fires only when
+  **tracked** files have uncommitted changes, and explains the actual risk: "your
+  uncommitted changes and this update's changes would mix in one tree, so the update
+  alone could not be rolled back cleanly". Untracked-only working trees no longer warn
+  (the update remains cleanly revertible); a repository with no commits yet gets a
+  dedicated "no baseline to roll back to — commit first" warning instead.
+
 ## [2.13.0] - 2026-07-06
 
 ### Added

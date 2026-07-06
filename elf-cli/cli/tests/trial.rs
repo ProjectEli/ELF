@@ -138,6 +138,86 @@ fn inplace_init_keeps_existing_claude_md_without_elf_new() {
 }
 
 #[test]
+fn close_warns_on_pending_handoff_nonblocking() {
+    use elf_cli::session::{CloseOptions, run_session_close};
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    let p = root.join("2_Log/S001_log.md");
+    let c = fs::read_to_string(&p)
+        .unwrap()
+        .replace("> **Handoff**: -", "> **Handoff**: 설계 확정; 미완료 = 문서 반영; 참조 t01");
+    fs::write(&p, c).unwrap();
+
+    // 다음 세션 후보 미작성 상태 → force로 종료 (경고는 비차단으로 함께 반환)
+    let r = run_session_close(&root, &CloseOptions { id: None, force: true }).unwrap();
+    assert_eq!(r.id, "S001");
+    assert!(
+        r.warnings.iter().any(|w| w.contains("pending") && w.contains("문서 반영")),
+        "{:?}",
+        r.warnings
+    );
+
+    // 소거된 Handoff는 경고 없음
+    let root2 = new_project(&tmp.path().join("sub2"));
+    let p2 = root2.join("2_Log/S001_log.md");
+    let c2 = fs::read_to_string(&p2)
+        .unwrap()
+        .replace("> **Handoff**: -", "> **Handoff**: 완료 fold; -; 참조 t01");
+    fs::write(&p2, c2).unwrap();
+    let r2 = run_session_close(&root2, &CloseOptions { id: None, force: true }).unwrap();
+    assert!(r2.warnings.is_empty(), "{:?}", r2.warnings);
+}
+
+#[test]
+fn dirty_warning_fires_only_on_tracked_changes_or_unborn_head() {
+    fn git(root: &Path, args: &[&str]) {
+        let o = std::process::Command::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(args)
+            .output()
+            .expect("git runs");
+        assert!(o.status.success(), "git {:?}: {}", args, String::from_utf8_lossy(&o.stderr));
+    }
+    fn update_lines(root: &Path) -> String {
+        run_update(root, &UpdateOptions { dry_run: true, force: false })
+            .unwrap()
+            .lines
+            .join("\n")
+    }
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+
+    // ① .git 없음 → git 경고 없음
+    let l = update_lines(&root);
+    assert!(!l.contains("would mix") && !l.contains("no git commit"), "{l}");
+
+    // ② git init 직후(unborn HEAD·전부 untracked) → 롤백 기준 부재 경고
+    git(&root, &["init", "-q"]);
+    let l = update_lines(&root);
+    assert!(l.contains("no git commit yet"), "{l}");
+
+    // ③ 전체 커밋(clean) → 무경고
+    git(&root, &["add", "-A"]);
+    git(&root, &["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init"]);
+    let l = update_lines(&root);
+    assert!(!l.contains("would mix") && !l.contains("no git commit"), "{l}");
+
+    // ④ untracked-only → 무경고 (과경고 제거 — 핵심 신규 동작)
+    fs::write(root.join("scratch.txt"), "tmp\n").unwrap();
+    let l = update_lines(&root);
+    assert!(!l.contains("would mix") && !l.contains("no git commit"), "{l}");
+
+    // ⑤ 추적 파일 변경 → 혼합 명시 경고
+    let readme = root.join("README.md");
+    let mut c = fs::read_to_string(&readme).unwrap();
+    c.push_str("\nlocal edit\n");
+    fs::write(&readme, c).unwrap();
+    let l = update_lines(&root);
+    assert!(l.contains("would mix in one tree"), "{l}");
+}
+
+#[test]
 fn update_keeps_user_claude_md_without_conflict() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());

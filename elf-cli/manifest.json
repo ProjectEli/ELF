@@ -4,7 +4,7 @@
   "note": "ELF CLI 배포 명세(deployment spec). src=CLI 번들 상대(elf-cli/ 기준), dest=생성 프로젝트 루트 상대. tier: managed=update 덮어쓰기 / seed=init만(update 미접근) / hybrid=마커 블록만 / pointer=부재 시 생성·존재 시 절대 불변경(진입 어댑터). 버전 SSOT=elf-cli/VERSION. sha256=원본 바이트 기대 해시(향후 elf update edit 감지용; pre-commit 게이트 check.sh는 git hash-object로 별도 비교). elf_gallery는 CLI 명령으로 이관(제외).",
   "files": [
     { "src": "templates/meta/EliRule.md",          "dest": "0_Meta/EliRule.md",               "tier": "managed", "sha256": "b192026e440aba8bd0af1ea620dc4cbf4b8a534c810e078bf71bb4431c39d018" },
-    { "src": "templates/meta/LogConvention.md",     "dest": "0_Meta/LogConvention.md",         "tier": "managed", "sha256": "4abbb707f7032eeb833750f75880200b5b0298c7c7b15d9c9453c746205a5c1d" },
+    { "src": "templates/meta/LogConvention.md",     "dest": "0_Meta/LogConvention.md",         "tier": "managed", "sha256": "d213d014bf184939701ad7e8968b57a32c2091d5e74bbf00d58c3032918d09a6" },
     { "src": "templates/meta/AI_PARA_Framework.md", "dest": "0_Meta/AI_PARA_Framework.md",     "tier": "managed", "sha256": "0d158937485cafb0974a833efd6bee831eb6666ee55d4ce5987134967715675b" },
     { "src": "templates/meta/highIFjournals.md",    "dest": "0_Meta/highIFjournals.md",        "tier": "managed", "sha256": "de95da602672cf2b2045ade5d5c2742eee82af125917a0f2c64ec30eead4cdf1" },
     { "src": "templates/meta/LLMcliche.md",         "dest": "0_Meta/LLMcliche.md",             "tier": "managed", "sha256": "30abfdd8d120d4578e40946b5f799839ae8a013c5a7d1881b00f7b39137a7e07" },
@@ -19,7 +19,7 @@
     { "src": "templates/log/Session_Registry.tsv",  "dest": "2_Log/Wiki/Session_Registry.tsv", "tier": "seed",    "sha256": "b4eed8d302ff9e87860c183a3fd0c98412ea10e07314e2d66d7bbd0b32deab9e" },
     { "src": "templates/root/README.md",            "dest": "README.md",                       "tier": "seed",    "sha256": "142104cf98c46812d70d42275c8c785ffd37d34ea43229f50995dbc9ad4a8413" },
     { "src": "templates/meta/EliRule.en.md",          "dest": "0_Meta/EliRule.en.md",            "tier": "managed", "sha256": "cef3f611d7a5fad5c3883ffcb5b61f9f4d5bde0ba7d56e260eee9f348aab04b1", "lang": "en", "role": "companion" },
-    { "src": "templates/meta/LogConvention.en.md",     "dest": "0_Meta/LogConvention.en.md",      "tier": "managed", "sha256": "047d329a70637daff5734c2a09ab9e5972800341316e622d3de4ef7949fecfb9", "lang": "en", "role": "companion" },
+    { "src": "templates/meta/LogConvention.en.md",     "dest": "0_Meta/LogConvention.en.md",      "tier": "managed", "sha256": "2fa604585990b67d7e09871c907750d03f51159c74806319c25eeda2a024006f", "lang": "en", "role": "companion" },
     { "src": "templates/meta/AI_PARA_Framework.en.md", "dest": "0_Meta/AI_PARA_Framework.en.md",  "tier": "managed", "sha256": "3cd59b28fd6c7e0004ebb975671f72e0b16cbe000d7f24838cded66b5edbb080", "lang": "en", "role": "companion" },
     { "src": "templates/meta/highIFjournals.en.md",    "dest": "0_Meta/highIFjournals.en.md",     "tier": "managed", "sha256": "3fb29e3bdb0847518393f3728a05a71c54e74d34182b2eade4e9f57ad219ce34", "lang": "en", "role": "companion" },
     { "src": "templates/meta/LLMcliche.en.md",         "dest": "0_Meta/LLMcliche.en.md",          "tier": "managed", "sha256": "90f16b6c8daa470cfef411b5921365e298578fa65a023316e60a66dddb2ef2d8", "lang": "en", "role": "companion" },

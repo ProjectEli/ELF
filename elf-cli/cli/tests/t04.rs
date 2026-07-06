@@ -253,7 +253,7 @@ fn non_elf_dir_errors_and_root_is_found_from_subdir() {
 }
 
 #[test]
-fn git_dirty_tree_produces_warning() {
+fn git_unborn_repo_warns_missing_baseline() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
     let git_ok = std::process::Command::new("git")
@@ -263,7 +263,8 @@ fn git_dirty_tree_produces_warning() {
         eprintln!("git unavailable — skipping");
         return;
     }
-    // untracked 파일 다수 = dirty
+    // git init 직후 = 커밋 0(unborn HEAD) — 롤백 기준 부재 경고 (S021 t15).
+    // untracked-only 무경고·추적 변경 혼합 경고의 전체 분기는 tests/trial.rs 참조.
     let report = run_update(&root, &plain()).unwrap();
-    assert!(report.lines.iter().any(|l| l.contains("dirty")), "{:?}", report.lines);
+    assert!(report.lines.iter().any(|l| l.contains("no git commit yet")), "{:?}", report.lines);
 }

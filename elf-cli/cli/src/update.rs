@@ -355,7 +355,11 @@ pub(crate) fn read_baseline_block(root: &Path, dest: &str) -> Option<String> {
     block_of(&text).map(str::to_string)
 }
 
-/// git 작업트리가 dirty면 경고 (차단하지 않음 — git 없는 프로젝트도 지원)
+/// git 작업트리가 dirty면 경고 (차단하지 않음 — git 없는 프로젝트도 지원).
+/// 발화 기준(S021 t15): **추적 파일 변경**(porcelain 비-`??` 줄)이 있을 때만 — 사용자
+/// 미커밋 변경과 update 변경이 한 tree에 섞여 update만 선별 롤백할 수 없게 되는 실위험.
+/// untracked-only는 제외(추적 managed 파일의 롤백이 사용자 파일과 분리 가능 — 과경고 방지).
+/// 예외: 커밋이 전무한 unborn HEAD는 롤백 기준 자체가 없어 경고 유지("commit first"가 정확한 조언).
 fn warn_if_git_dirty(root: &Path, report: &mut UpdateReport) {
     if !root.join(".git").exists() {
         return;
@@ -365,12 +369,31 @@ fn warn_if_git_dirty(root: &Path, report: &mut UpdateReport) {
         .arg(root)
         .args(["status", "--porcelain"])
         .output();
-    if let Ok(o) = out
-        && o.status.success()
-        && !o.stdout.is_empty()
-    {
+    let Ok(o) = out else { return };
+    if !o.status.success() || o.stdout.is_empty() {
+        return;
+    }
+    let stdout = String::from_utf8_lossy(&o.stdout);
+    let tracked_changes = stdout.lines().any(|l| !l.starts_with("??"));
+    // untracked-only일 때만 평가(지연) — 커밋 0개면 rev-parse HEAD 실패 = unborn
+    let unborn_head = || {
+        !std::process::Command::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(["rev-parse", "--verify", "--quiet", "HEAD"])
+            .output()
+            .map(|h| h.status.success())
+            .unwrap_or(false)
+    };
+    if tracked_changes {
         report.warn(
-            "git working tree is dirty — commit or stash first for easy rollback".to_string(),
+            "git working tree is dirty — your uncommitted changes and this update's changes would mix in one tree, so the update alone could not be rolled back cleanly; commit or stash first"
+                .to_string(),
+        );
+    } else if unborn_head() {
+        report.warn(
+            "no git commit yet — there is no baseline to roll this update back to; commit first"
+                .to_string(),
         );
     }
 }

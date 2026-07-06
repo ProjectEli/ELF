@@ -149,7 +149,7 @@ elf session close             # close the one active session
 elf session close S007        # close a specific session
 ```
 
-Refuses with exit **3** if the next-session section is unfilled (fill it or pass `--force`). A parse-broken registry exits **5** (escalation).
+Refuses with exit **3** if the next-session section is unfilled (fill it or pass `--force`). If the header `Handoff` still lists pending items, a **non-blocking warning** is printed — resolve them or carry them into the next-session section; a closing note also reminds you to rewrite the registry key finding as the session's final conclusion (fold). A parse-broken registry exits **5** (escalation).
 
 ### `elf session fix-headers [--dry-run]`
 

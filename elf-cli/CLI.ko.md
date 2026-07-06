@@ -146,7 +146,7 @@ elf session close             # 유일한 활성 세션 종료
 elf session close S007        # 특정 세션 종료
 ```
 
-다음 세션 후보 섹션이 미작성이면 exit **3**으로 거부(작성하거나 `--force`). Registry 파싱 불가 시 exit **5**(escalation).
+다음 세션 후보 섹션이 미작성이면 exit **3**으로 거부(작성하거나 `--force`). 헤더 `Handoff`에 미완료 항목이 남아 있으면 **비차단 경고** 출력 — 해소하거나 다음 세션 후보로 이관; 종료 후에는 Registry key finding을 최종 결론(fold)으로 재작성하라는 안내가 출력됩니다. Registry 파싱 불가 시 exit **5**(escalation).
 
 ### `elf session fix-headers [--dry-run]`
 

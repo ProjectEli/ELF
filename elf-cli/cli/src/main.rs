@@ -387,10 +387,18 @@ fn main() {
             SessionCmd::Close { id, force } => {
                 let root = log_root_or_exit();
                 match session::run_session_close(&root, &session::CloseOptions { id, force }) {
-                    Ok(r) => println!(
-                        "[elf] closed {} → {} (Status: Complete, registry updated)",
-                        r.id, r.archived_to
-                    ),
+                    Ok(r) => {
+                        for w in &r.warnings {
+                            println!("[elf] warn: {w}");
+                        }
+                        println!(
+                            "[elf] closed {} → {} (Status: Complete, registry updated)",
+                            r.id, r.archived_to
+                        );
+                        println!(
+                            "[elf] note: rewrite the registry key finding as the session's final conclusion (fold — LogConvention §5.2)"
+                        );
+                    }
                     Err(session::SessionError::Escalation(e)) => {
                         eprintln!("[elf] {e}");
                         std::process::exit(5);
@@ -460,6 +468,9 @@ fn main() {
                         println!("[elf] appended {} to {} ({})", r.trial, r.log_rel, r.session);
                         println!(
                             "[elf] next: Phase 1 — fill 목표/조건/가설/예상, then stop before execution (LogConvention §5.1)"
+                        );
+                        println!(
+                            "[elf] note: keep the header Handoff a replace-style fold (state; pending; refs) — do not append history"
                         );
                     }
                     Err(session::SessionError::NoOpenSession) => {

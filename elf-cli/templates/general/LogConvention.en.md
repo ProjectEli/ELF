@@ -102,7 +102,8 @@ End of session body, at session close:
 ### Rules
 - **Writing language**: write logs in the language set by `PROJECT_LANG` in `0_Meta/EliRule.md`, but for **token economy** use nominal endings ('-음/함/임') and word-centered bullet points. English may be added for technical terms.
 - **Status**: `★ 활성 (active)` (currently working), `In Progress` (intermediate stage), `Complete` (done, before archiving).
-- **Handoff**: three parts separated by semicolons (`;`) — `current state; unfinished work; reference files`. Update continuously during the session so the next session can pick up context by reading just this field with a `Read(offset=0, limit=9)` pattern. Initial value `-`.
+- **Handoff**: a **replace-style state snapshot** — three `;` parts: `currently valid conclusion/position (the fold of what accumulated, e.g. "A rejected · B adopted"); pending; references (where the synthesis lives)`. Update by **rewriting the whole line**, not by appending. **Do not list history / completed timelines** — the session overview belongs to the registry key finding, details to the trial bodies. Keep it one line. **`;` is reserved for part boundaries** — use `·`/`,` inside a part, and start the pending/reference parts with their labels (`미완료`/`pending`, `참조`/`refs`) — tools identify a boundary as `;` immediately followed by a label. On session handover or a context rebuild, `Read(offset=0, limit=9)` reads just this field to re-orient. Closing with pending items left triggers an `elf session close` warning. Initial value `-`.
+- **Registry key finding**: the same fold principle as Handoff — replace-update it with the currently valid final conclusion (not an accumulating narrative), and rewrite it as the final fold at session close (§5.1).
 - **Header line breaks**: the trailing `\` on each blockquote (`>`) header line is a CommonMark **hard break** — it preserves line separation in strict renderers. **Do not delete.** The last line (Handoff) has no `\`. Keep the header at 6 lines → the `limit=9` quick-read stays valid.
 - **Trial numbers**: `t01`, `t02`, … in order. No duplicates.
 - **Base-delta trial expansion**: when regenerating/improving a working output by changing it (parameters, structure, content, style), expand each attempt as an **independent trial (`t{NN}`)**. Each trial takes the previous one as base, recording the **delta (what changed) + reason (problem with the previous attempt)** in `### 조건 (Conditions)`. **Version preservation**: do not overwrite outputs/scripts; preserve versions (losing intermediates = not reproducible). **Block survivorship bias**: no "quietly fix and report only the final" (AI included) — record each version as a trial in that turn (no after-the-fact recall). Only pre-working debugging (a failed output → success) stays in the same trial's `### 시행착오 (Trial-and-Error)` table.
@@ -158,6 +159,7 @@ Write each trial (t{NN}) in two phases. **A stop point between Phase 1 and Phase
 ### 5.1 Session-close Standard Procedure
 Just before switching Status to `Complete`:
 - [ ] Write `## 다음 세션 후보 (Next-Session Hypothesis)` at the end of the body (1-3 hypothesis candidates + 1-3 prediction candidates, nominal form)
+- [ ] Clean the Handoff: clear the pending part (done, or carried into `## 다음 세션 후보`) — leftovers trigger an `elf session close` warning
 - [ ] Add a key-conclusion summary + Archive path link in `Wiki/`
 - [ ] Move `S{NNN}_log.md` → `Archive/` under the same file name
-- [ ] Update the status in `Session_Registry.tsv`
+- [ ] Update the status in `Session_Registry.tsv` + rewrite the key finding as the final conclusion (fold)

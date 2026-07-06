@@ -362,6 +362,49 @@ pub(crate) fn is_open_status(s: &str) -> bool {
     !s.starts_with("Complete")
 }
 
+/// 헤더 블록 `> **Handoff**:` 값 (트레일링 `\`·`\r` 제거).
+pub fn header_handoff(content: &str) -> Option<String> {
+    content.lines().find_map(|line| {
+        line.trim_end_matches('\r')
+            .strip_prefix("> **Handoff**:")
+            .map(|v| v.trim_end_matches('\\').trim().to_string())
+    })
+}
+
+/// Handoff 3파트 중 미완료 파트의 잔존 내용 (S021 t13 #3 · t17 경계 강화).
+/// 파트 경계 = **`;` 직후(공백 허용) 라벨**(`미완료`/`pending`·`참조`/`refs`)이 오는 위치만 —
+/// 위치 기반 split이 아니라서 파트 내용 속 `;`(라벨 비동반)와 본문 속 라벨 단어(`;` 비동반)가
+/// 모두 무해(v2.3 원설계 "`;`=파트 경계 전용" 복원과 쌍). 라벨 경계 부재 = 판정 보류(None).
+pub fn handoff_pending(handoff: &str) -> Option<String> {
+    // `;` 직후 labels 중 하나가 시작되는 첫 경계: (라벨 끝 바이트 위치) 반환
+    let boundary_after = |labels: &[&str], from: usize| -> Option<(usize, usize)> {
+        let mut i = from;
+        while let Some(off) = handoff[i..].find(';') {
+            let semi = i + off;
+            let rest = &handoff[semi + 1..];
+            let content_at = semi + 1 + (rest.len() - rest.trim_start().len());
+            for l in labels {
+                if handoff[content_at..].starts_with(l) {
+                    return Some((semi, content_at + l.len()));
+                }
+            }
+            i = semi + 1;
+        }
+        None
+    };
+    let (_, pending_start) = boundary_after(&["미완료", "pending", "Pending"], 0)?;
+    let end = boundary_after(&["참조", "refs", "Refs", "references"], pending_start)
+        .map(|(semi, _)| semi)
+        .unwrap_or(handoff.len());
+    let mut p = handoff[pending_start..end].trim();
+    p = p.strip_prefix(['=', ':']).unwrap_or(p).trim();
+    if p.is_empty() || p == "-" || p == "없음" || p.eq_ignore_ascii_case("none") {
+        None
+    } else {
+        Some(p.to_string())
+    }
+}
+
 /// `## 다음 세션 후보` 섹션에 placeholder(`- [...]`) 아닌 실제 bullet이 1개 이상이면 true.
 /// (LogConvention §5.2 — 섹션 존재 + 작성 완료 게이트)
 pub fn next_section_filled(content: &str) -> bool {
@@ -490,6 +533,8 @@ pub struct CloseOptions {
 pub struct CloseResult {
     pub id: String,
     pub archived_to: String,
+    /// 비차단 경고 (Handoff 미완료 잔존 등 — S013 강제→보조)
+    pub warnings: Vec<String>,
 }
 
 /// `elf session close [id]`: Status→Complete + Archive 이동(파일명 그대로) + Registry 갱신.
@@ -540,6 +585,14 @@ pub fn run_session_close(root: &Path, opts: &CloseOptions) -> Result<CloseResult
         return Err(SessionError::MissingNextSection(target));
     }
 
+    // Handoff 미완료 잔존 경고 (비차단 — LogConvention §5.2: 소거 또는 다음 세션 후보로 이관)
+    let mut warnings = Vec::new();
+    if let Some(pending) = header_handoff(&content).as_deref().and_then(handoff_pending) {
+        warnings.push(format!(
+            "Handoff still lists pending items: \"{pending}\" — resolve them or carry them into '## 다음 세션 후보' (LogConvention §5.2)"
+        ));
+    }
+
     let archive_rel = format!("2_Log/Archive/{target}_log.md");
     let archive_path = root.join(&archive_rel);
     if archive_path.exists() {
@@ -556,7 +609,7 @@ pub fn run_session_close(root: &Path, opts: &CloseOptions) -> Result<CloseResult
     fs::remove_file(&log_path)?;
     fs::write(&reg_path, registry_mark_closed(&reg_text, &target))?;
 
-    Ok(CloseResult { id: target, archived_to: archive_rel })
+    Ok(CloseResult { id: target, archived_to: archive_rel, warnings })
 }
 
 #[cfg(test)]
@@ -573,6 +626,52 @@ mod tests {
         );
         assert_eq!(header_status("# T\n\n> **Status**: Complete\n").as_deref(), Some("Complete"));
         assert_eq!(header_status("no status here\n"), None);
+    }
+
+    #[test]
+    fn header_handoff_extracts_value() {
+        let c = "# T\n\n> **Status**: ★ 활성\\\n> **Handoff**: A 기각·B 채택; 미완료 = X; 참조 t07\n";
+        assert_eq!(header_handoff(c).as_deref(), Some("A 기각·B 채택; 미완료 = X; 참조 t07"));
+        assert_eq!(header_handoff("no handoff\n"), None);
+    }
+
+    #[test]
+    fn handoff_pending_detection() {
+        // 잔존 내용 → Some
+        assert_eq!(
+            handoff_pending("A 기각·B 채택; 미완료 = X·Y 반영; 참조 t07").as_deref(),
+            Some("X·Y 반영")
+        );
+        assert_eq!(
+            handoff_pending("state; pending: fix docs; refs t02").as_deref(),
+            Some("fix docs")
+        );
+        // 참조 파트 생략 → EOL까지
+        assert_eq!(handoff_pending("상태; 미완료 = X").as_deref(), Some("X"));
+        // 소거됨 → None
+        assert_eq!(handoff_pending("상태; 미완료 -; 참조 t01"), None);
+        assert_eq!(handoff_pending("상태; 미완료 없음; 참조"), None);
+        assert_eq!(handoff_pending("state; pending: none; refs"), None);
+        // 라벨 경계 부재(구형식·비정형) → 판정 보류(None)
+        assert_eq!(handoff_pending("-"), None);
+        assert_eq!(handoff_pending("상태 한 덩어리 서술"), None);
+        assert_eq!(handoff_pending("상태; 미착수 작업들; 파일"), None); // 미라벨 3파트
+    }
+
+    #[test]
+    fn handoff_pending_immune_to_semicolon_and_label_in_content() {
+        // t17 충돌 클래스 ①: 상태 파트 내 `;`(라벨 비동반) — 위치 기반이면 "B 결정"으로 오인
+        assert_eq!(
+            handoff_pending("A 확정; B 결정; 미완료 = X; 참조 t1").as_deref(),
+            Some("X")
+        );
+        // t17 충돌 클래스 ②: 상태 파트에 라벨 단어 등장(`;` 비동반) — 라벨 단독 anchor면 오인
+        assert_eq!(handoff_pending("Handoff 미완료 소거 규약 반영 완료; -; 참조 t14"), None);
+        // 미완료 파트 내용에 `;`가 없고 참조 라벨 경계로 정확 종료
+        assert_eq!(
+            handoff_pending("fold 확정; 미완료 = 파서 강화·규약 복원; 참조 t17 관찰").as_deref(),
+            Some("파서 강화·규약 복원")
+        );
     }
 
     #[test]
