@@ -73,6 +73,7 @@ pub fn run_doctor(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
             check_elf(&root, env, &mut r);
             check_status(&root, &mut r);
             check_i18n(&root, &mut r);
+            check_overlay(&root, &mut r);
             check_l2(&root, &mut r);
         }
     }
@@ -111,6 +112,17 @@ fn check_elf(root: &Path, env: &DoctorEnv, r: &mut DoctorReport) {
         r.add(Health::Ok, ".elf baseline", "present (hybrid block diffing enabled)");
     } else {
         r.add(Health::Info, ".elf baseline", "absent (no hybrid files or pre-baseline project)");
+    }
+    // 레이아웃 표시 (S024/B) — legacy는 유효 상태(강제 이전 없음), 이전 경로만 안내
+    match update::read_config_layout(root) {
+        manifest::Layout::Managed => {
+            r.add(Health::Info, "layout", "managed — rule payload in .elf/managed/")
+        }
+        manifest::Layout::Legacy => r.add(
+            Health::Info,
+            "layout",
+            "legacy — rule payload in 0_Meta/ and templates/ (`elf migrate` relocates it to .elf/managed/, opt-in)",
+        ),
     }
 }
 
@@ -218,6 +230,99 @@ fn check_l2(root: &Path, r: &mut DoctorReport) {
     }
 }
 
+/// data overlay 진단 (EliRule §2.7) — overlayable 대상의 overlay 인지 + 형식(제외 사유 필수) +
+/// 비허용 대상 overlay 경고. overlay 위치 = `0_Meta/<이름>.project.md`(사용자 소유 — 레이아웃 무관 고정).
+/// overlay 부재는 보고하지 않음(선택 사항).
+fn check_overlay(root: &Path, r: &mut DoctorReport) {
+    let Some(stamp) = fs::read_to_string(root.join(".elf").join("manifest.json"))
+        .ok()
+        .and_then(|t| manifest::parse(&t).ok())
+    else {
+        return; // stamp 문제는 check_elf가 이미 보고
+    };
+    let lang = update::read_config_lang(root);
+    let mut allowed = std::collections::BTreeSet::new();
+    for e in stamp
+        .for_lang(&lang)
+        .files
+        .iter()
+        .filter(|e| e.overlayable && e.role.is_none())
+    {
+        let Some(ov) = overlay_path(&e.dest) else { continue };
+        allowed.insert(ov.clone());
+        let p = root.join(&ov);
+        if !p.is_file() {
+            continue;
+        }
+        match fs::read_to_string(&p) {
+            Ok(text) => {
+                let missing = removals_missing_reason(&text);
+                if missing == 0 {
+                    r.add(Health::Ok, "overlay", format!("{ov} active (base ⊕ overlay)"));
+                } else {
+                    r.add(
+                        Health::Warn,
+                        "overlay",
+                        format!(
+                            "{ov}: {missing} removal entr{} without a reason — each `## 제외 (remove)` entry needs one (EliRule §2.7)",
+                            if missing == 1 { "y" } else { "ies" }
+                        ),
+                    );
+                }
+            }
+            Err(_) => r.add(Health::Warn, "overlay", format!("{ov} unreadable (not UTF-8?)")),
+        }
+    }
+    // base가 overlay 비허용(구조·규약 파일 등)이거나 미지 대상인 `*.project.md` — 병행 로드되지 않음을 경고
+    if let Ok(rd) = fs::read_dir(root.join("0_Meta")) {
+        for entry in rd.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if !name.ends_with(".project.md") {
+                continue;
+            }
+            let rel = format!("0_Meta/{name}");
+            if !allowed.contains(&rel) {
+                r.add(
+                    Health::Warn,
+                    "overlay",
+                    format!(
+                        "{rel} has no overlayable base — only manifest-marked data files accept overlays (EliRule §2.7)"
+                    ),
+                );
+            }
+        }
+    }
+}
+
+/// managed dest → overlay 경로. dest의 레이아웃(`0_Meta/` 또는 `.elf/managed/`)과 무관하게
+/// overlay는 사용자 영역 `0_Meta/<stem>.project.md` 고정.
+fn overlay_path(dest: &str) -> Option<String> {
+    let base = dest.rsplit('/').next().unwrap_or(dest);
+    let stem = base.strip_suffix(".md")?;
+    Some(format!("0_Meta/{stem}.project.md"))
+}
+
+/// `## 제외 (remove)` 절의 bullet 항목 중 사유 미기재 개수 (KO `사유` / EN `reason`, 대소문자 무시).
+fn removals_missing_reason(text: &str) -> usize {
+    let mut in_remove = false;
+    let mut missing = 0;
+    for line in text.lines() {
+        let t = line.trim_start();
+        if t.starts_with("## ") {
+            let low = t.to_lowercase();
+            in_remove = low.contains("제외") || low.contains("remove");
+            continue;
+        }
+        if in_remove && (t.starts_with("- ") || t.starts_with("* ")) {
+            let low = t.to_lowercase();
+            if !(low.contains("사유") || low.contains("reason")) {
+                missing += 1;
+            }
+        }
+    }
+    missing
+}
+
 fn check_git(cwd: &Path, r: &mut DoctorReport) {
     let git = cwd.ancestors().map(|a| a.join(".git")).find(|g| g.exists());
     match git {
@@ -241,6 +346,30 @@ fn check_git(cwd: &Path, r: &mut DoctorReport) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn overlay_path_is_layout_independent() {
+        assert_eq!(
+            overlay_path("0_Meta/LLMcliche.md").as_deref(),
+            Some("0_Meta/LLMcliche.project.md")
+        );
+        assert_eq!(
+            overlay_path(".elf/managed/LLMcliche.md").as_deref(),
+            Some("0_Meta/LLMcliche.project.md")
+        );
+        assert_eq!(overlay_path(".claudeignore"), None); // .md 외 = overlay 비대상
+    }
+
+    #[test]
+    fn removals_require_reason_ko_or_en() {
+        let ok = "# o\n## 추가 (add)\n- foo\n## 제외 (remove)\n- bar — 사유: 도메인 용어\n- baz — reason: domain term\n";
+        assert_eq!(removals_missing_reason(ok), 0);
+        let bad = "## 제외 (remove)\n- bar\n- baz — 사유: ok\n";
+        assert_eq!(removals_missing_reason(bad), 1);
+        // 제외 절 밖의 bullet은 사유 불요
+        let outside = "## 추가 (add)\n- new-word\n";
+        assert_eq!(removals_missing_reason(outside), 0);
+    }
 
     #[test]
     fn warnings_counts_only_warn() {

@@ -10,15 +10,20 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 ### Core (항상 포함)
 
 #### `.elf/` — ELF 제어 영역
-`elf` CLI가 프로젝트 상태(버전·설정·관리 파일 목록)를 기록하는 영역입니다. **직접 수정 금지** — `elf init`/`elf update`가 관리합니다.
+`elf` CLI가 프로젝트 상태(버전·설정·관리 파일 목록)를 기록하고, ELF 관리 규칙 정본 payload를 `.elf/managed/`에 배치하는 영역입니다. **직접 수정 금지** — `elf init`/`elf update`가 관리합니다.
+- `.elf/managed/EliRule.md`: 이 문서 (폴더 구조 및 운영 가이드)
+- `.elf/managed/LogConvention.md`: 로깅 표준 규칙
+- `.elf/managed/AI_PARA_Framework.md`: AI의 환각을 방지하기 위한 상태 기반 파일 관리 및 아카이빙 규칙. AI가 프로젝트를 탐색할 때 가장 중요한 기준 문서
+- `.elf/managed/highIFjournals.md`: 외부 문헌 검색용 high-IF 저널 화이트리스트 (§4 참조)
+- `.elf/managed/templates/`: 마크다운 스텁 (아래)
 
-#### `0_Meta/` — 프로젝트 거버넌스
-연구 데이터가 아닌 프로젝트 운영 규칙을 정의하는 메타 구역입니다.
+> legacy 레이아웃(마이그레이션 전)은 위 규칙 payload가 `0_Meta/`·`templates/`에 위치합니다 — `elf migrate`로 이전(opt-in).
+
+#### `0_Meta/` — 프로젝트 거버넌스 (사용자 영역)
+프로젝트 전용 규칙과 커스터마이즈를 두는 메타 구역입니다. `elf update`가 접근하지 않습니다.
 - `ProjectRule.md`: 프로젝트 전용 규칙·목표 (**사용자 소유** — 프로젝트에 맞게 자유 수정)
-- `EliRule.md`: 이 문서 (폴더 구조 및 운영 가이드)
-- `LogConvention.md`: 로깅 표준 규칙
-- `AI_PARA_Framework.md`: AI의 환각을 방지하기 위한 상태 기반 파일 관리 및 아카이빙 규칙. AI가 프로젝트를 탐색할 때 가장 중요한 기준 문서
-- `highIFjournals.md`: 외부 문헌 검색용 high-IF 저널 화이트리스트 (§4 참조)
+- `<이름>.project.md`: data overlay (§2.7 — LLMcliche·highIFjournals 항목 커스터마이즈)
+- 그 외 프로젝트 재량(스크립트·설정 등)
 
 #### `1_Concept/` — 연구 기획 & 아이디어
 연구 방향성, 문헌 고찰, 가설 설정을 실험 데이터와 분리하여 보관합니다.
@@ -30,14 +35,15 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 
 #### `2_Log/` — 세션 로그
 모든 종류의 작업(실험, 기획, SW 개발 등)을 기록하는 세션 로그의 최상위 공간입니다.
-- `S###_log.md`: 세션 로그 파일 (포맷: `0_Meta/LogConvention.md` 참조)
+- `S###_log.md`: 세션 로그 파일 (포맷: `.elf/managed/LogConvention.md` 참조)
 - `Wiki/`: 핵심 발견 요약 및 Session Registry
 - `Archive/`: 완료된 세션 로그 보관
 
-#### `templates/` — 마크다운 스텁
+#### `.elf/managed/templates/` — 마크다운 스텁
 - `sessionTemplate.md`: 새 세션 시작 시 `2_Log/S###_log.md`로 복사
 - `trialTemplate.md`: 진행 중 세션에 trial(t##) 추가 시 본문에 붙여넣기
 - **Planning 문서(`P###`)는 의도적 무템플릿** — trial은 재현성 위해 템플릿으로 규율하나, planning은 연구자 자유 탐색이라 형식을 강제하지 않음.
+- 루트 `templates/`는 ELF가 생성·관리하지 않는 프로젝트 재량 폴더입니다.
 
 ### Modules (선택적 포함)
 
@@ -120,13 +126,25 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 
 | 구분 | 파일 | `elf update` 동작 |
 |------|------|-------------------|
-| **ELF 관리** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`, `.claudeignore`, `AGENTS.md` | 새 버전으로 교체. **직접 수정한 경우 덮어쓰지 않고** 새 버전을 `<파일>.elf-new`로 생성(병합은 사용자 몫, `--force`로 강제 교체 가능) |
+| **ELF 관리** | `.elf/managed/`의 `EliRule.md`·`LogConvention.md`·`AI_PARA_Framework.md`·`highIFjournals.md`·`LLMcliche.md`·`templates/*`(companion 포함), 루트 `.claudeignore`·`AGENTS.md` | 새 버전으로 교체. **직접 수정한 경우 덮어쓰지 않고** 새 버전을 `<파일>.elf-new`로 생성(병합은 사용자 몫, `--force`로 강제 교체 가능) |
 | **사용자 소유** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, 모든 연구 데이터·로그 | **절대 미접근** |
 | **포인터(생성만)** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(내용 무관 — 기존 파일 소유권 존중). `@AGENTS.md` 로드 여부는 `elf doctor`가 점검 |
 | **부분 관리** | `.gitignore` | 마커블록(`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) 안쪽만 교체, 블록 밖 사용자 규칙 보존 |
 
 - 프로젝트 규칙 커스터마이즈는 ELF 관리 파일을 고치는 대신 **`ProjectRule.md`에 작성**하는 것을 권장합니다(갱신 충돌 없음).
 - 상태 확인: `elf status` (변경 없이 진단만, `--check`는 CI/훅 게이트용).
+
+#### Data overlay — `<이름>.project.md` (data 파일 커스터마이즈)
+
+data 성격의 ELF 관리 파일(manifest에 `overlayable`로 명시 — 현행: `LLMcliche.md`, `highIFjournals.md`)은 직접 수정 대신 **project overlay**로 커스터마이즈합니다. prose 규칙 커스터마이즈는 종전대로 `ProjectRule.md`이며, 구조·규약 파일(LogConvention·템플릿 등)은 overlay 대상이 아닙니다.
+
+- **파일**: `0_Meta/<이름>.project.md`(예: `0_Meta/LLMcliche.project.md`) — **사용자 소유**, `elf update` 미접근(갱신 충돌·`.elf-new` 없음).
+- **유효 규칙 = base ⊕ overlay**: AI 에이전트는 base(ELF 관리 정본)와 overlay를 병행 로드하여 병합 적용합니다.
+  - `## 추가 (add)`: 항목 추가 — 유효 목록 = base ∪ add.
+  - `## 제외 (remove)`: base 항목의 **항목 단위** 제외 — 각 항목에 **사유 필수 기재**. 절·파일 단위 무력화 금지.
+  - `## 재정의 (override)`: base 항목을 프로젝트 정의로 교체.
+- **등록 규율**: overlay 항목의 등록·수정은 사용자 승인 경유 — AI가 자율 등록하지 않습니다. 일반화 가치가 있는 항목은 ELF 코어 반영을 제안합니다.
+- 점검: `elf doctor`가 overlay 인지·제외 사유 유무·비허용 대상 overlay를 진단합니다.
 
 ---
 
@@ -148,7 +166,7 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 9. **문장 종결 방식 (Formatting)**: 한글 기록 시 '~입니다/습니다'나 해요체 등은 일절 배제하며, 서술이 필요한 경우에도 반드시 명사형 종결어미('-음', '-함', '-임')나 간결한 '-다'로 끝을 맺습니다. 비한글(예: 영어) 출력에는 본 종결 형식이 적용되지 않으며, 2·8항의 드라이·압축 원칙(간결·능동·filler 없는 문체)을 등가 의도로 적용합니다.
 10. **구조화된 로깅 (Structured Logging)**: 실험 관찰(관찰)과 물리적 분석(해석)을 명확히 분리하여 서술하며, 생성된 파일 목록이나 파라미터 조건 등은 나열식 서술 대신 반드시 마크다운 표(Table) 형식으로 압축하여 정보 밀도를 극대화합니다.
 11. **약어 표기 (Abbreviations)**: 약어는 **첫 사용 시 full name 병기**(`AR (asymmetry ratio)`). 약어가 반복되는 trial·문서는 `### 조건`(또는 문서 상단)에 **약어 legend를 ul list**로 명시하되 **각 약어를 별도 row**로 — trial atom 단독 열람성 확보. 동일 약어가 여러 trial에 걸치면 **각 trial에서 재정의**(atom 독립성 > DRY; 세션 1회 정의로 갈음 금지). 예외: 도메인 표준 단위·기호(µA·Hz·ms·SI)는 병기 불요.
-12. **LLM 상투 표현 배제 (LLM Cliché Ban)**: 영어 문서·communication 작성 시 LLM 특유의 상투 어휘·register(특징적 동사·막연 형용사·상투 명사·과용 연결어·정형 구문)를 배제하고 **구체·능동·직접 서술**로 대체합니다. 고정 목록이 아닌 *원칙* 적용 — 막연한 filler·과용 register는 배제하되 **정확한 기술적 의미**의 용어는 허용합니다(예: 통계 significance, robustness). 연결어는 과용·문두 연속만 배제(정당한 단일 사용 허용), 인용·제목·원문 표현은 면제하며, 한국어 dry 로그는 무관합니다(영어 혼용 시 적용). 프로젝트별 기술 동음어 예외는 `ProjectRule.md`에 선언합니다. 배제·예외·전후 예시(비망라 참고): `0_Meta/LLMcliche.md`.
+12. **LLM 상투 표현 배제 (LLM Cliché Ban)**: 영어 문서·communication 작성 시 LLM 특유의 상투 어휘·register(특징적 동사·막연 형용사·상투 명사·과용 연결어·정형 구문)를 배제하고 **구체·능동·직접 서술**로 대체합니다. 고정 목록이 아닌 *원칙* 적용 — 막연한 filler·과용 register는 배제하되 **정확한 기술적 의미**의 용어는 허용합니다(예: 통계 significance, robustness). 연결어는 과용·문두 연속만 배제(정당한 단일 사용 허용), 인용·제목·원문 표현은 면제하며, 한국어 dry 로그는 무관합니다(영어 혼용 시 적용). 프로젝트별 기술 동음어 예외는 `ProjectRule.md`에, 어휘 항목의 추가·제외·재정의는 data overlay `0_Meta/LLMcliche.project.md`(base ⊕ overlay)에 선언합니다. 배제·예외·전후 예시(비망라 참고): `.elf/managed/LLMcliche.md`.
 13. **출처 신뢰성 (Source Reliability)**: 나무위키(namu.wiki) 등 익명·집단 편집 위키 및 출처 불명 블로그·커뮤니티를 답변·문서의 출처로 인용 금지. 검색 결과에 떠도 그대로 신뢰하지 말고 **신뢰 출처**(공신력 기관·학회·정부, 학술/1차 자료, 공식 문서, 1차 보도)로 교차검증 후 *그 신뢰 출처*를 인용. WebSearch 시 `blocked_domains: ["namu.wiki"]` 기본 배제. 위키백과도 출발점일 뿐 1차 출처로 추적·확인. **웹을 근거로 한 답변·문서에는 검증한 신뢰 출처를 `## 출처`(또는 `## Sources`)로 명시.**
 
 ---
@@ -159,11 +177,11 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 
 - **배경**: 웹 검색 도구는 일반 검색 엔진 기반 (JCR/Scopus/WoS 아님) → Impact Factor 정렬·필터 미지원. OA 대량 발행 저널(MDPI·Frontiers·Hindawi 등)이 SEO·발행량으로 검색 listing 점령. high-IF flagship(Nature·Science·Cell·구독형 Elsevier/Wiley)은 paywall+anti-bot로 본문 fetch 차단(403). → high-tier 조사 의도 시 결과가 저-IF OA로 쏠림. 원인은 "엔진이 high-IF를 못 봄"이 아니라 "IF 기준 정렬 부재 + OA 색인 편향"이며 access 차단은 부분 요인.
 - **규칙**:
-  1. 도메인 화이트리스트: 검색 시 `0_Meta/highIFjournals.md` 의 도메인 목록을 `allowed_domains` 에 지정. 프로젝트별 우선 target subset은 `ProjectRule.md` 정의.
+  1. 도메인 화이트리스트: 검색 시 `.elf/managed/highIFjournals.md` 의 도메인 목록을 `allowed_domains` 에 지정. 프로젝트별 우선 target subset은 `ProjectRule.md` 정의.
   2. OA full-text 경유: target 저널이 OA면 출판사 도메인 403 시 PMC·Europe PMC URL로 본문 확보.
   3. bibliometric API: 인용수·venue 정렬·품질 필터는 OpenAlex(`api.openalex.org`)·Semantic Scholar·Crossref 사용.
   4. 저널명 명시 쿼리: 쿼리에 저널명 토큰 추가하여 랭킹 상향.
   5. preprint 경유: high-IF 게재작 full text는 arXiv·bioRxiv·medRxiv.
   6. 저-IF OA 배제(선택): tier 강제 필요 시 검색 도구 도메인 배제 기능 사용. 단 정당 venue 동반 배제 주의 — 무조건 배제 금지.
   7. 인용 전 검증: "검색 노출 ≠ 고품질". venue+인용수 cross-check. 미확인 ref 날조 금지 (`AI_PARA_Framework.md` hallucination 방지 정합).
-- **Reference**: 도메인 화이트리스트·OA 미러·bibliometric API 전체 목록 = `0_Meta/highIFjournals.md` (목록 갱신은 이 파일만 수정; rule 문서는 참조).
+- **Reference**: 도메인 화이트리스트·OA 미러·bibliometric API 전체 목록 = `.elf/managed/highIFjournals.md` (rule 문서는 참조만). 프로젝트별 도메인 추가·제외 = data overlay `0_Meta/highIFjournals.project.md`(§2.7); 목록 자체의 갱신은 ELF 코어 반영.

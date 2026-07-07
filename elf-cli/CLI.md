@@ -28,6 +28,7 @@ Installs the binary to `~/.elf/bin` and adds it to PATH. Open a new shell and ve
 |---------|---------|
 | `elf init [name]` | Scaffold an ELF project (in place, or in `./<name>`) |
 | `elf update` | Update managed files in the current project |
+| `elf migrate` | Relocate the managed payload to `.elf/managed/` (opt-in, legacy projects) |
 | `elf status` | Diagnose managed-file drift (read-only) |
 | `elf validate` | Check session/registry/log consistency (read-only) |
 | `elf session new <title>` | Create + register the next session log |
@@ -56,7 +57,7 @@ Scaffold an ELF project. **With no name, `elf init` initializes the current fold
 | `--modules <list>` | — | Custom modules (comma-separated): `hw,fab,sw,exp,paper`. Overrides `--preset` |
 | `--lang <lang>` | `ko-KR` | AI agent response language, BCP-47 tag (written to `.elf/config.json`). For a non-Korean tag (e.g. `en-US`), English **companion** docs are also deployed — see note below |
 
-Core folders (`0_Meta`–`2_Log` + `templates`) are always created; module folders (`3_HW`–`7_Paper`) are added per preset or `--modules`.
+Core folders (`0_Meta`–`2_Log`) are always created; module folders (`3_HW`–`7_Paper`) are added per preset or `--modules`. The managed rule payload (rules + log-format stubs) is deployed under `.elf/managed/`; `0_Meta/` holds only user-owned files (`ProjectRule.md`, data overlays).
 
 **In-place (no name)** adopts ELF into an existing folder **without overwriting anything**: missing ELF files are added, your existing files are kept, and a colliding ELF-managed file is written alongside as `<file>.elf-new` (your `.gitignore`, `README`, etc. are never clobbered). When the folder is non-empty you get one confirmation echoing the path; the project name defaults to the folder name. If the folder is already an ELF project (`.elf/` present) it refuses with exit 3 — use `elf update`. The named (subfolder) form still refuses with exit 3 if `./<name>` already exists.
 
@@ -101,6 +102,27 @@ Behavior per file type → see [File ownership](#file-ownership).
 elf status            # see what would change
 elf update --dry-run  # preview the actions
 elf update            # apply (safe by default)
+```
+
+### `elf migrate [--dry-run]`
+
+Relocate the managed rule payload of a **legacy-layout** project (`0_Meta/`, `templates/`) to `.elf/managed/` and mark the project as `layout: managed` in `.elf/config.json`. **Opt-in only** — `elf update` never does this automatically; legacy projects keep working on their old paths indefinitely.
+
+| Flag | Meaning |
+|------|---------|
+| `--dry-run` | Print the move plan; move nothing |
+
+Behavior:
+
+- Plans all moves first and verifies conflicts before touching anything; if a file exists at both the old and the new location, it refuses (exit 3) without moving.
+- Refuses (exit 3) when the git working tree has uncommitted **tracked** changes — commit first so the relocation alone can be reverted cleanly.
+- Moves pending `<file>.elf-new` siblings together with their base file.
+- Leaves user-owned files (`0_Meta/ProjectRule.md`, logs, data) in place, and only **reports** old-path references found in your `.md` files — it never rewrites your content.
+- Idempotent: on an already-managed project it prints "nothing to do" and exits 0.
+
+```bash
+elf migrate --dry-run   # preview the relocation
+elf migrate             # relocate, then review `git status` and commit
 ```
 
 ### `elf status [--check]`
@@ -188,8 +210,9 @@ Update the `elf` binary itself to the latest release. Works on installer-based i
 Aggregate health check (read-only). Reports each item as `OK` / `WARN` / `INFO`:
 
 - **environment** — `elf` version, install receipt presence (self-update availability)
-- **project** (if inside one) — `.elf/` stamp parses, version matches the CLI, baseline present
+- **project** (if inside one) — `.elf/` stamp parses, version matches the CLI, baseline present, layout (managed / legacy with `elf migrate` hint)
 - **managed files** — a `elf status` summary (pending / conflicts)
+- **overlay** — active data overlays (`0_Meta/<name>.project.md`), removal entries missing a reason, overlays without an overlayable base
 - **agent entry** — `CLAUDE.md` loads `@AGENTS.md` (warns when the pointer line is missing — Claude Code would not load the rules), flags heavy extra content in the pointer and pending `AGENTS.md.elf-new`/`CLAUDE.md.elf-new` files
 - **git** — repository and `pre-commit` hook presence
 
@@ -230,18 +253,21 @@ The `agent-action:` line is a stable marker. An LLM agent driving `elf` can dete
 
 | Tier | Files | On update |
 |------|-------|-----------|
-| **Managed** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `templates/*`, `.claudeignore`, `.editorconfig`, `AGENTS.md` | Replaced with the new version. If you edited one, it is **kept** and the new version is written as `<file>.elf-new` (use `--force` to overwrite) |
-| **Yours** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, all research data and logs | **Never touched** |
+| **Managed** | `.elf/managed/` (`EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`, companions); root `.claudeignore`, `.editorconfig`, `AGENTS.md` | Replaced with the new version. If you edited one, it is **kept** and the new version is written as `<file>.elf-new` (use `--force` to overwrite) |
+| **Yours** | `0_Meta/` (`ProjectRule.md`, `<name>.project.md` overlays), `Session_Registry.tsv`, `README.md`, all research data and logs | **Never touched** |
 | **Hybrid** | `.gitignore` | Only the marker block (`# >>> ELF managed >>>` … `# <<< ELF managed <<<`) is replaced; your rules outside the block are preserved |
 | **Pointer** | `CLAUDE.md` | Created if missing; if present it is **never modified** (no `.elf-new` either) — an existing hand-written `CLAUDE.md` stays exactly yours. Add a `@AGENTS.md` line yourself to load the ELF rules; `elf doctor` checks the link |
 
-Customize project rules in `ProjectRule.md` (yours) rather than editing managed files — that way updates never conflict.
+On the legacy layout (projects that have not run `elf migrate`) the managed files live in `0_Meta/` and `templates/` instead — updates keep targeting those paths until you migrate.
+
+Customize project rules in `ProjectRule.md` (yours) rather than editing managed files — that way updates never conflict. For the data files (`LLMcliche.md`, `highIFjournals.md`), add/remove/override entries via a **project overlay** `0_Meta/<name>.project.md` (user-owned; effective rules = base ⊕ overlay; removals need a stated reason — see EliRule §2.7).
 
 ## The `.elf/` directory
 
 `elf init` and `elf update` maintain `.elf/` (do not edit by hand):
 
-- `config.json` — project name, language, creation date
+- `config.json` — project name, language, creation date, layout (`managed` = payload in `.elf/managed/`; absent = legacy)
 - `version` — the ELF version that last touched the project
 - `manifest.json` — the record of managed files used by `update`/`status`
+- `managed/` — the deployed rule payload (rules, companions, log-format stubs) on the managed layout
 - `baseline/` — pristine copies of hybrid files, used to detect edits inside the managed block

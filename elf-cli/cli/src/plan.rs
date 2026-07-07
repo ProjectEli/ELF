@@ -174,6 +174,7 @@ mod tests {
             sha256: sha.into(),
             lang: None,
             role: None,
+            overlayable: false,
         }
     }
 

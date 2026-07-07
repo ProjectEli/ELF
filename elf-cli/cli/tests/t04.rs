@@ -50,12 +50,12 @@ fn tamper_stamp_sha(root: &Path, dest: &str, fake_sha: &str) {
 fn fresh_project_update_is_idempotent() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
-    let before = fs::read(root.join("0_Meta/EliRule.md")).unwrap();
+    let before = fs::read(root.join(".elf/managed/EliRule.md")).unwrap();
 
     let report = run_update(&root, &plain()).unwrap();
     assert_eq!(report.changed, 0, "fresh tree must be all up-to-date: {:?}", report.lines);
     assert_eq!(report.conflicts, 0);
-    assert_eq!(fs::read(root.join("0_Meta/EliRule.md")).unwrap(), before);
+    assert_eq!(fs::read(root.join(".elf/managed/EliRule.md")).unwrap(), before);
 }
 
 #[test]
@@ -63,7 +63,7 @@ fn managed_unedited_with_newer_template_is_overwritten() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
     // 연출: 배포 시점엔 "old content"였고 stamp도 그 해시였다고 가정
-    let dest = "0_Meta/EliRule.md";
+    let dest = ".elf/managed/EliRule.md";
     fs::write(root.join(dest), b"old content\n").unwrap();
     tamper_stamp_sha(&root, dest, &hash::sha256_lf(b"old content\n"));
 
@@ -78,7 +78,7 @@ fn managed_unedited_with_newer_template_is_overwritten() {
 fn managed_user_edit_is_preserved_with_elf_new() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
-    let dest = "0_Meta/EliRule.md";
+    let dest = ".elf/managed/EliRule.md";
     fs::write(root.join(dest), b"my custom rules\n").unwrap(); // stamp는 정본 해시 그대로
 
     let report = run_update(&root, &plain()).unwrap();
@@ -94,7 +94,7 @@ fn managed_user_edit_is_preserved_with_elf_new() {
 fn managed_user_edit_force_overwrites() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
-    let dest = "0_Meta/EliRule.md";
+    let dest = ".elf/managed/EliRule.md";
     fs::write(root.join(dest), b"my custom rules\n").unwrap();
 
     let report = run_update(&root, &UpdateOptions { dry_run: false, force: true }).unwrap();
@@ -110,7 +110,7 @@ fn managed_user_edit_force_overwrites() {
 fn managed_missing_is_restored() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
-    let dest = "0_Meta/highIFjournals.md";
+    let dest = ".elf/managed/highIFjournals.md";
     fs::remove_file(root.join(dest)).unwrap();
 
     run_update(&root, &plain()).unwrap();
@@ -214,7 +214,7 @@ fn hybrid_missing_markers_kept_unless_force() {
 fn dry_run_writes_nothing() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
-    let dest = "0_Meta/EliRule.md";
+    let dest = ".elf/managed/EliRule.md";
     fs::write(root.join(dest), b"edited\n").unwrap();
     fs::write(root.join(".elf/version"), "v0.0\n").unwrap();
 
@@ -229,7 +229,7 @@ fn update_always_restamps_manifest_and_version() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
     fs::write(root.join(".elf/version"), "v0.0\n").unwrap();
-    tamper_stamp_sha(&root, "0_Meta/EliRule.md", "deadbeef");
+    tamper_stamp_sha(&root, ".elf/managed/EliRule.md", "deadbeef");
 
     run_update(&root, &plain()).unwrap();
     assert_eq!(

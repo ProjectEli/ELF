@@ -28,7 +28,6 @@ fn full_init_creates_expected_tree() {
         "1_Concept/13_Ideas",
         "2_Log/Wiki",
         "2_Log/Archive",
-        "templates",
         "3_HW/31_Component/Design",
         "4_Fab/41_Recipes",
         "5_SW/53_Libs",
@@ -93,14 +92,14 @@ fn en_init_deploys_companions_and_variants() {
     let target = run_init(tmp.path(), &o).unwrap();
 
     // KO operative 정본은 그대로 배포
-    assert!(target.join("0_Meta/EliRule.md").is_file());
+    assert!(target.join(".elf/managed/EliRule.md").is_file());
 
     // EN companion 동반 배포 + embed 정본과 byte-identical (managed, 비치환)
-    let comp = std::fs::read(target.join("0_Meta/EliRule.en.md")).unwrap();
+    let comp = std::fs::read(target.join(".elf/managed/EliRule.en.md")).unwrap();
     let expected = embed::TEMPLATES.get_file("meta/EliRule.en.md").unwrap().contents();
     assert_eq!(comp, expected, "EN companion must be byte-identical to embed");
     for c in ["LogConvention", "AI_PARA_Framework", "LLMcliche", "highIFjournals"] {
-        assert!(target.join(format!("0_Meta/{c}.en.md")).is_file(), "missing companion: {c}");
+        assert!(target.join(format!(".elf/managed/{c}.en.md")).is_file(), "missing companion: {c}");
     }
 
     // seed variant: README.md = EN 내용(base 대체) + placeholder 치환
@@ -136,6 +135,7 @@ fn elf_control_plane_written() {
     assert_eq!(config["name"], "P4");
     assert_eq!(config["lang"], "ko-KR");
     assert_eq!(config["created"], "2026-06-12");
+    assert_eq!(config["layout"], "managed", "신규 init = managed 레이아웃");
 
     let version = std::fs::read_to_string(target.join(".elf/version")).unwrap();
     assert_eq!(version, format!("{}\n", embed::version()));
@@ -188,7 +188,7 @@ fn qa_preset_creates_question_archive_and_skips_research() {
 
     // qa 유형 콘텐츠 — 규칙은 루트 CLAUDE.md(LLM 자동 로드)
     assert!(target.join("CLAUDE.md").is_file());
-    assert!(target.join("templates/bundle_template.md").is_file());
+    assert!(target.join(".elf/managed/templates/bundle_template.md").is_file());
     assert!(!target.join("0_Meta").exists(), "qa는 0_Meta 미사용");
     // 기본 = 카테고리 0개 (수요 기반 생성 — CLAUDE.md 규약)
     assert!(!target.join("일상질문").exists(), "기본 qa는 사전 카테고리 없음");
@@ -198,8 +198,8 @@ fn qa_preset_creates_question_archive_and_skips_research() {
 
     // 연구 유형 격리 — 세션·연구 managed 파일 미생성
     assert!(!target.join("2_Log/S001_log.md").exists());
-    assert!(!target.join("0_Meta/EliRule.md").exists());
-    assert!(!target.join("0_Meta/LogConvention.md").exists());
+    assert!(!target.join(".elf/managed/EliRule.md").exists());
+    assert!(!target.join(".elf/managed/LogConvention.md").exists());
     assert!(!target.join("2_Log/Wiki/Session_Registry.tsv").exists());
     assert!(!target.join("3_HW").exists());
     // P2: qa는 빈 .gitattributes·LICENSE cruft 없음, 불필요한 templates/.gitkeep 없음
@@ -240,15 +240,15 @@ fn general_preset_scaffolds_neutral_project() {
     let target = run_init(tmp.path(), &o).unwrap();
 
     // general 전용 EliRule/LogConvention + 공유 AI_PARA·Registry
-    assert!(target.join("0_Meta/EliRule.md").is_file());
-    assert!(target.join("0_Meta/LogConvention.md").is_file());
-    assert!(target.join("0_Meta/AI_PARA_Framework.md").is_file());
+    assert!(target.join(".elf/managed/EliRule.md").is_file());
+    assert!(target.join(".elf/managed/LogConvention.md").is_file());
+    assert!(target.join(".elf/managed/AI_PARA_Framework.md").is_file());
     assert!(target.join("2_Log/Wiki/Session_Registry.tsv").is_file());
     // general EliRule = 학술 제외(외부 문헌 검색·highIFjournals 부재) + general 명시
-    let eli = std::fs::read_to_string(target.join("0_Meta/EliRule.md")).unwrap();
+    let eli = std::fs::read_to_string(target.join(".elf/managed/EliRule.md")).unwrap();
     assert!(eli.contains("general"));
     assert!(!eli.contains("highIFjournals") && !eli.contains("외부 문헌 검색"));
-    assert!(!target.join("0_Meta/highIFjournals.md").exists());
+    assert!(!target.join(".elf/managed/highIFjournals.md").exists());
     // general은 세션 사용 → S001 생성 (qa와 차이)
     assert!(target.join("2_Log/S001_log.md").is_file());
     // 학술 폴더 미생성
@@ -256,7 +256,7 @@ fn general_preset_scaffolds_neutral_project() {
     assert!(!target.join("7_Paper").exists());
     assert!(!target.join("1_Concept/11_Literature").exists());
     // 공유 spine 템플릿
-    assert!(target.join("templates/sessionTemplate.md").is_file());
+    assert!(target.join(".elf/managed/templates/sessionTemplate.md").is_file());
     // general 전용 README (seed 치환)
     let readme = std::fs::read_to_string(target.join("README.md")).unwrap();
     assert!(readme.contains("MyGen") && readme.contains("general") && !readme.contains("PLACEHOLDER_"));

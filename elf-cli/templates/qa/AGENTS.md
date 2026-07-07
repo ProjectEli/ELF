@@ -7,10 +7,10 @@
 ## 1. 디렉토리
 - **카테고리** = 프로젝트 루트 직속 폴더(예: `일상질문/`, `IT일반질문/`, `LLMHowto/`). 맞는 카테고리가 없으면 **사용자 확인 후** 생성.
 - Raw/Registry/Wiki 계층 없음. **수명주기 = 폴더 위치**: 카테고리 루트 = active, `archive/` = 폐기.
-- ELF 관리: `AGENTS.md`(본 문서)·`CLAUDE.md`(포인터)·`templates/bundle_template.md`(정본 포맷)·`.elf/`(제어판). 직접 수정 금지(`elf update`만).
+- ELF 관리: `AGENTS.md`(본 문서)·`CLAUDE.md`(포인터)·`.elf/managed/templates/bundle_template.md`(정본 포맷)·`.elf/`(제어판). 직접 수정 금지(`elf update`만).
 
 ## 2. Bundle 생성 (capture)
-1. `templates/bundle_template.md`로 현재 포맷 확인.
+1. `.elf/managed/templates/bundle_template.md`로 현재 포맷 확인.
 2. 맞는 카테고리 선택(없으면 사용자 확인 후 생성).
 3. 파일명 `YYYYMMDD<L>_<Subject>.md`:
    - `YYYYMMDD` = 생성일(전체 timestamp는 frontmatter `date`에만 — 파일명은 시간 생략).

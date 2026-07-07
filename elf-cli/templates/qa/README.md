@@ -2,12 +2,12 @@
 
 ELF **QA preset (experimental)** 로 생성된 질문 아카이브 프로젝트. (생성: PLACEHOLDER_DATE)
 
-Q&A를 **bundle**(의미 단위)로 capture·분류·archive·recall합니다. 운영 규칙은 루트 `CLAUDE.md`(LLM 자동 로드), 정본 포맷은 `templates/bundle_template.md` 참조.
+Q&A를 **bundle**(의미 단위)로 capture·분류·archive·recall합니다. 운영 규칙은 루트 `CLAUDE.md`(LLM 자동 로드), 정본 포맷은 `.elf/managed/templates/bundle_template.md` 참조.
 
 ## 구조
 - `<카테고리>/` — active bundle(`YYYYMMDD<L>_<Subject>.md`) · `<카테고리>/archive/` — 폐기·대체본
 - `CLAUDE.md` — 운영 규칙(루트·LLM 자동 로드, ELF 관리)
-- `templates/bundle_template.md` — bundle 정본 포맷
+- `.elf/managed/templates/bundle_template.md` — bundle 정본 포맷
 - `.elf/` — ELF 제어판(버전·manifest; `elf update`로 규칙 갱신). 직접 수정 금지.
 
 ## 사용

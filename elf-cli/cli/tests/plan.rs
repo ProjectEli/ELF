@@ -149,10 +149,11 @@ fn embedded_dirs_data_is_consistent() {
     for r in &m.dirs.raw_data {
         assert!(all_dirs.contains(r.as_str()), "raw_data not in any dir list: {r}");
     }
-    // 생성 파일의 dest 부모 폴더가 scaffold에 존재하는지 (templates/ 등)
     let full = elf_cli::plan::plan_dirs(&m, "full").unwrap();
-    assert!(full.iter().any(|d| d.path == "templates"));
+    assert!(full.iter().any(|d| d.path == "0_Meta"));
     assert!(full.iter().any(|d| d.path == "6_Exp/62_Empirical/Raw"));
+    // 루트 templates/는 더 이상 scaffold 대상 아님 — managed 스텁은 .elf/managed/templates/ (S024/B)
+    assert!(!full.iter().any(|d| d.path == "templates"));
 }
 
 /// hybrid 정본은 마커블록 규약(S007 §4.1)을 포함해야 한다

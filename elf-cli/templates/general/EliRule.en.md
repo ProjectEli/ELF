@@ -22,14 +22,21 @@ philosophy and overview, this document is the practical specification.
 ### Core (always included)
 
 #### `.elf/` — ELF control plane
-Where the `elf` CLI records project state (version, settings, list of managed files).
+Where the `elf` CLI records project state (version, settings, list of managed files) and
+places the managed rule payload under `.elf/managed/`.
 **Do not edit directly** — managed by `elf init` / `elf update`.
+- `.elf/managed/EliRule.md`: this document (structure and operating guide)
+- `.elf/managed/LogConvention.md`: logging standard rules
+- `.elf/managed/AI_PARA_Framework.md`: state-based file-management and archiving rules. The most important reference document when the AI explores the project
+- `.elf/managed/templates/`: markdown stubs (below)
 
-#### `0_Meta/` — project governance
+> On the legacy layout (before migration) this rule payload lives in `0_Meta/` and `templates/` — relocate with `elf migrate` (opt-in).
+
+#### `0_Meta/` — project governance (user space)
+A meta area for project-specific rules and customization. `elf update` never touches it.
 - `ProjectRule.md`: project-specific rules and goals (**user-owned** — edit freely to fit the project)
-- `EliRule.md`: this document (structure and operating guide)
-- `LogConvention.md`: logging standard rules
-- `AI_PARA_Framework.md`: state-based file-management and archiving rules. The most important reference document when the AI explores the project
+- `<name>.project.md`: data overlays (§2.4 — entry customization for LLMcliche)
+- anything else the project needs (scripts, config, etc.)
 
 #### `1_Concept/` — planning & ideas
 - **`12_Planning/`**: project goals, roadmaps, plans (`P###_title.md` numbering). `Wiki/`: planning-stage conclusion summaries.
@@ -37,14 +44,15 @@ Where the `elf` CLI records project state (version, settings, list of managed fi
 
 #### `2_Log/` — session logs
 The top-level space for logging all work.
-- `S###_log.md`: session log (format: see `0_Meta/LogConvention.md`)
+- `S###_log.md`: session log (format: see `.elf/managed/LogConvention.md`)
 - `Wiki/`: key-finding summaries + the Session Registry
 - `Archive/`: completed session logs
 
-#### `templates/` — markdown stubs
+#### `.elf/managed/templates/` — markdown stubs
 - `sessionTemplate.md`: copy to `2_Log/S###_log.md` when starting a new session
 - `trialTemplate.md`: paste into the body when adding a trial (t##) to an in-progress session
 - **Planning documents (`P###`) are intentionally template-free** — trials are disciplined by templates for reproducibility, but planning is the researcher's free exploration, so no format is imposed.
+- A root `templates/` folder, if any, is project-owned — ELF neither creates nor manages it.
 
 ### Domain folders (user-added)
 Work folders that fit the project (e.g., `src/`, `docs/`, `assets/`) are **added by the
@@ -75,13 +83,25 @@ Project files fall into three ownership classes, which `elf update` strictly res
 
 | Class | Files | `elf update` behavior |
 |------|------|-------------------|
-| **ELF-managed** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `LLMcliche.md`, `templates/*`, `.claudeignore`, `AGENTS.md` | Replaced with the new version. **If you edited it, it is not overwritten**; the new version is written as `<file>.elf-new` (merging is up to you; `--force` replaces) |
+| **ELF-managed** | `.elf/managed/` `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `LLMcliche.md`, `templates/*` (incl. companions); root `.claudeignore`, `AGENTS.md` | Replaced with the new version. **If you edited it, it is not overwritten**; the new version is written as `<file>.elf-new` (merging is up to you; `--force` replaces) |
 | **User-owned** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, all work data and logs | **Never touched** |
 | **Pointer (create-only)** | `CLAUDE.md` | Created if missing; if present it is **never modified** (regardless of content — existing-file ownership is respected). `elf doctor` checks whether it loads `@AGENTS.md` |
 | **Partially managed** | `.gitignore` | Only the marker block (`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) is replaced; user rules outside the block are preserved |
 
 - For project-rule customization, prefer **writing in `ProjectRule.md`** instead of editing ELF-managed files (no update conflicts).
 - Check status: `elf status` (diagnoses without changes; `--check` is for CI/hook gates).
+
+#### Data overlay — `<name>.project.md` (customizing data files)
+
+Data-type ELF-managed files (marked `overlayable` in the manifest — currently `LLMcliche.md`) are customized through a **project overlay** instead of direct edits. Prose-rule customization stays in `ProjectRule.md`; structural files (LogConvention, templates) are not overlayable.
+
+- **File**: `0_Meta/<name>.project.md` (e.g., `0_Meta/LLMcliche.project.md`) — **user-owned**; `elf update` never touches it (no update conflicts, no `.elf-new`).
+- **Effective rules = base ⊕ overlay**: the AI agent loads the base (ELF-managed) file and the overlay together and applies the merge.
+  - `## 추가 (add)`: add entries — effective list = base ∪ add.
+  - `## 제외 (remove)`: remove base entries **per entry** — **each removal must state a reason**. Disabling whole sections or files is not allowed.
+  - `## 재정의 (override)`: replace a base entry with the project's definition.
+- **Registration discipline**: overlay entries are added or changed only with user approval — the AI does not register them autonomously. Propose entries of general value to ELF core.
+- Check: `elf doctor` detects overlays, verifies removal reasons, and warns on overlays without an overlayable base.
 
 ---
 
@@ -102,5 +122,5 @@ Every AI agent in the project follows these principles when communicating with t
 9. **Sentence-ending form**: in Korean writing, fully avoid "~입니다/습니다" and the 해요 style; even when prose is needed, end with a nominal ending ('-음', '-함', '-임') or a concise '-다'. This ending form does not apply to non-Korean (e.g., English) output; for that, apply the equivalent intent of §§2 and 8 (dry, compact style — concise, active, no filler).
 10. **Structured logging**: clearly separate observation (fact) from analysis (interpretation); compress file lists, conditions, etc. into Markdown tables rather than prose to maximize information density.
 11. **Abbreviations**: define an abbreviation in full on first use (`AR (asymmetry ratio)`). In trials/documents where an abbreviation recurs, list an abbreviation legend as a ul list under `### Conditions` (or at the top of the document), with **each abbreviation on its own row** — keeping a trial atom independently readable. If the same abbreviation spans multiple trials, **redefine it in each trial** (atom independence > DRY; a single session-wide definition is not enough). Exception: domain-standard units/symbols (µA, Hz, ms, SI) need no gloss.
-12. **LLM cliché ban**: when writing English documents/communication, drop LLM-characteristic cliché vocabulary/register (signature verbs, vague adjectives, cliché nouns, overused connectors, formulaic constructions) and replace with **concrete, active, direct** statements. Apply as a *principle*, not a fixed list — drop vague filler and overused register, but allow terms with a **precise technical meaning** (e.g., statistical significance, robustness). For connectors, drop only overuse and sentence-initial runs (a justified single use is fine); quotations, titles, and source wording are exempt; Korean dry logs are unaffected (the rule applies when English is mixed in). Declare project-specific technical homonym exceptions in `ProjectRule.md`. Exclusions, exceptions, and before/after examples (non-exhaustive reference): `0_Meta/LLMcliche.md`.
+12. **LLM cliché ban**: when writing English documents/communication, drop LLM-characteristic cliché vocabulary/register (signature verbs, vague adjectives, cliché nouns, overused connectors, formulaic constructions) and replace with **concrete, active, direct** statements. Apply as a *principle*, not a fixed list — drop vague filler and overused register, but allow terms with a **precise technical meaning** (e.g., statistical significance, robustness). For connectors, drop only overuse and sentence-initial runs (a justified single use is fine); quotations, titles, and source wording are exempt; Korean dry logs are unaffected (the rule applies when English is mixed in). Declare project-specific technical homonym exceptions in `ProjectRule.md`, and add/remove/override vocabulary entries via the data overlay `0_Meta/LLMcliche.project.md` (base ⊕ overlay). Exclusions, exceptions, and before/after examples (non-exhaustive reference): `.elf/managed/LLMcliche.md`.
 13. **Source Reliability**: do not cite namu.wiki (나무위키) or other anonymous/collectively-edited wikis, or unattributed blogs/community posts, as the source of an answer or document. Even if they surface in search, do not trust them as-is — cross-check against **reliable sources** (authoritative institutions, academic societies, governments, scholarly/primary sources, official docs, primary reporting) and cite *that* source. Set `blocked_domains: ["namu.wiki"]` by default in WebSearch. Wikipedia is only a starting point — trace to the primary source. **For any web-grounded answer or document, list the verified reliable sources under `## 출처` (or `## Sources`).**

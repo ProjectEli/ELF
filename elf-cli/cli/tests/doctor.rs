@@ -109,6 +109,63 @@ fn absent_receipt_is_info_not_warn() {
     assert_eq!(check(&r, "install receipt").health, Health::Info); // 부재는 경고 아님
 }
 
+// ── overlay (EliRule §2.7) ───────────────────────────
+
+#[test]
+fn overlay_with_reasoned_removals_is_ok() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    fs::write(
+        root.join("0_Meta/LLMcliche.project.md"),
+        "# LLMcliche — project overlay\n## 추가 (add)\n- foo\n## 제외 (remove)\n- novel — 사유: 소설 연구 도메인 용어\n",
+    )
+    .unwrap();
+    let r = run_doctor(&root, &env(true));
+    let c = check(&r, "overlay");
+    assert_eq!(c.health, Health::Ok, "{:?}", r.checks);
+    assert!(c.detail.contains("LLMcliche.project.md") && c.detail.contains("active"));
+    assert_eq!(r.warnings(), 0, "{:?}", r.checks);
+}
+
+#[test]
+fn overlay_removal_without_reason_warns() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    fs::write(
+        root.join("0_Meta/highIFjournals.project.md"),
+        "## 제외 (remove)\n- sciencedirect.com\n",
+    )
+    .unwrap();
+    let r = run_doctor(&root, &env(true));
+    let c = check(&r, "overlay");
+    assert_eq!(c.health, Health::Warn, "{:?}", r.checks);
+    assert!(c.detail.contains("without a reason"));
+}
+
+#[test]
+fn overlay_for_non_overlayable_base_warns() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    // LogConvention = 구조·규약 파일 — overlay 비허용 (positive list 밖)
+    fs::write(root.join("0_Meta/LogConvention.project.md"), "## 추가 (add)\n- x\n").unwrap();
+    let r = run_doctor(&root, &env(true));
+    let c = check(&r, "overlay");
+    assert_eq!(c.health, Health::Warn, "{:?}", r.checks);
+    assert!(c.detail.contains("no overlayable base"));
+}
+
+#[test]
+fn absent_overlay_reports_nothing() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    let r = run_doctor(&root, &env(true));
+    assert!(
+        !r.checks.iter().any(|c| c.label == "overlay"),
+        "overlay는 선택 — 부재 시 무보고: {:?}",
+        r.checks
+    );
+}
+
 // ── e2e ──────────────────────────────────────────────
 
 #[test]

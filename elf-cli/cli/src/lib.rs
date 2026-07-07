@@ -7,6 +7,7 @@ pub mod gallery;
 pub mod hash;
 pub mod init;
 pub mod manifest;
+pub mod migrate;
 pub mod plan;
 pub mod selfupdate;
 pub mod session;

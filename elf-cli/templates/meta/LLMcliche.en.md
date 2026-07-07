@@ -92,9 +92,10 @@ denotation**. Examples:
 ---
 
 ## References
-- Norm (principle): `0_Meta/EliRule.md` §3 rule 12 (LLM Cliché Ban) — this document is its applied examples.
+- Norm (principle): `.elf/managed/EliRule.md` §3 rule 12 (LLM Cliché Ban) — this document is its applied examples.
 - Metaphor exclusion: `EliRule.md` §3 rule 3.
 - Per-project technical homonym exceptions: `ProjectRule.md`.
+- Per-project vocabulary add/remove/override (overlay): `0_Meta/LLMcliche.project.md` — base ⊕ overlay; removals need a reason (EliRule §2.7).
 
 ## Sources
 - Kobak et al., "Delving into LLM-assisted writing in biomedical publications through excess vocabulary," arXiv:2406.07016 (Science Advances, 2025) — 14M PubMed abstracts; excess words delve, underscore, meticulous, boast, etc.

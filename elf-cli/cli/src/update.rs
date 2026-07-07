@@ -93,6 +93,21 @@ pub(crate) fn read_config_lang(root: &Path) -> String {
         .unwrap_or_default()
 }
 
+/// `.elf/config.json`의 `layout`. 부재·파싱 실패 = Legacy(구 프로젝트 — 강제 이전 없음).
+/// "managed"만 신 레이아웃으로 해석. (S024/B)
+pub fn read_config_layout(root: &Path) -> manifest::Layout {
+    let is_managed = fs::read_to_string(root.join(".elf").join("config.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get("layout").and_then(|l| l.as_str()).map(|s| s == "managed"))
+        .unwrap_or(false);
+    if is_managed {
+        manifest::Layout::Managed
+    } else {
+        manifest::Layout::Legacy
+    }
+}
+
 pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, UpdateError> {
     let stamp_path = root.join(".elf").join("manifest.json");
     if !stamp_path.is_file() {
@@ -101,11 +116,15 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
     let stamp_text = fs::read_to_string(&stamp_path)?;
     // 프로젝트 언어로 stamp·new 둘 다 해석 — companion/variant가 lang에 맞게 일관 필터됨 (P016 §9).
     // stamp는 init이 전체 JSON으로 찍으므로, 같은 lang으로 필터해야 obsolete 오탐 방지.
+    // 레이아웃(S024/B)도 동일하게 양쪽 정규화 — 구 stamp(legacy dest)·신 manifest(managed dest)를
+    // 프로젝트의 실제 배치 좌표로 통일(legacy 프로젝트는 0_Meta/에 계속 배포, migrate 전 강제 이전 없음).
     let lang = read_config_lang(root);
+    let layout = read_config_layout(root);
     let stamp = manifest::parse(&stamp_text)
         .map_err(UpdateError::BadStamp)?
-        .for_lang(&lang);
-    let new_m = manifest::embedded().for_lang(&lang);
+        .for_lang(&lang)
+        .for_layout(layout);
+    let new_m = manifest::embedded().for_lang(&lang).for_layout(layout);
 
     let mut report = UpdateReport::default();
     warn_if_git_dirty(root, &mut report);

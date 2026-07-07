@@ -3,6 +3,7 @@
 문헌 검색 시 도메인 화이트리스트 reference. `EliRule.md §4` (External Source Retrieval) 에서 참조.
 용도: 웹 검색 도구의 `allowed_domains` 에 아래 도메인 지정 → high-tier 저널 우선 surfacing.
 프로젝트별 우선 target subset(제출 순서 등)은 각 프로젝트 `ProjectRule.md` 정의.
+프로젝트별 도메인 추가·제외·재정의는 project overlay `0_Meta/highIFjournals.project.md`(base ⊕ overlay, 제외는 사유 필수 — EliRule §2.7).
 
 ## 1. 도메인 화이트리스트 (`allowed_domains` 용)
 

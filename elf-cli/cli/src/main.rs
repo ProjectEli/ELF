@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand};
-use elf_cli::{doctor, embed, gallery, init, selfupdate, session, status, trial, update, validate};
+use elf_cli::{
+    doctor, embed, gallery, init, migrate, selfupdate, session, status, trial, update, validate,
+};
 
 /// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드·갱신 CLI (research project scaffold & update CLI)
 #[derive(Parser)]
@@ -81,6 +83,12 @@ enum Commands {
         /// figure-embed 누락을 issue로 승격 · promote missing figure-embeds to issues
         #[arg(long)]
         strict: bool,
+    },
+    /// legacy 레이아웃의 관리 파일을 .elf/managed/로 이전 · Relocate the managed payload to .elf/managed/ (opt-in)
+    Migrate {
+        /// 변경 없이 이동 계획만 출력 · preview only, move nothing
+        #[arg(long = "dry-run")]
+        dry_run: bool,
     },
     /// 6_Exp/64_Viz/ → 세션별 Figure 색인 `_gallery.md` 생성 · Generate the figure gallery index
     Gallery,
@@ -279,6 +287,41 @@ fn main() {
                     if check && report.findings() > 0 {
                         std::process::exit(4);
                     }
+                }
+                Err(e) => {
+                    eprintln!("[elf] error: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Migrate { dry_run } => {
+            let cwd = std::env::current_dir().expect("cwd");
+            let Some(root) = update::find_project_root(&cwd) else {
+                eprintln!("[elf] error: not an ELF project (no .elf/manifest.json upward from {})", cwd.display());
+                std::process::exit(1);
+            };
+            match migrate::run_migrate(&root, &migrate::MigrateOptions { dry_run }) {
+                Ok(report) => {
+                    for line in &report.lines {
+                        println!("[elf] {line}");
+                    }
+                    println!(
+                        "[elf] migrate: {} moved, {} skipped, {} old-path reference(s){}",
+                        report.moved,
+                        report.skipped,
+                        report.refs.len(),
+                        if dry_run { " (dry-run — nothing moved)" } else { "" }
+                    );
+                    if !dry_run {
+                        println!("[elf] next: review `git status`, then commit the relocation");
+                    }
+                }
+                Err(migrate::MigrateError::AlreadyManaged) => {
+                    println!("[elf] already on the managed layout (.elf/managed/) — nothing to do");
+                }
+                Err(e @ (migrate::MigrateError::DirtyTree | migrate::MigrateError::TargetExists(_))) => {
+                    eprintln!("[elf] refuse: {e}");
+                    std::process::exit(3);
                 }
                 Err(e) => {
                     eprintln!("[elf] error: {e}");

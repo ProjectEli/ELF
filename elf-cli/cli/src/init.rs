@@ -260,6 +260,9 @@ pub fn run_init_ex(
             "name": opts.name,
             "lang": opts.lang,
             "created": opts.date,
+            // 신규 프로젝트 = managed 레이아웃(.elf/managed/ payload). 구 프로젝트(필드 부재)는
+            // legacy로 해석되며 `elf migrate`(opt-in)로만 이전 (S024/B).
+            "layout": "managed",
         });
         let mut config_text = serde_json::to_string_pretty(&config).expect("config serializes");
         config_text.push('\n');

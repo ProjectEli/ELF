@@ -76,9 +76,10 @@
 ---
 
 ## 참조
-- 규범(원칙): `0_Meta/EliRule.md` §3 rule 12 (LLM Cliché Ban) — 본 문서는 그 적용 예시.
+- 규범(원칙): `.elf/managed/EliRule.md` §3 rule 12 (LLM Cliché Ban) — 본 문서는 그 적용 예시.
 - 은유 배제: `EliRule.md` §3 rule 3.
 - 프로젝트별 기술 동음어 예외: `ProjectRule.md`.
+- 프로젝트 어휘 추가·제외·재정의(overlay): `0_Meta/LLMcliche.project.md` — base ⊕ overlay, 제외는 사유 필수 (EliRule §2.7).
 
 ## 근거 (Sources)
 - Kobak et al., "Delving into LLM-assisted writing in biomedical publications through excess vocabulary," arXiv:2406.07016 (Science Advances, 2025) — PubMed 1,400만 초록, excess word delve·underscore·meticulous·boast 등.

@@ -10,6 +10,8 @@ A domain-whitelist reference for literature search. Referenced from `EliRule.md 
 (External Source Retrieval). Use: set the domains below as the web-search tool's
 `allowed_domains` → surface high-tier journals first. Define the per-project priority
 target subset (submission order, etc.) in each project's `ProjectRule.md`.
+Per-project domain add/remove/override goes in the project overlay
+`0_Meta/highIFjournals.project.md` (base ⊕ overlay; removals need a reason — EliRule §2.7).
 
 ## 1. Domain Whitelist (for `allowed_domains`)
 

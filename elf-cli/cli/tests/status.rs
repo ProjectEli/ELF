@@ -51,36 +51,36 @@ fn clean_project_has_no_findings_and_is_readonly() {
 fn outdated_managed_is_pending() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
-    let dest = "0_Meta/EliRule.md";
+    let dest = ".elf/managed/EliRule.md";
     fs::write(root.join(dest), b"old deployed content\n").unwrap();
     tamper_stamp_sha(&root, dest, &hash::sha256_lf(b"old deployed content\n"));
 
     let r = run_status(&root).unwrap();
     assert_eq!(r.pending, 1);
     assert_eq!(r.conflicts, 0);
-    assert!(r.lines.iter().any(|l| l.starts_with("outdated: 0_Meta/EliRule.md")));
+    assert!(r.lines.iter().any(|l| l.starts_with("outdated: .elf/managed/EliRule.md")));
 }
 
 #[test]
 fn edited_managed_is_conflict() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
-    fs::write(root.join("0_Meta/EliRule.md"), b"user custom\n").unwrap();
+    fs::write(root.join(".elf/managed/EliRule.md"), b"user custom\n").unwrap();
 
     let r = run_status(&root).unwrap();
     assert_eq!(r.conflicts, 1);
-    assert!(r.lines.iter().any(|l| l.starts_with("edited: 0_Meta/EliRule.md")));
+    assert!(r.lines.iter().any(|l| l.starts_with("edited: .elf/managed/EliRule.md")));
 }
 
 #[test]
 fn missing_managed_is_pending() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
-    fs::remove_file(root.join("0_Meta/highIFjournals.md")).unwrap();
+    fs::remove_file(root.join(".elf/managed/highIFjournals.md")).unwrap();
 
     let r = run_status(&root).unwrap();
     assert!(r.pending >= 1);
-    assert!(r.lines.iter().any(|l| l.starts_with("missing: 0_Meta/highIFjournals.md")));
+    assert!(r.lines.iter().any(|l| l.starts_with("missing: .elf/managed/highIFjournals.md")));
 }
 
 #[test]
@@ -143,7 +143,7 @@ fn check_flag_gates_with_exit_4() {
         .success();
 
     // 편집 발생 → exit 4
-    fs::write(root.join("0_Meta/EliRule.md"), b"edited\n").unwrap();
+    fs::write(root.join(".elf/managed/EliRule.md"), b"edited\n").unwrap();
     Command::cargo_bin("elf").unwrap()
         .current_dir(&root)
         .args(["status", "--check"])
@@ -157,7 +157,7 @@ fn check_flag_gates_with_exit_4() {
         .args(["status"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("edited: 0_Meta/EliRule.md"));
+        .stdout(predicates::str::contains("edited: .elf/managed/EliRule.md"));
 }
 
 #[test]

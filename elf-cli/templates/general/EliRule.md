@@ -11,13 +11,19 @@
 ### Core (항상 포함)
 
 #### `.elf/` — ELF 제어 영역
-`elf` CLI가 프로젝트 상태(버전·설정·관리 파일 목록)를 기록합니다. **직접 수정 금지** — `elf init`/`elf update`가 관리합니다.
+`elf` CLI가 프로젝트 상태(버전·설정·관리 파일 목록)를 기록하고, ELF 관리 규칙 정본 payload를 `.elf/managed/`에 배치합니다. **직접 수정 금지** — `elf init`/`elf update`가 관리합니다.
+- `.elf/managed/EliRule.md`: 이 문서 (구조·운영 가이드)
+- `.elf/managed/LogConvention.md`: 로깅 표준 규칙
+- `.elf/managed/AI_PARA_Framework.md`: 상태 기반 파일 관리·아카이빙 규칙. AI가 프로젝트를 탐색할 때 가장 중요한 기준 문서
+- `.elf/managed/templates/`: 마크다운 스텁 (아래)
 
-#### `0_Meta/` — 프로젝트 거버넌스
+> legacy 레이아웃(마이그레이션 전)은 위 규칙 payload가 `0_Meta/`·`templates/`에 위치합니다 — `elf migrate`로 이전(opt-in).
+
+#### `0_Meta/` — 프로젝트 거버넌스 (사용자 영역)
+프로젝트 전용 규칙과 커스터마이즈를 두는 메타 구역입니다. `elf update`가 접근하지 않습니다.
 - `ProjectRule.md`: 프로젝트 전용 규칙·목표 (**사용자 소유** — 프로젝트에 맞게 자유 수정)
-- `EliRule.md`: 이 문서 (구조·운영 가이드)
-- `LogConvention.md`: 로깅 표준 규칙
-- `AI_PARA_Framework.md`: 상태 기반 파일 관리·아카이빙 규칙. AI가 프로젝트를 탐색할 때 가장 중요한 기준 문서
+- `<이름>.project.md`: data overlay (§2.4 — LLMcliche 항목 커스터마이즈)
+- 그 외 프로젝트 재량(스크립트·설정 등)
 
 #### `1_Concept/` — 기획 & 아이디어
 - **`12_Planning/`**: 프로젝트 목표·로드맵·계획 (`P###_제목.md` 넘버링). `Wiki/`: 기획 단계 결론 요약.
@@ -25,14 +31,15 @@
 
 #### `2_Log/` — 세션 로그
 모든 작업을 기록하는 세션 로그의 최상위 공간입니다.
-- `S###_log.md`: 세션 로그 (포맷: `0_Meta/LogConvention.md` 참조)
+- `S###_log.md`: 세션 로그 (포맷: `.elf/managed/LogConvention.md` 참조)
 - `Wiki/`: 핵심 발견 요약 + Session Registry
 - `Archive/`: 완료된 세션 로그 보관
 
-#### `templates/` — 마크다운 스텁
+#### `.elf/managed/templates/` — 마크다운 스텁
 - `sessionTemplate.md`: 새 세션 시작 시 `2_Log/S###_log.md`로 복사
 - `trialTemplate.md`: 진행 중 세션에 trial(t##) 추가 시 본문에 붙여넣기
 - **Planning 문서(`P###`)는 의도적 무템플릿** — trial은 재현성 위해 템플릿으로 규율하나, planning은 연구자 자유 탐색이라 형식을 강제하지 않음.
+- 루트 `templates/`는 ELF가 생성·관리하지 않는 프로젝트 재량 폴더입니다.
 
 ### 도메인 폴더 (사용자 추가)
 프로젝트 성격에 맞는 작업 폴더(예: `src/`·`docs/`·`assets/`)는 **사용자가 직접 추가**합니다. ELF는 spine(`.elf` 제어판·세션 로그·규약)을 제공하고, 도메인 산출물 구조는 프로젝트가 정의합니다.
@@ -61,13 +68,25 @@
 
 | 구분 | 파일 | `elf update` 동작 |
 |------|------|-------------------|
-| **ELF 관리** | `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `LLMcliche.md`, `templates/*`, `.claudeignore`, `AGENTS.md` | 새 버전으로 교체. **직접 수정한 경우 덮어쓰지 않고** `<파일>.elf-new`로 생성(병합은 사용자 몫, `--force`로 강제 교체) |
+| **ELF 관리** | `.elf/managed/`의 `EliRule.md`·`LogConvention.md`·`AI_PARA_Framework.md`·`LLMcliche.md`·`templates/*`(companion 포함), 루트 `.claudeignore`·`AGENTS.md` | 새 버전으로 교체. **직접 수정한 경우 덮어쓰지 않고** `<파일>.elf-new`로 생성(병합은 사용자 몫, `--force`로 강제 교체) |
 | **사용자 소유** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, 모든 작업 데이터·로그 | **절대 미접근** |
 | **포인터(생성만)** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(내용 무관 — 기존 파일 소유권 존중). `@AGENTS.md` 로드 여부는 `elf doctor`가 점검 |
 | **부분 관리** | `.gitignore` | 마커블록(`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) 안쪽만 교체, 블록 밖 사용자 규칙 보존 |
 
 - 프로젝트 규칙 커스터마이즈는 ELF 관리 파일을 고치는 대신 **`ProjectRule.md`에 작성**하는 것을 권장합니다(갱신 충돌 없음).
 - 상태 확인: `elf status` (변경 없이 진단만, `--check`는 CI/훅 게이트용).
+
+#### Data overlay — `<이름>.project.md` (data 파일 커스터마이즈)
+
+data 성격의 ELF 관리 파일(manifest에 `overlayable`로 명시 — 현행: `LLMcliche.md`)은 직접 수정 대신 **project overlay**로 커스터마이즈합니다. prose 규칙 커스터마이즈는 종전대로 `ProjectRule.md`이며, 구조·규약 파일(LogConvention·템플릿 등)은 overlay 대상이 아닙니다.
+
+- **파일**: `0_Meta/<이름>.project.md`(예: `0_Meta/LLMcliche.project.md`) — **사용자 소유**, `elf update` 미접근(갱신 충돌·`.elf-new` 없음).
+- **유효 규칙 = base ⊕ overlay**: AI 에이전트는 base(ELF 관리 정본)와 overlay를 병행 로드하여 병합 적용합니다.
+  - `## 추가 (add)`: 항목 추가 — 유효 목록 = base ∪ add.
+  - `## 제외 (remove)`: base 항목의 **항목 단위** 제외 — 각 항목에 **사유 필수 기재**. 절·파일 단위 무력화 금지.
+  - `## 재정의 (override)`: base 항목을 프로젝트 정의로 교체.
+- **등록 규율**: overlay 항목의 등록·수정은 사용자 승인 경유 — AI가 자율 등록하지 않습니다. 일반화 가치가 있는 항목은 ELF 코어 반영을 제안합니다.
+- 점검: `elf doctor`가 overlay 인지·제외 사유 유무·비허용 대상 overlay를 진단합니다.
 
 ---
 
@@ -88,5 +107,5 @@
 9. **문장 종결 방식 (Formatting)**: 한글 기록 시 '~입니다/습니다'나 해요체 등은 일절 배제하며, 서술이 필요한 경우에도 반드시 명사형 종결어미('-음', '-함', '-임')나 간결한 '-다'로 끝을 맺습니다. 비한글(예: 영어) 출력에는 본 종결 형식이 적용되지 않으며, 2·8항의 드라이·압축 원칙(간결·능동·filler 없는 문체)을 등가 의도로 적용합니다.
 10. **구조화된 로깅 (Structured Logging)**: 관찰(사실)과 분석(해석)을 명확히 분리하여 서술하며, 생성된 파일 목록이나 조건 등은 나열식 서술 대신 반드시 마크다운 표(Table) 형식으로 압축하여 정보 밀도를 극대화합니다.
 11. **약어 표기 (Abbreviations)**: 약어는 **첫 사용 시 full name 병기**(`AR (asymmetry ratio)`). 약어가 반복되는 trial·문서는 `### 조건`(또는 문서 상단)에 **약어 legend를 ul list**로 명시하되 **각 약어를 별도 row**로 — trial atom 단독 열람성 확보. 동일 약어가 여러 trial에 걸치면 **각 trial에서 재정의**(atom 독립성 > DRY; 세션 1회 정의로 갈음 금지). 예외: 도메인 표준 단위·기호(µA·Hz·ms·SI)는 병기 불요.
-12. **LLM 상투 표현 배제 (LLM Cliché Ban)**: 영어 문서·communication 작성 시 LLM 특유의 상투 어휘·register(특징적 동사·막연 형용사·상투 명사·과용 연결어·정형 구문)를 배제하고 **구체·능동·직접 서술**로 대체합니다. 고정 목록이 아닌 *원칙* 적용 — 막연한 filler·과용 register는 배제하되 **정확한 기술적 의미**의 용어는 허용합니다(예: 통계 significance, robustness). 연결어는 과용·문두 연속만 배제(정당한 단일 사용 허용), 인용·제목·원문 표현은 면제하며, 한국어 dry 로그는 무관합니다(영어 혼용 시 적용). 프로젝트별 기술 동음어 예외는 `ProjectRule.md`에 선언합니다. 배제·예외·전후 예시(비망라 참고): `0_Meta/LLMcliche.md`.
+12. **LLM 상투 표현 배제 (LLM Cliché Ban)**: 영어 문서·communication 작성 시 LLM 특유의 상투 어휘·register(특징적 동사·막연 형용사·상투 명사·과용 연결어·정형 구문)를 배제하고 **구체·능동·직접 서술**로 대체합니다. 고정 목록이 아닌 *원칙* 적용 — 막연한 filler·과용 register는 배제하되 **정확한 기술적 의미**의 용어는 허용합니다(예: 통계 significance, robustness). 연결어는 과용·문두 연속만 배제(정당한 단일 사용 허용), 인용·제목·원문 표현은 면제하며, 한국어 dry 로그는 무관합니다(영어 혼용 시 적용). 프로젝트별 기술 동음어 예외는 `ProjectRule.md`에, 어휘 항목의 추가·제외·재정의는 data overlay `0_Meta/LLMcliche.project.md`(base ⊕ overlay)에 선언합니다. 배제·예외·전후 예시(비망라 참고): `.elf/managed/LLMcliche.md`.
 13. **출처 신뢰성 (Source Reliability)**: 나무위키(namu.wiki) 등 익명·집단 편집 위키 및 출처 불명 블로그·커뮤니티를 답변·문서의 출처로 인용 금지. 검색 결과에 떠도 그대로 신뢰하지 말고 **신뢰 출처**(공신력 기관·학회·정부, 학술/1차 자료, 공식 문서, 1차 보도)로 교차검증 후 *그 신뢰 출처*를 인용. WebSearch 시 `blocked_domains: ["namu.wiki"]` 기본 배제. 위키백과도 출발점일 뿐 1차 출처로 추적·확인. **웹을 근거로 한 답변·문서에는 검증한 신뢰 출처를 `## 출처`(또는 `## Sources`)로 명시.**

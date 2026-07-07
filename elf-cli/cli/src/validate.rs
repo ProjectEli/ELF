@@ -406,7 +406,7 @@ pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, Va
     }
     if structure_hit {
         report.lines.push(
-            "hint: add trials with `elf trial new` (appends the canonical stub) — spec: 0_Meta/LogConvention.md §2".into(),
+            "hint: add trials with `elf trial new` (appends the canonical stub) — spec: LogConvention.md §2".into(),
         );
     }
 

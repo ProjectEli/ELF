@@ -21,7 +21,7 @@ fn in_place_empty_dir_scaffolds_and_marks_elf() {
     let tmp = tempdir().unwrap();
     let r = run_init_ex(tmp.path(), &opts("Proj"), true, false, false).unwrap();
     assert!(tmp.path().join(".elf/manifest.json").is_file());
-    assert!(tmp.path().join("0_Meta/EliRule.md").is_file());
+    assert!(tmp.path().join(".elf/managed/EliRule.md").is_file());
     assert!(tmp.path().join("README.md").is_file());
     assert!(r.elf_new.is_empty() && r.skipped.is_empty()); // 빈 폴더 = 충돌 없음
 }
@@ -82,7 +82,7 @@ fn in_place_dry_run_writes_nothing() {
     let tmp = tempdir().unwrap();
     let r = run_init_ex(tmp.path(), &opts("Proj"), true, true, false).unwrap();
     assert!(!tmp.path().join(".elf").exists());
-    assert!(!tmp.path().join("0_Meta/EliRule.md").exists());
+    assert!(!tmp.path().join(".elf/managed/EliRule.md").exists());
     assert!(!r.created.is_empty()); // plan은 산출(미기록)
 }
 

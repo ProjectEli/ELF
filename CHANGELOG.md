@@ -4,6 +4,36 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.15.0] - 2026-07-07
+
+### Added
+- **Project overlays for data files** — customize `LLMcliche.md` / `highIFjournals.md`
+  without editing the managed base: write a user-owned `0_Meta/<name>.project.md`;
+  effective rules = base ⊕ overlay — `## 추가 (add)` / `## 제외 (remove)` (per entry,
+  each removal states a reason) / `## 재정의 (override)`. `elf update` never touches
+  overlays, so data customization no longer round-trips through `.elf-new` merges.
+  `elf doctor` reports active overlays, removal entries missing a reason, and overlays
+  without an overlayable base. Spec: EliRule §2.7.
+- **Managed payload relocated to `.elf/managed/` + new `elf migrate`** — ownership is
+  now visible in the layout: `.elf/managed/` holds the framework rule payload (rules,
+  EN companions, log-format stubs) and `0_Meta/` is purely yours (`ProjectRule.md`,
+  overlays, anything else — `elf update` never writes there). New projects scaffold
+  this layout by default. **Existing projects keep working on the old paths
+  indefinitely** — relocate only when you choose, with the opt-in `elf migrate`:
+  plans every move first, refuses on conflicts or uncommitted tracked changes, moves
+  pending `.elf-new` siblings along, reports (never rewrites) old-path references in
+  your notes, supports `--dry-run`, and is idempotent.
+
+### Changed
+- The root `templates/` folder is no longer scaffolded or managed — the canonical
+  stubs live in `.elf/managed/templates/`; the root folder is yours for project
+  templates.
+- `AGENTS.md`, `EliRule.md`, `LogConvention.md`, and the session template now point
+  to the `.elf/managed/` paths (with a legacy-layout note), and `CLI.md` documents
+  `elf migrate`.
+
+Run `elf update` (keeps your current layout), then `elf migrate` when ready.
+
 ## [2.14.0] - 2026-07-07
 
 ### Changed
