@@ -1,9 +1,9 @@
 {
   "schema": "elf-manifest/1",
   "generated": "2026-06-23",
-  "note": "ELF general preset(experimental) 배포 명세 — 목표지향 비연구 프로젝트 유형. EliRule/LogConvention은 general 전용(학술 제외), 그 외 중립 파일은 연구 manifest(manifest.json)와 동일 src 공유(literal — DRY). `elf init <name> --preset general`가 이 명세로 배포·.elf stamp. sha256=원본 LF 바이트 해시(hash::sha256_lf). overlayable=data overlay 허용(0_Meta/<이름>.project.md, base ⊕ overlay — EliRule Data overlay 절). dest는 managed 레이아웃 기준(.elf/managed/ payload) — legacy 프로젝트는 읽기 시점 재매핑(`elf migrate`로 이전).",
+  "note": "ELF general preset(experimental) 배포 명세 — 목표지향 비연구 프로젝트 유형. EliRule/LogConvention은 general 전용(학술 제외), 그 외 중립 파일은 연구 manifest(manifest.json)와 동일 src 공유(literal — DRY). `elf init <name> --preset general`가 이 명세로 배포·.elf stamp. sha256=원본 LF 바이트 해시(hash::sha256_lf). overlayable=data overlay 허용(0_Meta/<이름>.project.md, base ⊕ overlay — EliRule Data overlay 절). dest = .elf/managed/ payload 기준.",
   "files": [
-    { "src": "templates/general/EliRule.md",        "dest": ".elf/managed/EliRule.md",               "tier": "managed", "sha256": "0f1af748dec2c1a3337ef57f947804dec17c82b758d9bc2617d78d4389438ea1" },
+    { "src": "templates/general/EliRule.md",        "dest": ".elf/managed/EliRule.md",               "tier": "managed", "sha256": "449014ffc7a06e2a84eda40f683a56d9e56f72f06b7f9a3c816e0e3a8828a4be" },
     { "src": "templates/general/LogConvention.md",   "dest": ".elf/managed/LogConvention.md",         "tier": "managed", "sha256": "5615df71920801f69c4045a99dc2055289ddf2c1023a29de1188d1d105bc4987" },
     { "src": "templates/meta/AI_PARA_Framework.md",  "dest": ".elf/managed/AI_PARA_Framework.md",     "tier": "managed", "sha256": "0d158937485cafb0974a833efd6bee831eb6666ee55d4ce5987134967715675b" },
     { "src": "templates/meta/LLMcliche.md",         "dest": ".elf/managed/LLMcliche.md",             "tier": "managed", "overlayable": true, "sha256": "b7bd9c090b14be46c72a09f1130751b990ee5243186f4f2efd0804536af4c86b" },
@@ -12,18 +12,18 @@
     { "src": "templates/root/.claudeignore",         "dest": ".claudeignore",                   "tier": "managed", "sha256": "106c0a73eb58f9719a1d89d5ea95d9a6e86311902d0642b9871d05959968b37c" },
     { "src": "templates/root/.gitignore",            "dest": ".gitignore",                      "tier": "hybrid",  "sha256": "f50ceb85ce9e8cd975e040ec4aa6d9e0707c4bff2b330ff7edabaa143786d030" },
     { "src": "templates/root/.editorconfig",         "dest": ".editorconfig",                   "tier": "managed", "sha256": "0964430fde7b520069a98037263a86564441b92282f1c152c13caa85a500be57" },
-    { "src": "templates/general/AGENTS.md",          "dest": "AGENTS.md",                       "tier": "managed", "sha256": "352c7cb08be07d2d6bcd10e2ec059a4a502f876133dda03ee5d02a6db54fe843" },
+    { "src": "templates/general/AGENTS.md",          "dest": "AGENTS.md",                       "tier": "managed", "sha256": "816e9c1d73ee6a0e0f7b06617247db8d66ec41f94f95bb48c07c4fbdf8bdc1ff" },
     { "src": "templates/root/CLAUDE.md",             "dest": "CLAUDE.md",                       "tier": "pointer", "sha256": "1b367399983d8c6df5ce89ee30c697d269bb635c0622650c893ca8f58a4b8453" },
-    { "src": "templates/meta/ProjectRule.md",        "dest": "0_Meta/ProjectRule.md",           "tier": "seed",    "sha256": "bd901b374f7a9055299dc788e0adca194c16cfd42b581eecd946052ca14162ec" },
+    { "src": "templates/meta/ProjectRule.md",        "dest": "0_Meta/ProjectRule.md",           "tier": "seed",    "sha256": "8f9b5f84ee253abdd648ff642b17186d726e3067155ad9c726bfa300246dfc9b" },
     { "src": "templates/log/Session_Registry.tsv",   "dest": "2_Log/Wiki/Session_Registry.tsv", "tier": "seed",    "sha256": "b4eed8d302ff9e87860c183a3fd0c98412ea10e07314e2d66d7bbd0b32deab9e" },
-    { "src": "templates/general/README.md",          "dest": "README.md",                       "tier": "seed",    "sha256": "934c3457971494827961a97c51625cd5be12a055726e1425876ae00f854e533b" },
-    { "src": "templates/general/EliRule.en.md",        "dest": ".elf/managed/EliRule.en.md",            "tier": "managed", "sha256": "c143e636c36723dafb624ca7db6787706312bff57732754cf771ee05d93f95f1", "lang": "en", "role": "companion" },
+    { "src": "templates/general/README.md",          "dest": "README.md",                       "tier": "seed",    "sha256": "ce31372c962826cae051e716024e2ebcc62b5a68ac0fb9bb9caab92bf698cf5f" },
+    { "src": "templates/general/EliRule.en.md",        "dest": ".elf/managed/EliRule.en.md",            "tier": "managed", "sha256": "7b17d89965b8409189204b09baa408e93df5d8913e3d74f81db25db3bfff9db8", "lang": "en", "role": "companion" },
     { "src": "templates/general/LogConvention.en.md",  "dest": ".elf/managed/LogConvention.en.md",      "tier": "managed", "sha256": "c2f738360618958c3ec80ff0604ed2b9e9091790cd0557faf667f961f679dd84", "lang": "en", "role": "companion" },
     { "src": "templates/meta/AI_PARA_Framework.en.md", "dest": ".elf/managed/AI_PARA_Framework.en.md",  "tier": "managed", "sha256": "3cd59b28fd6c7e0004ebb975671f72e0b16cbe000d7f24838cded66b5edbb080", "lang": "en", "role": "companion" },
     { "src": "templates/meta/LLMcliche.en.md",         "dest": ".elf/managed/LLMcliche.en.md",          "tier": "managed", "sha256": "e1b1994a374040b999d94e0ae6c573ee35f6ae83d2cd755b6e893d6a05f61892", "lang": "en", "role": "companion" },
-    { "src": "templates/general/AGENTS.en.md",         "dest": "AGENTS.en.md",                    "tier": "managed", "sha256": "28b0681e5a7f87e6e5389c00f20750bbc9dad5c88fa1eabc4a7b837526c9fb06", "lang": "en", "role": "companion" },
-    { "src": "templates/meta/ProjectRule.en.md",       "dest": "0_Meta/ProjectRule.md",           "tier": "seed",    "sha256": "6c30279a21a5d0df9a985b1622405a42fc683772d0af58c202e35cce99b1f40f", "lang": "en", "role": "variant" },
-    { "src": "templates/general/README.en.md",         "dest": "README.md",                       "tier": "seed",    "sha256": "9ac38d19b14516b57449eb1fef439d9219399beea6fd0f1162f99534e0e326de", "lang": "en", "role": "variant" }
+    { "src": "templates/general/AGENTS.en.md",         "dest": "AGENTS.en.md",                    "tier": "managed", "sha256": "e30b40bf73f8b8b783c0ed2191ed6b0d4e676b7ba02847003563ea543d6ef07a", "lang": "en", "role": "companion" },
+    { "src": "templates/meta/ProjectRule.en.md",       "dest": "0_Meta/ProjectRule.md",           "tier": "seed",    "sha256": "bcdac6298a5c1d9b447f6807f4b1f8650179f375ac8f85272f9276f6cc419234", "lang": "en", "role": "variant" },
+    { "src": "templates/general/README.en.md",         "dest": "README.md",                       "tier": "seed",    "sha256": "876310f9754f6cc57e87df2909d50225eccd1a5670b8008b1b15322b1a0e3911", "lang": "en", "role": "variant" }
   ],
   "dirs": {
     "core": [

@@ -9,7 +9,7 @@
 * **단일 진실 공급원 (Single Source of Truth):** 하드웨어 설계, 분석 코드, 원시 데이터를 하나의 프로젝트 내에서 유기적으로 연결함.
 * **Base-Delta 로깅:** 모든 변수를 기록하지 않음. 기준(Baseline)을 선언하고, 변경된 변수(Delta)만 가볍게 기록하여 연구 지연을 방지함.
 * **시스템적 강제성:** 파일명 길이 제한(Windows 260자)을 우회하고, 코드를 통한 재현성을 보장함.
-* **AI 거버넌스:** `0_Meta/LogConvention.md`로 사람과 AI 모두 동일한 로깅 규격을 따르도록 강제하고, `0_Meta/AI_PARA_Framework.md`로 컨텍스트 오염을 방지함.
+* **AI 거버넌스:** `.elf/managed/LogConvention.md`로 사람과 AI 모두 동일한 로깅 규격을 따르도록 강제하고, `.elf/managed/AI_PARA_Framework.md`로 컨텍스트 오염을 방지함.
 
 ## 프로젝트 디렉토리 규격 (Directory Structure)
 
@@ -21,11 +21,11 @@ Project_Root/
 │  ─── Core ───────────────────────────────
 │
 ├── .elf/                            # ELF 제어 영역 (version·config·manifest — 직접 수정 금지)
-├── 0_Meta/                          # 프로젝트 거버넌스 & 규칙
+│   └── managed/                     # 관리 규칙 payload: EliRule·LogConvention·AI_PARA_Framework
+│       └── templates/               #   ·LLMcliche·highIFjournals + 세션/trial 스텁
+├── 0_Meta/                          # 프로젝트 거버넌스 — 사용자 영역 (`elf update` 미접근)
 │   ├── ProjectRule.md               # 프로젝트 전용 규칙 및 목표
-│   ├── EliRule.md                   # 폴더 구조 및 운영 가이드
-│   ├── LogConvention.md             # 로깅 표준 규칙
-│   └── AI_PARA_Framework.md         # AI 컨텍스트 관리 & 아카이빙 규칙
+│   └── <이름>.project.md            # Data overlay (유효 규칙 = base ⊕ overlay)
 │
 ├── 1_Concept/                       # 연구 기획, 문헌, 아이디어
 │   ├── 11_Literature/               # 논문 PDF, 서지 정보, 기반 공식
@@ -36,8 +36,6 @@ Project_Root/
 ├── 2_Log/                           # 세션 로그 (S###_log.md)
 │   ├── Wiki/                      # 핵심 발견 요약 및 세션 레지스트리
 │   └── Archive/                   # 완료된 세션 로그
-│
-├── templates/                       # 세션/트라이얼 마크다운 스텁
 │
 │  ─── Modules (Optional) ────────────────
 │
@@ -80,7 +78,7 @@ Project_Root/
 │   └── 73_Presentations/            # 발표 자료 (PPT, 포스터)
 ```
 
-> 각 폴더의 상세 용도와 운영 규칙은 `0_Meta/EliRule.md`를 참조.
+> 각 폴더의 상세 용도와 운영 규칙은 `.elf/managed/EliRule.md`를 참조.
 
 ## 데이터 로깅 파이프라인 규격
 
@@ -94,7 +92,7 @@ Project_Root/
 * **러닝 로그 (`2_Log/S###_log.md`):**
   * 즉각적인 가설-테스트-교훈을 텍스트로 기록하는 서사형 마크다운 파일임.
   * 트라이얼(`t1`, `t2`...) 단위로 **의도적으로 변경한 변수(Delta)**와 관찰된 결과만 의식의 흐름대로 작성함.
-  * 포맷 및 상세 규칙: `0_Meta/LogConvention.md` 참조.
+  * 포맷 및 상세 규칙: `.elf/managed/LogConvention.md` 참조.
 
 ### 3. Planning 문서 규칙
 
@@ -125,12 +123,13 @@ Project_Root/
 AI 에이전트(Claude 등)가 프로젝트에 참여할 때 다음 규칙을 따름:
 
 1. **컨텍스트 파악**: 작업 시작 전 `2_Log/`의 활성 세션 로그와 `2_Log/Wiki/Session_Registry.tsv`를 읽어 이전 작업 상태 확인.
-2. **동일 규격 준수**: `0_Meta/LogConvention.md`의 로깅 규칙을 사람과 동일하게 따름.
+2. **동일 규격 준수**: `.elf/managed/LogConvention.md`의 로깅 규칙을 사람과 동일하게 따름.
 3. **핸드오프 기록**: 작업 완료 시 세션 로그(`2_Log/S###_log.md`)에 수행 내역, 생성/수정 파일, Next Steps 기록 — 로그 헤더의 `Handoff` 필드 사용.
 4. **아이디어 분리**: AI가 생성한 가설/아이디어는 로그가 아닌 `1_Concept/`에 별도 저장 (작은 아이디어 → `13_Ideas/`, 계획 → `12_Planning/`).
-5. **PARA 기반 컨텍스트 관리**: `Archive/` 폴더와 `.claudeignore`를 활용하여 AI의 컨텍스트 오염을 방지. 상세 규칙은 `0_Meta/AI_PARA_Framework.md` 참조.
-6. **Communication Rules**: 객관적이고 드라이한 문체 유지. 비유/은유 금지. 결론 중심의 명확한 전달. 과장 및 감정적 수식어 금지. 상세 규칙은 `0_Meta/EliRule.md` 섹션 3 참조.
-7. **Data Reusability**: 모든 Plot/Graph 생성 시 원본 Data Array를 `.mat`/`.csv`로 함께 저장. 상세 규칙은 `0_Meta/EliRule.md` 섹션 2.6 참조.
+5. **PARA 기반 컨텍스트 관리**: `Archive/` 폴더와 `.claudeignore`를 활용하여 AI의 컨텍스트 오염을 방지. 상세 규칙은 `.elf/managed/AI_PARA_Framework.md` 참조.
+6. **Communication Rules**: 객관적이고 드라이한 문체 유지. 비유/은유 금지. 결론 중심의 명확한 전달. 과장 및 감정적 수식어 금지. 상세 규칙은 `.elf/managed/EliRule.md` 섹션 3 참조.
+7. **Data Reusability**: 모든 Plot/Graph 생성 시 원본 Data Array를 `.mat`/`.csv`로 함께 저장. 상세 규칙은 `.elf/managed/EliRule.md` 섹션 2.6 참조.
+8. **Data 파일 커스터마이즈**: 어휘·검색 도메인의 추가/제외/재정의는 project overlay `0_Meta/<이름>.project.md`(사용자 소유; 유효 규칙 = base ⊕ overlay; 제외는 사유 기재)로 선언. 규약: `.elf/managed/EliRule.md` §2.7.
 
 ## Quick Start
 
@@ -161,7 +160,6 @@ elf init MyProject --modules hw,sw --lang English   # custom 모듈 선택
 
 Core 폴더(0~2)는 항상 생성되며, Module 폴더(3~7)는 preset(`full`/`experimental`/`software`/`minimal`) 또는 `--modules` 선택에 따라 포함됩니다.
 
-> **설치 없이 쓰기**: 저장소 clone 후 `elf-cli/ELF_generator.ps1`(Windows) / `elf-cli/ELF_generator.sh`(bash)를 실행하는 대화형 스크립트도 제공됩니다. `.elf/` 포함 동등한 CLI-관리가능 프로젝트를 생성합니다. CLI 설치 후 `elf update` 1회로 잔여 관리 파일을 마저 배포; `update`/`status`/`doctor`는 CLI 전용.
 
 ## CLI 명령 & 사용 시나리오
 
@@ -185,7 +183,7 @@ Core 폴더(0~2)는 항상 생성되며, Module 폴더(3~7)는 preset(`full`/`ex
 ```bash
 elf init NIRS_Probe --preset experimental
 cd NIRS_Probe
-# 0_Meta/EliRule.md · LogConvention.md 읽기 → 2_Log/S001_log.md에서 연구 시작
+# .elf/managed/EliRule.md · LogConvention.md 읽기 → 2_Log/S001_log.md에서 연구 시작
 ```
 
 ### 시나리오 B — ELF 새 버전을 기존 프로젝트에 반영
@@ -202,7 +200,7 @@ elf update               # ④ 갱신 — ELF 관리 파일만 교체, 연구 �
 
 ```bash
 elf update
-# → "edited: 0_Meta/LogConvention.md — kept; new version at ….elf-new"
+# → "edited: .elf/managed/LogConvention.md — kept; new version at ….elf-new"
 #   내 편집본은 보존되고, 새 버전이 <파일>.elf-new 로 생성됨 → diff 후 직접 병합
 elf update --force       # 또는: 내 편집을 버리고 정본으로 교체
 ```
@@ -221,7 +219,7 @@ elf status --check       # 발견 시 exit 4 → pre-commit 훅·CI 게이트로
 
 ### 0. 템플릿 (Templates)
 
-`templates/` 폴더에는 즉시 사용 가능한 마크다운 스텁이 포함되어 있습니다:
+`.elf/managed/templates/` 폴더에는 즉시 사용 가능한 마크다운 스텁이 포함되어 있습니다:
 
 | 파일 | 사용 시점 |
 |------|----------|
@@ -232,7 +230,7 @@ elf status --check       # 발견 시 exit 4 → pre-commit 훅·CI 게이트로
 
 ### 1. 규칙 문서 읽기
 
-연구 시작 전, `0_Meta/`에 생성된 두 거버넌스 문서를 읽습니다:
+연구 시작 전, `.elf/managed/`에 생성된 두 거버넌스 문서를 읽습니다:
 
 | 문서 | 목적 |
 |------|------|
@@ -256,7 +254,7 @@ elf status --check       # 발견 시 exit 4 → pre-commit 훅·CI 게이트로
 
 - 세션 번호(`S001`, `S002`, ...)는 순차 증가 — 빈 번호, 중복 금지.
 - 파일명: `S###_log.md` (예: `S002_log.md`).
-- `elf session new "<제목>"`이 템플릿에서 로그 생성 + 자동 등록(S### 자동 증번); 또는 `templates/sessionTemplate.md` 수동 복사.
+- `elf session new "<제목>"`이 템플릿에서 로그 생성 + 자동 등록(S### 자동 증번); 또는 `.elf/managed/templates/sessionTemplate.md` 수동 복사.
 
 ### 3. 작업 전개 (t01, t02, ...)
 
@@ -323,5 +321,5 @@ AI 에이전트를 사용하는 경우, 작업 완료 시 세션 로그의 `Hand
   * **조건:** 템플릿의 코어 스크립트를 수정 및 개선하여 배포할 경우 해당 수정본은 오픈소스로 공개해야 함. 단, 사용자가 프로젝트 내에 추가한 고유 알고리즘이나 원시 데이터는 비공개(상업화) 유지가 가능함.
 
 * **Protocol & Documentation:** [Creative Commons Attribution 4.0 (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/)
-  * **적용 대상:** `README.md`, `0_Meta/` 문서, Session-Trial 폴더 계층 구조, Base-Delta 메타데이터 로깅 규칙 등 연구 방법론 전반.
+  * **적용 대상:** `README.md`, 거버넌스 문서(`.elf/managed/`·`0_Meta/`), Session-Trial 폴더 계층 구조, Base-Delta 메타데이터 로깅 규칙 등 연구 방법론 전반.
   * **조건:** 누구나 이 구조와 기록 방법론을 자유롭게 차용 및 변형할 수 있으나, 파생된 템플릿이나 관련 연구 결과물 발표 시 원작자 Eli (projectschnee@gmail.com) 와 본 저장소의 출처를 명시해야 함.

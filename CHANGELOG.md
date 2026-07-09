@@ -4,6 +4,34 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.16.0] - 2026-07-09
+
+### Added
+- **`elf update` warns about pre-2.15 leftovers** — when legacy rule files are still
+  present in `0_Meta/` (e.g. `0_Meta/EliRule.md`), the update output includes a warning
+  that names them and prints the two-step upgrade path below. Detection and guidance
+  only — the leftover files are never touched.
+
+### Removed
+- **Legacy layout support (breaking).** The pre-2.15 layout — rules in `0_Meta/`, stubs
+  in a root `templates/` — is no longer read or updated. The `elf migrate` command and
+  the layout notes in `elf update` / `elf status` / `elf doctor` output are gone with it;
+  the `.elf/managed/` layout is now the only layout.
+  **Upgrading a pre-2.15 project**: do **not** run this version's `elf update` on it
+  directly — nothing would be lost, but the rules would be deployed a second time under
+  `.elf/managed/` while the old copies remain in place as unmanaged leftovers. Instead,
+  take the two-step path: install **v2.15.1** from the Releases page → `elf update` →
+  `elf migrate` → then update the CLI to the latest version.
+- **Bootstrap generator scripts** (`ELF_generator.ps1` / `ELF_generator.sh`) — they
+  scaffolded the legacy layout and duplicated what `elf init` does; the self-contained
+  CLI is the single supported path. An obsolete runtime proof-of-concept folder was
+  removed alongside.
+
+### Fixed
+- Newly scaffolded projects' `README.md` / `ProjectRule.md`, the repository README, and
+  `CLI.md` now consistently point to the `.elf/managed/` rule paths — several references
+  still named the pre-2.15 locations, which do not exist in newly created projects.
+
 ## [2.15.1] - 2026-07-09
 
 ### Changed

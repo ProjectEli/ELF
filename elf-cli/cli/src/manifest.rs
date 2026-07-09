@@ -105,43 +105,6 @@ pub fn lang_primary(tag: &str) -> String {
     tag.split(['-', '_']).next().unwrap_or("").to_ascii_lowercase()
 }
 
-/// 프로젝트 레이아웃 (S024/B — managed payload 위치). `.elf/config.json`의 `layout` 필드.
-/// 필드 부재(구 프로젝트) = Legacy. 신규 init = Managed. 이전은 `elf migrate`(opt-in)만.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Layout {
-    /// 규칙 payload가 `0_Meta/`·`templates/`에 배치 (pre-relocation 레이아웃)
-    #[default]
-    Legacy,
-    /// 규칙 payload = `.elf/managed/`(+`.elf/managed/templates/`), `0_Meta/` = 프로젝트 전용
-    Managed,
-}
-
-/// managed tier dest의 정규형(managed 레이아웃 좌표) 변환. legacy 표기(`0_Meta/`·`templates/`)를
-/// `.elf/managed/`로 올림. managed tier 외(seed ProjectRule·Registry 등)는 불변 — 이동 대상 아님.
-pub fn dest_to_managed(dest: &str, tier: Tier) -> String {
-    if tier != Tier::Managed {
-        return dest.to_string();
-    }
-    if let Some(rest) = dest.strip_prefix("0_Meta/") {
-        return format!(".elf/managed/{rest}");
-    }
-    if let Some(rest) = dest.strip_prefix("templates/") {
-        return format!(".elf/managed/templates/{rest}");
-    }
-    dest.to_string()
-}
-
-/// managed 레이아웃 dest → legacy 표기. `.elf/managed/` 밖은 불변.
-pub fn dest_to_legacy(dest: &str) -> String {
-    if let Some(rest) = dest.strip_prefix(".elf/managed/templates/") {
-        return format!("templates/{rest}");
-    }
-    if let Some(rest) = dest.strip_prefix(".elf/managed/") {
-        return format!("0_Meta/{rest}");
-    }
-    dest.to_string()
-}
-
 impl Manifest {
     /// 프로젝트 언어(BCP-47)에 맞춰 배포 entry를 해석한 사본 (P016 §9).
     /// - base(lang=None): 같은 dest의 variant가 이 lang에 있으면 제외(대체됨), 아니면 포함.
@@ -168,32 +131,6 @@ impl Manifest {
                 (Some(l), _) => lang_primary(l) == p,
             })
             .cloned()
-            .collect();
-        Manifest {
-            schema: self.schema.clone(),
-            generated: self.generated.clone(),
-            note: self.note.clone(),
-            files,
-            dirs: self.dirs.clone(),
-        }
-    }
-
-    /// dest를 프로젝트 레이아웃 좌표로 정규화한 사본 (S024/B).
-    /// 입력 dest의 표기(구 stamp=legacy, 신 manifest=managed)와 무관하게 동작 —
-    /// 정규형(managed)으로 통일 후 목표 레이아웃으로 변환하므로, 구 stamp와 신 manifest를
-    /// 같은 좌표계에서 plan_update로 비교할 수 있다.
-    pub fn for_layout(&self, layout: Layout) -> Manifest {
-        let files = self
-            .files
-            .iter()
-            .map(|e| {
-                let canon = dest_to_managed(&e.dest, e.tier);
-                let dest = match layout {
-                    Layout::Managed => canon,
-                    Layout::Legacy => dest_to_legacy(&canon),
-                };
-                Entry { dest, ..e.clone() }
-            })
             .collect();
         Manifest {
             schema: self.schema.clone(),
@@ -234,60 +171,6 @@ mod tests {
         let m = parse(json).unwrap();
         assert!(m.files[0].overlayable);
         assert!(!m.files[1].overlayable, "미지정 entry는 overlay 비허용이 기본");
-    }
-
-    #[test]
-    fn dest_mapping_is_tier_aware_and_idempotent() {
-        // managed tier: legacy 표기 → managed 정규형
-        assert_eq!(dest_to_managed("0_Meta/EliRule.md", Tier::Managed), ".elf/managed/EliRule.md");
-        assert_eq!(
-            dest_to_managed("templates/trialTemplate.md", Tier::Managed),
-            ".elf/managed/templates/trialTemplate.md"
-        );
-        // 이미 정규형이면 불변 (멱등)
-        assert_eq!(
-            dest_to_managed(".elf/managed/EliRule.md", Tier::Managed),
-            ".elf/managed/EliRule.md"
-        );
-        // seed(ProjectRule·Registry)는 이동 대상 아님
-        assert_eq!(dest_to_managed("0_Meta/ProjectRule.md", Tier::Seed), "0_Meta/ProjectRule.md");
-        // root 파일 불변
-        assert_eq!(dest_to_managed("AGENTS.md", Tier::Managed), "AGENTS.md");
-        assert_eq!(dest_to_managed(".gitignore", Tier::Hybrid), ".gitignore");
-        // 역방향
-        assert_eq!(dest_to_legacy(".elf/managed/EliRule.md"), "0_Meta/EliRule.md");
-        assert_eq!(
-            dest_to_legacy(".elf/managed/templates/sessionTemplate.md"),
-            "templates/sessionTemplate.md"
-        );
-        assert_eq!(dest_to_legacy("AGENTS.md"), "AGENTS.md");
-    }
-
-    #[test]
-    fn for_layout_normalizes_old_and_new_stamps_to_same_coords() {
-        // 신 manifest(managed dest) + 구 stamp(legacy dest) → 같은 레이아웃 좌표로 수렴
-        let new_style = parse(
-            r#"{ "schema": "elf-manifest/1", "files": [
-            { "src": "templates/meta/EliRule.md", "dest": ".elf/managed/EliRule.md", "tier": "managed", "sha256": "n" },
-            { "src": "templates/meta/ProjectRule.md", "dest": "0_Meta/ProjectRule.md", "tier": "seed", "sha256": "p" }
-        ] }"#,
-        )
-        .unwrap();
-        let old_style = parse(
-            r#"{ "schema": "elf-manifest/1", "files": [
-            { "src": "templates/meta/EliRule.md", "dest": "0_Meta/EliRule.md", "tier": "managed", "sha256": "o" },
-            { "src": "templates/meta/ProjectRule.md", "dest": "0_Meta/ProjectRule.md", "tier": "seed", "sha256": "p" }
-        ] }"#,
-        )
-        .unwrap();
-        for layout in [Layout::Legacy, Layout::Managed] {
-            let a = new_style.for_layout(layout);
-            let b = old_style.for_layout(layout);
-            assert_eq!(a.files[0].dest, b.files[0].dest, "{layout:?} 좌표 불일치");
-            assert_eq!(a.files[1].dest, "0_Meta/ProjectRule.md", "seed는 레이아웃 무관");
-        }
-        assert_eq!(new_style.for_layout(Layout::Legacy).files[0].dest, "0_Meta/EliRule.md");
-        assert_eq!(old_style.for_layout(Layout::Managed).files[0].dest, ".elf/managed/EliRule.md");
     }
 
     #[test]

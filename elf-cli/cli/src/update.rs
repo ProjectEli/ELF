@@ -93,21 +93,6 @@ pub(crate) fn read_config_lang(root: &Path) -> String {
         .unwrap_or_default()
 }
 
-/// `.elf/config.json`의 `layout`. 부재·파싱 실패 = Legacy(구 프로젝트 — 강제 이전 없음).
-/// "managed"만 신 레이아웃으로 해석. (S024/B)
-pub fn read_config_layout(root: &Path) -> manifest::Layout {
-    let is_managed = fs::read_to_string(root.join(".elf").join("config.json"))
-        .ok()
-        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
-        .and_then(|v| v.get("layout").and_then(|l| l.as_str()).map(|s| s == "managed"))
-        .unwrap_or(false);
-    if is_managed {
-        manifest::Layout::Managed
-    } else {
-        manifest::Layout::Legacy
-    }
-}
-
 pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, UpdateError> {
     let stamp_path = root.join(".elf").join("manifest.json");
     if !stamp_path.is_file() {
@@ -116,18 +101,15 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
     let stamp_text = fs::read_to_string(&stamp_path)?;
     // 프로젝트 언어로 stamp·new 둘 다 해석 — companion/variant가 lang에 맞게 일관 필터됨 (P016 §9).
     // stamp는 init이 전체 JSON으로 찍으므로, 같은 lang으로 필터해야 obsolete 오탐 방지.
-    // 레이아웃(S024/B)도 동일하게 양쪽 정규화 — 구 stamp(legacy dest)·신 manifest(managed dest)를
-    // 프로젝트의 실제 배치 좌표로 통일(legacy 프로젝트는 0_Meta/에 계속 배포, migrate 전 강제 이전 없음).
     let lang = read_config_lang(root);
-    let layout = read_config_layout(root);
     let stamp = manifest::parse(&stamp_text)
         .map_err(UpdateError::BadStamp)?
-        .for_lang(&lang)
-        .for_layout(layout);
-    let new_m = manifest::embedded().for_lang(&lang).for_layout(layout);
+        .for_lang(&lang);
+    let new_m = manifest::embedded().for_lang(&lang);
 
     let mut report = UpdateReport::default();
     warn_if_git_dirty(root, &mut report);
+    warn_if_legacy_leftovers(root, &mut report);
 
     // 현재 상태 수집 (new manifest의 dest들)
     let mut current: CurrentState = CurrentState::new();
@@ -154,16 +136,6 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
             format!("{}\n", embed::version()),
         )?;
         report.note(format!("re-stamped .elf/ to ELF {}", embed::version()));
-    }
-
-    // 레이아웃 상태 공지 (S024 t05) — legacy는 유효 상태이므로 warning 아닌 note.
-    // 버전·변경 유무와 무관하게 매 실행 출력(무변경 update가 다수 케이스 — 재발견 채널 유지),
-    // dry-run 포함. managed 전환 후에는 침묵 — 유계 수명.
-    if layout == manifest::Layout::Legacy {
-        report.note(
-            "layout: legacy (kept — intended; relocation to .elf/managed/ is opt-in: `elf migrate`, preview with --dry-run)"
-                .to_string(),
-        );
     }
 
     Ok(report)
@@ -382,6 +354,32 @@ pub(crate) fn read_baseline_block(root: &Path, dest: &str) -> Option<String> {
     let p = root.join(".elf").join("baseline").join(dest);
     let text = fs::read_to_string(p).ok()?;
     block_of(&text).map(str::to_string)
+}
+
+/// pre-v2.15 legacy 잔재 감지 — **안내만**(비이전·비접촉, 차단하지 않음). (S024 t09)
+/// v2.16에서 legacy 레이아웃 지원이 제거되어, 미이전 프로젝트에 update를 실행하면
+/// `.elf/managed/`에 새 사본이 생기고 구 파일은 고아로 남는다. managed 규칙명이
+/// `0_Meta/`에 남아 있으면 그 상태이므로 2단계 업그레이드 경로를 경고로 안내한다.
+/// (감지 대상 = 규칙 5종 고정명 — `0_Meta/`는 사용자 영역이라 동명 파일은 잔재 외 비개연.)
+fn warn_if_legacy_leftovers(root: &Path, report: &mut UpdateReport) {
+    const LEGACY_RULE_NAMES: [&str; 5] = [
+        "EliRule.md",
+        "LogConvention.md",
+        "AI_PARA_Framework.md",
+        "highIFjournals.md",
+        "LLMcliche.md",
+    ];
+    let leftovers: Vec<String> = LEGACY_RULE_NAMES
+        .iter()
+        .filter(|n| root.join("0_Meta").join(n).is_file())
+        .map(|n| format!("0_Meta/{n}"))
+        .collect();
+    if !leftovers.is_empty() {
+        report.warn(format!(
+            "pre-2.15 leftovers detected ({}) — this CLI no longer reads or migrates the legacy layout. Upgrade path: install v2.15.1 from the Releases page, run `elf update` then `elf migrate` there, then return to the latest CLI (see CHANGELOG 2.16.0). These files are left untouched.",
+            leftovers.join(", ")
+        ));
+    }
 }
 
 /// git 작업트리가 dirty면 경고 (차단하지 않음 — git 없는 프로젝트도 지원).

@@ -28,7 +28,6 @@ Installs the binary to `~/.elf/bin` and adds it to PATH. Open a new shell and ve
 |---------|---------|
 | `elf init [name]` | Scaffold an ELF project (in place, or in `./<name>`) |
 | `elf update` | Update managed files in the current project |
-| `elf migrate` | Relocate the managed payload to `.elf/managed/` (opt-in, legacy projects) |
 | `elf status` | Diagnose managed-file drift (read-only) |
 | `elf validate` | Check session/registry/log consistency (read-only) |
 | `elf session new <title>` | Create + register the next session log |
@@ -75,7 +74,7 @@ elf init my_questions --preset qa --categories Daily,ITGeneral   # pre-create ca
 > **`--lang en-*` (English companions, experimental).** The operative governance docs
 > stay Korean (`*.md`) — the AI agent always operates from the Korean originals, so project
 > behavior is identical across languages. For a non-Korean `--lang`, ELF additionally
-> deploys **informative English companions** (`0_Meta/EliRule.en.md`, etc.) for human
+> deploys **informative English companions** (`.elf/managed/EliRule.en.md`, etc.) for human
 > reading, and the user-owned `README.md` / `ProjectRule.md` are scaffolded in English.
 > Companions are non-operative (marked `NOT OPERATIVE`) — customize rules via
 > `ProjectRule.md`, not the companion. `elf update` keeps companions in sync and
@@ -102,27 +101,6 @@ Behavior per file type → see [File ownership](#file-ownership).
 elf status            # see what would change
 elf update --dry-run  # preview the actions
 elf update            # apply (safe by default)
-```
-
-### `elf migrate [--dry-run]`
-
-Relocate the managed rule payload of a **legacy-layout** project (`0_Meta/`, `templates/`) to `.elf/managed/` and mark the project as `layout: managed` in `.elf/config.json`. **Opt-in only** — `elf update` never does this automatically; legacy projects keep working on their old paths indefinitely.
-
-| Flag | Meaning |
-|------|---------|
-| `--dry-run` | Print the move plan; move nothing |
-
-Behavior:
-
-- Plans all moves first and verifies conflicts before touching anything; if a file exists at both the old and the new location, it refuses (exit 3) without moving.
-- Refuses (exit 3) when the git working tree has uncommitted **tracked** changes — commit first so the relocation alone can be reverted cleanly.
-- Moves pending `<file>.elf-new` siblings together with their base file.
-- Leaves user-owned files (`0_Meta/ProjectRule.md`, logs, data) in place, and only **reports** old-path references found in your `.md` files — it never rewrites your content.
-- Idempotent: on an already-managed project it prints "nothing to do" and exits 0.
-
-```bash
-elf migrate --dry-run   # preview the relocation
-elf migrate             # relocate, then review `git status` and commit
 ```
 
 ### `elf status [--check]`
@@ -179,7 +157,7 @@ Add CommonMark hard breaks (`\`) to the blockquote headers of existing session l
 
 ### `elf trial new [title]`
 
-Append the **current canonical trial stub** (`templates/trialTemplate.md`, embedded in the CLI) to the active session log: the next `t##` is auto-numbered, `S{NNN}` paths are substituted, the header `Modified` date is refreshed, and the stub is inserted before the `## 다음 세션 후보` section. With no title the `[작업 제목]` placeholder is kept.
+Append the **current canonical trial stub** (embedded in the CLI; deployed reference copy at `.elf/managed/templates/trialTemplate.md`) to the active session log: the next `t##` is auto-numbered, `S{NNN}` paths are substituted, the header `Modified` date is refreshed, and the stub is inserted before the `## 다음 세션 후보` section. With no title the `[작업 제목]` placeholder is kept.
 
 | Flag | Meaning |
 |------|---------|
@@ -210,7 +188,7 @@ Update the `elf` binary itself to the latest release. Works on installer-based i
 Aggregate health check (read-only). Reports each item as `OK` / `WARN` / `INFO`:
 
 - **environment** — `elf` version, install receipt presence (self-update availability)
-- **project** (if inside one) — `.elf/` stamp parses, version matches the CLI, baseline present, layout (managed / legacy with `elf migrate` hint)
+- **project** (if inside one) — `.elf/` stamp parses, version matches the CLI, baseline present
 - **managed files** — a `elf status` summary (pending / conflicts)
 - **overlay** — active data overlays (`0_Meta/<name>.project.md`), removal entries missing a reason, overlays without an overlayable base
 - **agent entry** — `CLAUDE.md` loads `@AGENTS.md` (warns when the pointer line is missing — Claude Code would not load the rules), flags heavy extra content in the pointer and pending `AGENTS.md.elf-new`/`CLAUDE.md.elf-new` files
@@ -258,16 +236,14 @@ The `agent-action:` line is a stable marker. An LLM agent driving `elf` can dete
 | **Hybrid** | `.gitignore` | Only the marker block (`# >>> ELF managed >>>` … `# <<< ELF managed <<<`) is replaced; your rules outside the block are preserved |
 | **Pointer** | `CLAUDE.md` | Created if missing; if present it is **never modified** (no `.elf-new` either) — an existing hand-written `CLAUDE.md` stays exactly yours. Add a `@AGENTS.md` line yourself to load the ELF rules; `elf doctor` checks the link |
 
-On the legacy layout (projects that have not run `elf migrate`) the managed files live in `0_Meta/` and `templates/` instead — updates keep targeting those paths until you migrate.
-
 Customize project rules in `ProjectRule.md` (yours) rather than editing managed files — that way updates never conflict. For the data files (`LLMcliche.md`, `highIFjournals.md`), add/remove/override entries via a **project overlay** `0_Meta/<name>.project.md` (user-owned; effective rules = base ⊕ overlay; removals need a stated reason — see EliRule §2.7).
 
 ## The `.elf/` directory
 
 `elf init` and `elf update` maintain `.elf/` (do not edit by hand):
 
-- `config.json` — project name, language, creation date, layout (`managed` = payload in `.elf/managed/`; absent = legacy)
+- `config.json` — project name, language, creation date
 - `version` — the ELF version that last touched the project
 - `manifest.json` — the record of managed files used by `update`/`status`
-- `managed/` — the deployed rule payload (rules, companions, log-format stubs) on the managed layout
+- `managed/` — the deployed rule payload (rules, companions, log-format stubs)
 - `baseline/` — pristine copies of hybrid files, used to detect edits inside the managed block

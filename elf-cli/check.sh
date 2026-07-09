@@ -1,6 +1,6 @@
 #!/bin/sh
 # ELF managed-mirror drift check (S005 t01, Phase 1).
-# 정본 = elf-cli/templates/ (src, CLI 상대). 파생 = 0_Meta 등 (dest, 루트 상대). managed tier의 src/dest를 git hash-object로 비교(autocrlf/줄바꿈 안전).
+# 정본 = elf-cli/templates/ (src, CLI 상대). 파생 = manifest dest (루트 상대 — v2.15+ .elf/managed/ 등). managed tier의 src/dest를 git hash-object로 비교(autocrlf/줄바꿈 안전).
 # 불일치 시 비0 exit. seed/hybrid 제외. 미배포(dest 부재) skip.
 # POSIX sh. LF. UTF-8 no BOM. 참조: _dev/1_Concept/12_Planning/Wiki/Git_Hook_Governance.md
 

@@ -45,7 +45,7 @@ sfprj/
 *.hwpx.bak
 
 # === Raw Data (원본 센서 데이터 — 절대 Git 추적 제외) ===
-5_Exp/52_Empirical/Raw/
+6_Exp/62_Empirical/Raw/
 
 # === (선택) 용량이 큰 데이터 파일 제외 ===
 # 필요 시 아래 주석을 해제하여 대용량 파일 제외

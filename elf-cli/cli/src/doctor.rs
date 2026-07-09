@@ -113,17 +113,6 @@ fn check_elf(root: &Path, env: &DoctorEnv, r: &mut DoctorReport) {
     } else {
         r.add(Health::Info, ".elf baseline", "absent (no hybrid files or pre-baseline project)");
     }
-    // 레이아웃 표시 (S024/B) — legacy는 유효 상태(강제 이전 없음), 이전 경로만 안내
-    match update::read_config_layout(root) {
-        manifest::Layout::Managed => {
-            r.add(Health::Info, "layout", "managed — rule payload in .elf/managed/")
-        }
-        manifest::Layout::Legacy => r.add(
-            Health::Info,
-            "layout",
-            "legacy — rule payload in 0_Meta/ and templates/ (`elf migrate` relocates it to .elf/managed/, opt-in)",
-        ),
-    }
 }
 
 fn check_status(root: &Path, r: &mut DoctorReport) {

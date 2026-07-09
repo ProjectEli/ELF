@@ -17,8 +17,6 @@ This project follows **ELF (Eli's Lab Framework) general preset** (goal-oriented
 | `.elf/managed/AI_PARA_Framework.md` | PARA file isolation, Archive firewall, hallucination guards |
 | `.elf/managed/templates/sessionTemplate.md` · `trialTemplate.md` | Canonical log-format stubs |
 
-> On the legacy layout (before migration) the managed canon above lives in `0_Meta/` and `templates/` — relocate with `elf migrate` (opt-in).
-
 ## Standing duties (digest)
 
 - **Record**: any work that affects outputs, conclusions, or direction is logged as a trial (`t##`) in `2_Log/S###_log.md` in the same turn.

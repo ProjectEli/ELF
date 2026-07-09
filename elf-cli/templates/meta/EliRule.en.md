@@ -26,8 +26,6 @@ places the managed rule payload under `.elf/managed/`.
 - `.elf/managed/highIFjournals.md`: high-IF journal whitelist for external literature search (see §4)
 - `.elf/managed/templates/`: markdown stubs (below)
 
-> On the legacy layout (before migration) this rule payload lives in `0_Meta/` and `templates/` — relocate with `elf migrate` (opt-in).
-
 #### `0_Meta/` — project governance (user space)
 A meta area for project-specific rules and customization. `elf update` never touches it.
 - `ProjectRule.md`: project-specific rules and goals (**user-owned** — edit freely to fit the project)

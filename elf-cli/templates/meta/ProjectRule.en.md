@@ -1,6 +1,6 @@
 # ProjectRule: [Project Name]
 
-Building on the global rules (`0_Meta/EliRule.md`), this document defines the context,
+Building on the global rules (`.elf/managed/EliRule.md`), this document defines the context,
 environment, and overrides that apply only to this project.
 The AI agent reads this together with EliRule.md to understand the project context.
 

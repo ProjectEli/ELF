@@ -17,6 +17,8 @@ This project follows the Agile R&D Boilerplate spec (ELF). (ELF version: see `.e
 
 ## Project Rules
 For rules and goals specific to this project, see `0_Meta/ProjectRule.md`.
-For folder structure and detailed operating rules, see `0_Meta/EliRule.md`.
-For AI-agent logging rules, see `0_Meta/LogConvention.md`.
-For AI context-management rules, see `0_Meta/AI_PARA_Framework.md`.
+For folder structure and detailed operating rules, see `.elf/managed/EliRule.md`.
+For AI-agent logging rules, see `.elf/managed/LogConvention.md`.
+For AI context-management rules, see `.elf/managed/AI_PARA_Framework.md`.
+For data-file (vocabulary/domain) customization, use a `0_Meta/<name>.project.md` overlay (EliRule §2.7).
+For the current location and ownership of the canonical rules, see `AGENTS.md` (digest).

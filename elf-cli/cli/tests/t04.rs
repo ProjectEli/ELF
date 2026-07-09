@@ -56,6 +56,49 @@ fn fresh_project_update_is_idempotent() {
     assert_eq!(report.changed, 0, "fresh tree must be all up-to-date: {:?}", report.lines);
     assert_eq!(report.conflicts, 0);
     assert_eq!(fs::read(root.join(".elf/managed/EliRule.md")).unwrap(), before);
+    assert!(
+        !report.lines.iter().any(|l| l.contains("pre-2.15 leftovers")),
+        "clean 프로젝트는 잔재 안내 없음: {:?}",
+        report.lines
+    );
+}
+
+// ── pre-2.15 잔재 안내 (S024 t09 — 감지+안내만, 비접촉) ──────
+
+#[test]
+fn pre215_leftovers_warn_but_are_left_untouched() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path(), "P");
+    // 미이전 프로젝트 재현: legacy 규칙명이 0_Meta에 잔존
+    fs::write(root.join("0_Meta/EliRule.md"), b"legacy leftover\n").unwrap();
+    fs::write(root.join("0_Meta/LLMcliche.md"), b"legacy leftover\n").unwrap();
+
+    let report = run_update(&root, &plain()).unwrap();
+    let warn = report
+        .lines
+        .iter()
+        .find(|l| l.contains("pre-2.15 leftovers"))
+        .expect("잔재 경고 출력");
+    assert!(warn.contains("0_Meta/EliRule.md") && warn.contains("0_Meta/LLMcliche.md"));
+    assert!(warn.contains("v2.15.1") && warn.contains("elf migrate"), "2단계 경로 안내: {warn}");
+    assert!(report.warnings >= 1);
+    // 비접촉 보장: 잔재 무변경·.elf-new 병기 없음·update는 정상 진행
+    assert_eq!(fs::read(root.join("0_Meta/EliRule.md")).unwrap(), b"legacy leftover\n");
+    assert!(!root.join("0_Meta/EliRule.md.elf-new").exists());
+    assert_eq!(report.conflicts, 0, "{:?}", report.lines);
+    // dry-run에도 동일 안내
+    let dry = run_update(&root, &UpdateOptions { dry_run: true, force: false }).unwrap();
+    assert!(dry.lines.iter().any(|l| l.contains("pre-2.15 leftovers")));
+}
+
+#[test]
+fn project_rule_in_0meta_is_not_flagged_as_leftover() {
+    // 0_Meta/ProjectRule.md는 seed(정당 상주) — 잔재 감지 대상 아님
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path(), "P");
+    assert!(root.join("0_Meta/ProjectRule.md").is_file(), "seed 전제");
+    let report = run_update(&root, &plain()).unwrap();
+    assert!(!report.lines.iter().any(|l| l.contains("pre-2.15 leftovers")), "{:?}", report.lines);
 }
 
 #[test]

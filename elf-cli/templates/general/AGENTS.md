@@ -12,8 +12,6 @@
 | `.elf/managed/AI_PARA_Framework.md` | PARA 파일 격리·Archive 방화벽·환각 방지 |
 | `.elf/managed/templates/sessionTemplate.md` · `trialTemplate.md` | 로그 형식 정본 stub |
 
-> legacy 레이아웃(마이그레이션 전) 프로젝트는 위 관리 정본이 `0_Meta/`·`templates/`에 위치 — `elf migrate`로 이전(opt-in).
-
 ## 상시 의무 (요약)
 
 - **기록**: 산출물·결론·방향에 영향 주는 작업은 그 turn에 `2_Log/S###_log.md`에 trial(`t##`)로 기록.

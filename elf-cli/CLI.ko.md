@@ -28,7 +28,6 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases
 |------|------|
 | `elf init [이름]` | ELF 프로젝트 생성 (현재 폴더 또는 `./<이름>`) |
 | `elf update` | 현재 프로젝트의 managed 파일 갱신 |
-| `elf migrate` | managed payload를 `.elf/managed/`로 이전(opt-in, legacy 프로젝트) |
 | `elf status` | managed 파일 drift 진단(읽기전용) |
 | `elf validate` | 세션/Registry/로그 정합 검사(읽기전용) |
 | `elf session new <제목>` | 다음 세션 로그 생성 + 등록 |
@@ -74,7 +73,7 @@ elf init my_questions --preset qa --categories 일상질문,IT일반질문   # �
 
 > **`--lang en-*` (영어 companion, experimental).** operative 거버넌스 문서는 한국어(`*.md`)
 > 유지 — AI는 항상 한국어 정본으로 동작하므로 언어와 무관하게 프로젝트 동작이 동일함. 비한국어
-> `--lang`이면 ELF가 영어 **정보용 companion**(`0_Meta/EliRule.en.md` 등)을 인간 독해용으로 추가
+> `--lang`이면 ELF가 영어 **정보용 companion**(`.elf/managed/EliRule.en.md` 등)을 인간 독해용으로 추가
 > 배포하고, 사용자 소유 `README.md`·`ProjectRule.md`는 영어로 scaffold함. companion은 비operative
 > (`NOT OPERATIVE` 표기) — 규칙 커스터마이즈는 companion이 아니라 `ProjectRule.md`에 작성. `elf update`가
 > companion을 동기화, `elf doctor`가 i18n 상태 보고. 현재 영어(`en`)만 제공, 그 외 언어는 한국어 fallback.
@@ -99,27 +98,6 @@ elf init my_questions --preset qa --categories 일상질문,IT일반질문   # �
 elf status            # 무엇이 바뀔지 확인
 elf update --dry-run  # 작업 미리보기
 elf update            # 적용(기본 안전)
-```
-
-### `elf migrate [--dry-run]`
-
-**legacy 레이아웃** 프로젝트의 관리 규칙 payload(`0_Meta/`·`templates/`)를 `.elf/managed/`로 이전하고 `.elf/config.json`에 `layout: managed`를 기록합니다. **opt-in 전용** — `elf update`는 절대 자동 수행하지 않으며, legacy 프로젝트는 이전 없이도 구 경로에서 계속 동작합니다.
-
-| 플래그 | 의미 |
-|--------|------|
-| `--dry-run` | 이동 계획만 출력, 무이동 |
-
-동작:
-
-- 이동 전 전체 계획 수립·충돌 전수 검증 — 구·신 위치에 파일이 동시에 존재하면 무이동 거부(exit 3).
-- git 작업트리에 미커밋 **추적** 변경이 있으면 거부(exit 3) — 이전만 선별 되돌릴 수 있도록 먼저 커밋.
-- 미병합 `<파일>.elf-new` 병기본도 base와 함께 이동.
-- 사용자 소유물(`0_Meta/ProjectRule.md`·로그·데이터)은 그대로 두고, `.md` 파일 내 구경로 참조는 **보고만**(내용 재작성 없음).
-- 멱등: 이미 managed 레이아웃이면 "nothing to do" 출력 후 exit 0.
-
-```bash
-elf migrate --dry-run   # 이전 미리보기
-elf migrate             # 이전 후 `git status` 확인·커밋
 ```
 
 ### `elf status [--check]`
@@ -176,7 +154,7 @@ elf session close S007        # 특정 세션 종료
 
 ### `elf trial new [제목]`
 
-**현행 정본 trial stub**(`templates/trialTemplate.md`, CLI에 embed)을 활성 세션 로그에 추가합니다: 다음 `t##` 자동 증번, `S{NNN}` 경로 치환, 헤더 `Modified` 날짜 갱신, `## 다음 세션 후보` 섹션 앞에 삽입. 제목 생략 시 `[작업 제목]` placeholder 유지.
+**현행 정본 trial stub**(CLI에 embed; 배포 참조 사본 = `.elf/managed/templates/trialTemplate.md`)을 활성 세션 로그에 추가합니다: 다음 `t##` 자동 증번, `S{NNN}` 경로 치환, 헤더 `Modified` 날짜 갱신, `## 다음 세션 후보` 섹션 앞에 삽입. 제목 생략 시 `[작업 제목]` placeholder 유지.
 
 | 플래그 | 의미 |
 |--------|------|
@@ -207,7 +185,7 @@ elf gallery
 종합 건강검진(읽기전용). 각 항목을 `OK` / `WARN` / `INFO`로 보고:
 
 - **환경** — `elf` 버전, install receipt 유무(self-update 가능 여부)
-- **프로젝트**(프로젝트 내일 때) — `.elf/` stamp 파싱·version이 CLI와 일치·baseline 존재·레이아웃(managed / legacy면 `elf migrate` 안내)
+- **프로젝트**(프로젝트 내일 때) — `.elf/` stamp 파싱·version이 CLI와 일치·baseline 존재
 - **managed 파일** — `elf status` 요약(pending / conflict)
 - **overlay** — 활성 data overlay(`0_Meta/<이름>.project.md`)·제외 사유 누락·비허용 대상 overlay
 - **agent entry** — `CLAUDE.md`가 `@AGENTS.md`를 로드하는지(포인터 줄 부재 시 경고 — Claude Code가 규칙을 로드하지 못함), 포인터에 과다 콘텐츠·`AGENTS.md.elf-new`/`CLAUDE.md.elf-new` 대기 여부
@@ -255,16 +233,14 @@ agent-action: fix the line to match the schema, then re-run (this tool will not 
 | **Hybrid** | `.gitignore` | 마커 블록(`# >>> ELF managed >>>` … `# <<< ELF managed <<<`)만 교체, 블록 밖 사용자 규칙은 보존 |
 | **Pointer** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(`.elf-new` 병기도 없음) — 수제 `CLAUDE.md`는 온전히 사용자 것. ELF 규칙 로드는 `@AGENTS.md` 1줄을 직접 추가; 연결 여부는 `elf doctor`가 점검 |
 
-legacy 레이아웃(`elf migrate` 미실행 프로젝트)에서는 managed 파일이 종전대로 `0_Meta/`·`templates/`에 있으며, update도 이전 전까지 그 경로를 유지합니다.
-
 프로젝트 규칙은 managed 파일을 고치는 대신 `ProjectRule.md`(사용자 소유)에 작성하세요 — 그러면 update 충돌이 없습니다. data 파일(`LLMcliche.md`·`highIFjournals.md`)의 항목 추가·제외·재정의는 **project overlay** `0_Meta/<이름>.project.md`로 선언합니다(사용자 소유; 유효 규칙 = base ⊕ overlay; 제외는 사유 필수 — EliRule §2.7).
 
 ## `.elf/` 디렉토리
 
 `elf init`/`update`가 관리합니다(직접 수정 금지):
 
-- `config.json` — 프로젝트 이름·언어·생성일·레이아웃(`managed` = payload가 `.elf/managed/`; 부재 = legacy)
+- `config.json` — 프로젝트 이름·언어·생성일
 - `version` — 프로젝트를 마지막으로 건드린 ELF 버전
 - `manifest.json` — `update`/`status`가 쓰는 관리 파일 기록
-- `managed/` — 배포된 규칙 payload(규칙·companion·로그 형식 stub, managed 레이아웃)
+- `managed/` — 배포된 규칙 payload(규칙·companion·로그 형식 stub)
 - `baseline/` — hybrid 파일의 원본 사본(블록 내 편집 감지용)

@@ -17,8 +17,6 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 - `.elf/managed/highIFjournals.md`: 외부 문헌 검색용 high-IF 저널 화이트리스트 (§4 참조)
 - `.elf/managed/templates/`: 마크다운 스텁 (아래)
 
-> legacy 레이아웃(마이그레이션 전)은 위 규칙 payload가 `0_Meta/`·`templates/`에 위치합니다 — `elf migrate`로 이전(opt-in).
-
 #### `0_Meta/` — 프로젝트 거버넌스 (사용자 영역)
 프로젝트 전용 규칙과 커스터마이즈를 두는 메타 구역입니다. `elf update`가 접근하지 않습니다.
 - `ProjectRule.md`: 프로젝트 전용 규칙·목표 (**사용자 소유** — 프로젝트에 맞게 자유 수정)

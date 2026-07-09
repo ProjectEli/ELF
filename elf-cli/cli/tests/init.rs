@@ -135,7 +135,6 @@ fn elf_control_plane_written() {
     assert_eq!(config["name"], "P4");
     assert_eq!(config["lang"], "ko-KR");
     assert_eq!(config["created"], "2026-06-12");
-    assert_eq!(config["layout"], "managed", "신규 init = managed 레이아웃");
 
     let version = std::fs::read_to_string(target.join(".elf/version")).unwrap();
     assert_eq!(version, format!("{}\n", embed::version()));

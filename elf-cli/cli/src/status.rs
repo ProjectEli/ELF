@@ -38,14 +38,12 @@ pub fn run_status(root: &Path) -> Result<StatusReport, UpdateError> {
         return Err(UpdateError::NotElfProject(root.to_path_buf()));
     }
     let stamp_text = fs::read_to_string(&stamp_path)?;
-    // 프로젝트 언어·레이아웃으로 stamp·new 해석 — update와 동일 좌표계 (P016 §9, S024/B)
+    // 프로젝트 언어로 stamp·new 해석 — companion/variant를 lang에 맞게 필터 (P016 §9, update와 동일)
     let lang = update::read_config_lang(root);
-    let layout = update::read_config_layout(root);
     let stamp = manifest::parse(&stamp_text)
         .map_err(UpdateError::BadStamp)?
-        .for_lang(&lang)
-        .for_layout(layout);
-    let new_m = manifest::embedded().for_lang(&lang).for_layout(layout);
+        .for_lang(&lang);
+    let new_m = manifest::embedded().for_lang(&lang);
 
     let mut report = StatusReport::default();
 
@@ -61,14 +59,6 @@ pub fn run_status(root: &Path) -> Result<StatusReport, UpdateError> {
             "project ELF {project_version} ≠ CLI {} — run `elf update` to refresh stamp",
             embed::version()
         ));
-    }
-
-    // 레이아웃 상태 공지 (S024 t05) — legacy는 유효 상태: findings·warnings 불산입(게이트 무영향)
-    if layout == manifest::Layout::Legacy {
-        report.lines.push(
-            "layout: legacy (intended; rule payload stays in 0_Meta/·templates/ — relocate with `elf migrate`, opt-in)"
-                .to_string(),
-        );
     }
 
     let mut current: CurrentState = CurrentState::new();

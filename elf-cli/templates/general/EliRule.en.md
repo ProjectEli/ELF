@@ -30,8 +30,6 @@ places the managed rule payload under `.elf/managed/`.
 - `.elf/managed/AI_PARA_Framework.md`: state-based file-management and archiving rules. The most important reference document when the AI explores the project
 - `.elf/managed/templates/`: markdown stubs (below)
 
-> On the legacy layout (before migration) this rule payload lives in `0_Meta/` and `templates/` — relocate with `elf migrate` (opt-in).
-
 #### `0_Meta/` — project governance (user space)
 A meta area for project-specific rules and customization. `elf update` never touches it.
 - `ProjectRule.md`: project-specific rules and goals (**user-owned** — edit freely to fit the project)
