@@ -196,6 +196,14 @@ elf update --dry-run     # ③ preview the action list without writing
 elf update               # ④ update — replaces ELF-managed files only; research data, logs, and your settings are never touched
 ```
 
+> **Upgrading a project created before v2.15** (rules still in `0_Meta/`, stubs in a root
+> `templates/`): the current CLI does not read or migrate that layout. Take the two-step
+> path — install **v2.15.1** from the [Releases page](https://github.com/ProjectEli/ELF/releases/tag/v2.15.1),
+> run `elf update` and then `elf migrate` there, and only then update the CLI to the
+> latest (`elf self-update`). Running the latest `elf update` directly on such a project
+> deploys a second copy of the rules under `.elf/managed/` and leaves the old files as
+> unmanaged leftovers — it warns and names them, but nothing is deleted or migrated.
+
 ### Scenario C — When an ELF-managed file you edited conflicts
 
 ```bash

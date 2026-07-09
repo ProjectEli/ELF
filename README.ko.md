@@ -196,6 +196,13 @@ elf update --dry-run     # ③ 변경 없이 작업 목록 미리보기
 elf update               # ④ 갱신 — ELF 관리 파일만 교체, 연구 데이터·로그·설정은 절대 미접근
 ```
 
+> **v2.15 이전에 생성된 프로젝트 업그레이드**(규칙이 `0_Meta/`·스텁이 루트 `templates/`에 있는 경우):
+> 현행 CLI는 그 레이아웃을 읽지도 이전하지도 않습니다. 2단계 경로를 사용하세요 —
+> [Releases 페이지](https://github.com/ProjectEli/ELF/releases/tag/v2.15.1)에서 **v2.15.1**을 설치해
+> 그 버전으로 `elf update` 후 `elf migrate`를 실행하고, 그 다음에 CLI를 최신으로 갱신(`elf self-update`)합니다.
+> 최신 `elf update`를 그런 프로젝트에 바로 실행하면 규칙이 `.elf/managed/`에 이중 배치되고 구 파일은
+> 비관리 잔재로 남습니다 — 경고로 파일명을 안내하며, 삭제·이전은 하지 않습니다.
+
 ### 시나리오 C — 내가 수정한 관리 파일과 충돌할 때
 
 ```bash

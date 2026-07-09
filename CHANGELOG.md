@@ -4,6 +4,16 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.16.1] - 2026-07-09
+
+### Changed
+- **Documentation-only release.** The README and `CLI.md` now carry a standing
+  "Upgrading a project created before v2.15" section — the two-step path via v2.15.1
+  (install v2.15.1 → `elf update` → `elf migrate` → return to the latest CLI) — so the
+  guidance is visible on the repository page itself, not only in the 2.16.0 release
+  notes and the `elf update` leftover warning. No functional changes to the CLI; the
+  binaries are identical to 2.16.0 apart from the version string.
+
 ## [2.16.0] - 2026-07-09
 
 ### Added

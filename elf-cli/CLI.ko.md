@@ -100,6 +100,11 @@ elf update --dry-run  # 작업 미리보기
 elf update            # 적용(기본 안전)
 ```
 
+> **v2.15 이전 프로젝트**: `elf update`는 legacy 레이아웃(규칙=`0_Meta/`·스텁=루트 `templates/`)을
+> 읽지도 이전하지도 않습니다. 잔재 감지 시 경고로 파일명을 안내하고 그대로 둡니다. 업그레이드 경로:
+> Releases 페이지에서 **v2.15.1** 설치 → 그 버전으로 `elf update` → `elf migrate` → 이후 최신 CLI로 복귀.
+> 상세: [CHANGELOG.md](../CHANGELOG.md)의 2.16.0 항목.
+
 ### `elf status [--check]`
 
 관리 파일 상태 진단(읽기전용). 각 파일을 `ok` / `outdated` / `missing` / `edited`로 보고하고, 버전 불일치·obsolete 항목도 표시.

@@ -103,6 +103,12 @@ elf update --dry-run  # preview the actions
 elf update            # apply (safe by default)
 ```
 
+> **Pre-2.15 projects**: `elf update` does not read or migrate the legacy layout (rules in
+> `0_Meta/`, stubs in a root `templates/`). When leftovers are detected it warns, names
+> them, and leaves them untouched. Upgrade path: install **v2.15.1** from the Releases
+> page → `elf update` → `elf migrate` there → then return to the latest CLI. Details:
+> the 2.16.0 entry in [CHANGELOG.md](../CHANGELOG.md).
+
 ### `elf status [--check]`
 
 Diagnose managed-file state (read-only). Reports each file as `ok` / `outdated` / `missing` / `edited`, plus version mismatch and obsolete entries.
