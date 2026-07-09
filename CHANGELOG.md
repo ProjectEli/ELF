@@ -4,6 +4,17 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.15.1] - 2026-07-09
+
+### Changed
+- **`elf update` / `elf status` now state the layout** — on a legacy-layout project every
+  run (including `--dry-run` and runs with nothing to change) ends with a one-line note:
+  `layout: legacy (kept — intended; relocation to .elf/managed/ is opt-in: elf migrate,
+  preview with --dry-run)`. It is a note, not a warning — the legacy layout stays fully
+  supported and the line never affects `--check` gates; it disappears once you migrate.
+  Added after real-use confusion where an up-to-date project gave no hint that the
+  missing `.elf/managed/` was intentional.
+
 ## [2.15.0] - 2026-07-07
 
 ### Added

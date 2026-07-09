@@ -63,6 +63,14 @@ pub fn run_status(root: &Path) -> Result<StatusReport, UpdateError> {
         ));
     }
 
+    // 레이아웃 상태 공지 (S024 t05) — legacy는 유효 상태: findings·warnings 불산입(게이트 무영향)
+    if layout == manifest::Layout::Legacy {
+        report.lines.push(
+            "layout: legacy (intended; rule payload stays in 0_Meta/·templates/ — relocate with `elf migrate`, opt-in)"
+                .to_string(),
+        );
+    }
+
     let mut current: CurrentState = CurrentState::new();
     for e in &new_m.files {
         let state = fs::read(root.join(&e.dest)).ok().map(|b| hash::sha256_lf(&b));

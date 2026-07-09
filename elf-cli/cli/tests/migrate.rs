@@ -62,9 +62,44 @@ fn legacy_update_keeps_deploying_to_legacy_paths() {
     assert!(!root.join(".elf/managed/EliRule.md").exists(), "migrate 전 .elf/managed 생성 금지");
     assert_eq!(report.conflicts, 0, "{:?}", report.lines);
     assert_eq!(report.warnings, 0, "obsolete 오탐 금지: {:?}", report.lines);
+    assert!(
+        report.lines.iter().any(|l| l.starts_with("layout: legacy")),
+        "legacy 공지 note 출력: {:?}",
+        report.lines
+    );
+
+    // 최신 버전·무변경 재실행에도 공지 유지 (재발견 채널 — S024 t05 핵심 케이스)
+    let again = run_update(&root, &UpdateOptions { dry_run: false, force: false }).unwrap();
+    assert_eq!(again.changed, 0, "{:?}", again.lines);
+    assert!(
+        again.lines.iter().any(|l| l.starts_with("layout: legacy")),
+        "무변경 update에도 공지: {:?}",
+        again.lines
+    );
+    // dry-run에도 공지 (상태 표시는 미리보기에서도 참)
+    let dry = run_update(&root, &UpdateOptions { dry_run: true, force: false }).unwrap();
+    assert!(dry.lines.iter().any(|l| l.starts_with("layout: legacy")), "{:?}", dry.lines);
+    // warning 아님 — 게이트 무영향
+    assert_eq!(again.warnings, 0, "공지는 note — warning 불산입: {:?}", again.lines);
 
     let s = run_status(&root).unwrap();
     assert_eq!(s.findings(), 0, "{:?}", s.lines);
+    assert!(
+        s.lines.iter().any(|l| l.starts_with("layout: legacy")),
+        "status에도 공지: {:?}",
+        s.lines
+    );
+    assert_eq!(s.warnings, 0, "status 공지도 findings·warnings 불산입: {:?}", s.lines);
+}
+
+#[test]
+fn managed_project_has_no_layout_note() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path()); // 신규 init = managed
+    let u = run_update(&root, &UpdateOptions { dry_run: false, force: false }).unwrap();
+    assert!(!u.lines.iter().any(|l| l.starts_with("layout:")), "{:?}", u.lines);
+    let s = run_status(&root).unwrap();
+    assert!(!s.lines.iter().any(|l| l.starts_with("layout:")), "{:?}", s.lines);
 }
 
 #[test]
@@ -93,6 +128,9 @@ fn migrate_moves_payload_and_flips_layout() {
     assert_eq!(s.findings(), 0, "{:?}", s.lines);
     let u = run_update(&root, &UpdateOptions { dry_run: false, force: false }).unwrap();
     assert_eq!(u.conflicts, 0, "{:?}", u.lines);
+    // managed 전환 후 공지 소멸 (유계 수명)
+    assert!(!u.lines.iter().any(|l| l.starts_with("layout:")), "{:?}", u.lines);
+    assert!(!s.lines.iter().any(|l| l.starts_with("layout:")), "{:?}", s.lines);
 }
 
 #[test]

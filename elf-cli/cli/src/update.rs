@@ -156,6 +156,16 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
         report.note(format!("re-stamped .elf/ to ELF {}", embed::version()));
     }
 
+    // 레이아웃 상태 공지 (S024 t05) — legacy는 유효 상태이므로 warning 아닌 note.
+    // 버전·변경 유무와 무관하게 매 실행 출력(무변경 update가 다수 케이스 — 재발견 채널 유지),
+    // dry-run 포함. managed 전환 후에는 침묵 — 유계 수명.
+    if layout == manifest::Layout::Legacy {
+        report.note(
+            "layout: legacy (kept — intended; relocation to .elf/managed/ is opt-in: `elf migrate`, preview with --dry-run)"
+                .to_string(),
+        );
+    }
+
     Ok(report)
 }
 
