@@ -100,12 +100,79 @@ pub fn embedded_general() -> Manifest {
     parse(crate::embed::MANIFEST_GENERAL_JSON).expect("embedded general manifest must be valid")
 }
 
+/// manifest 계보(프로젝트 유형 정체성) — 연구/qa/general 중 어느 정본 세트를 따르는가 (S026).
+/// init이 `.elf/config.json`의 `preset`에 기록하고 update/status가 소비한다.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    Research,
+    Qa,
+    General,
+}
+
+impl Kind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Kind::Research => "research",
+            Kind::Qa => "qa",
+            Kind::General => "general",
+        }
+    }
+}
+
+impl std::fmt::Display for Kind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// preset 문자열 → 계보. init 분기와 update/status 해석의 **단일 소스** —
+/// full/experimental/software/minimal(폴더 preset)은 전부 연구 계보.
+pub fn kind_from_preset(preset: &str) -> Kind {
+    match preset {
+        "qa" => Kind::Qa,
+        "general" => Kind::General,
+        _ => Kind::Research,
+    }
+}
+
+/// 계보별 embedded 정본 manifest.
+pub fn embedded_kind(kind: Kind) -> Manifest {
+    match kind {
+        Kind::Research => embedded(),
+        Kind::Qa => embedded_qa(),
+        Kind::General => embedded_general(),
+    }
+}
+
+/// 계보별 정본 manifest JSON 원문 — `.elf/manifest.json` stamp 기록용 (init·update re-stamp 공용).
+pub fn kind_json(kind: Kind) -> &'static str {
+    match kind {
+        Kind::Research => crate::embed::MANIFEST_JSON,
+        Kind::Qa => crate::embed::MANIFEST_QA_JSON,
+        Kind::General => crate::embed::MANIFEST_GENERAL_JSON,
+    }
+}
+
 /// BCP-47 태그 → primary subtag(소문자). "en-US"→"en", "ko-KR"→"ko", ""→"".
 pub fn lang_primary(tag: &str) -> String {
     tag.split(['-', '_']).next().unwrap_or("").to_ascii_lowercase()
 }
 
 impl Manifest {
+    /// stamp의 계보를 src 경로 시그니처로 판정 — 결정적(no-LLM) 문자열 규칙 (S026 t02).
+    /// 근거: 3 정본 manifest의 src 구성이 계보별 상호배타(qa 전 항목 `templates/qa/`,
+    /// general만 `templates/general/` 보유, 연구는 둘 다 없음) — 상호배타성은 unit test로 고정.
+    /// `preset` 미기재 구버전 config의 fallback 추론 + config 선언과의 대조 게이트에 사용.
+    pub fn src_signature(&self) -> Kind {
+        if self.files.iter().any(|e| e.src.starts_with("templates/qa/")) {
+            Kind::Qa
+        } else if self.files.iter().any(|e| e.src.starts_with("templates/general/")) {
+            Kind::General
+        } else {
+            Kind::Research
+        }
+    }
+
     /// 프로젝트 언어(BCP-47)에 맞춰 배포 entry를 해석한 사본 (P016 §9).
     /// - base(lang=None): 같은 dest의 variant가 이 lang에 있으면 제외(대체됨), 아니면 포함.
     /// - companion: lang 일치 + 비-ko 일 때 포함(`*.en.md` sibling).
@@ -179,5 +246,38 @@ mod tests {
             { "src": "a", "dest": "b", "tier": "wild", "sha256": "ab" }
         ] }"#;
         assert!(parse(json).is_err());
+    }
+
+    // ── 계보 (Kind — S026) ─────────────────────────────
+
+    #[test]
+    fn kind_from_preset_maps_folder_presets_to_research() {
+        assert_eq!(kind_from_preset("qa"), Kind::Qa);
+        assert_eq!(kind_from_preset("general"), Kind::General);
+        for p in ["full", "experimental", "software", "minimal", "unknown-preset"] {
+            assert_eq!(kind_from_preset(p), Kind::Research, "preset {p}");
+        }
+    }
+
+    /// src 시그니처의 전제 = 3 정본 manifest의 계보별 상호배타 — 정본 구성이 바뀌어
+    /// 전제가 깨지면 여기서 적발 (update/status의 preset 추론·게이트가 이 전제에 의존).
+    #[test]
+    fn embedded_manifests_have_mutually_exclusive_signatures() {
+        assert_eq!(embedded().src_signature(), Kind::Research);
+        assert_eq!(embedded_qa().src_signature(), Kind::Qa);
+        assert_eq!(embedded_general().src_signature(), Kind::General);
+        // 상호배타의 원자 검증: 연구 manifest에 qa/general src 부재, qa↔general 교차 부재
+        assert!(embedded().files.iter().all(|e| {
+            !e.src.starts_with("templates/qa/") && !e.src.starts_with("templates/general/")
+        }));
+        assert!(embedded_qa().files.iter().all(|e| !e.src.starts_with("templates/general/")));
+        assert!(embedded_general().files.iter().all(|e| !e.src.starts_with("templates/qa/")));
+    }
+
+    #[test]
+    fn kind_json_roundtrips_to_matching_signature() {
+        for k in [Kind::Research, Kind::Qa, Kind::General] {
+            assert_eq!(parse(kind_json(k)).unwrap().src_signature(), k);
+        }
     }
 }

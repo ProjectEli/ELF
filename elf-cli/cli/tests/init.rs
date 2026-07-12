@@ -134,6 +134,7 @@ fn elf_control_plane_written() {
             .unwrap();
     assert_eq!(config["name"], "P4");
     assert_eq!(config["lang"], "ko-KR");
+    assert_eq!(config["preset"], "full", "계보 정체성 영속화 (S026)");
     assert_eq!(config["created"], "2026-06-12");
 
     let version = std::fs::read_to_string(target.join(".elf/version")).unwrap();
@@ -210,11 +211,12 @@ fn qa_preset_creates_question_archive_and_skips_research() {
     let stamp = std::fs::read_to_string(target.join(".elf/manifest.json")).unwrap();
     assert_eq!(stamp, embed::MANIFEST_QA_JSON);
     assert!(manifest::parse(&stamp).is_ok());
-    // 공용 spine — config/version 동일
+    // 공용 spine — config/version 동일 + preset 정체성 기록 (S026)
     let config: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(target.join(".elf/config.json")).unwrap())
             .unwrap();
     assert_eq!(config["name"], "MyQA");
+    assert_eq!(config["preset"], "qa");
 }
 
 #[test]

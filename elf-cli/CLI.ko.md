@@ -94,6 +94,12 @@ elf init my_questions --preset qa --categories 일상질문,IT일반질문   # �
 
 파일 종류별 동작 → [파일 소유권](#파일-소유권) 참조.
 
+갱신은 **preset 인식**: 프로젝트 유형(연구 / `qa` / `general`)을 `.elf/config.json`의
+`"preset"` 필드(`elf init`이 기록)에서 읽어, 해당 계보의 정본 세트로 계획·re-stamp 합니다.
+2.16.2 이전에 생성된 프로젝트에는 이 필드가 없으며 — 프로젝트 자신의 stamp(`.elf/manifest.json`)에서
+추론해 첫 비-dry-run 갱신 때 기록합니다. `config.json`과 stamp가 서로 모순되면 `"preset"` 필드를
+고칠 때까지 `elf update`가 실행을 거부합니다 — 잘못된 정본 세트로 프로젝트가 갱신되는 것을 막는 보호입니다.
+
 ```bash
 elf status            # 무엇이 바뀔지 확인
 elf update --dry-run  # 작업 미리보기
@@ -107,7 +113,7 @@ elf update            # 적용(기본 안전)
 
 ### `elf status [--check]`
 
-관리 파일 상태 진단(읽기전용). 각 파일을 `ok` / `outdated` / `missing` / `edited`로 보고하고, 버전 불일치·obsolete 항목도 표시.
+관리 파일 상태 진단(읽기전용). 각 파일을 `ok` / `outdated` / `missing` / `edited`로 보고하고, 버전 불일치·obsolete 항목도 표시. 보고 첫머리에 프로젝트의 `preset:` 라인(연구/qa/general — `elf update`와 동일 해석)을 표시하며, `config.json`↔stamp 모순은 경고로 보고하고 진단은 stamp 기준으로 계속합니다.
 
 - `--check`: 발견 시 exit **4** — pre-commit 훅·CI 게이트로 사용.
 
@@ -244,7 +250,7 @@ agent-action: fix the line to match the schema, then re-run (this tool will not 
 
 `elf init`/`update`가 관리합니다(직접 수정 금지):
 
-- `config.json` — 프로젝트 이름·언어·생성일
+- `config.json` — 프로젝트 이름·언어·preset(프로젝트 유형)·생성일
 - `version` — 프로젝트를 마지막으로 건드린 ELF 버전
 - `manifest.json` — `update`/`status`가 쓰는 관리 파일 기록
 - `managed/` — 배포된 규칙 payload(규칙·companion·로그 형식 stub)

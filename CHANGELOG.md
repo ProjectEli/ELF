@@ -4,6 +4,29 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.16.2] - 2026-07-13
+
+### Fixed
+- **`elf update` / `elf status` now respect the project's preset.** On `qa` and `general`
+  projects both commands planned against the *research* template set: `elf status`
+  mis-reported unedited files (e.g. `AGENTS.md`) as `outdated` and research-only rules as
+  `missing`, and running `elf update` would then replace those files with their research
+  versions, create the research rule set, and re-stamp the project as a research project —
+  silently losing its type. Both commands now resolve the preset first and plan against the
+  matching template set. (User edits were never at risk — they are conflict-protected — but
+  unedited managed files were not.)
+- `elf init --preset qa` ended with `next: open 0_Meta/ProjectRule.md`, which does not exist
+  in a qa project — the hint now points at `README.md`.
+
+### Added
+- **Preset identity is persistent now.** `elf init` records a `"preset"` field in
+  `.elf/config.json`; `elf update` and `elf status` read it and print a `preset:` line.
+  Projects initialized with an older CLI have no such field — the preset is inferred from the
+  project's own stamp (`.elf/manifest.json`) and recorded on the first non-dry-run
+  `elf update`, so existing projects need no manual migration. If `config.json` and the stamp
+  ever contradict each other, `elf update` refuses to touch the project until the field is
+  fixed; `elf status` warns and diagnoses by the stamp.
+
 ## [2.16.1] - 2026-07-09
 
 ### Changed

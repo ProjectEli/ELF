@@ -43,8 +43,69 @@ fn clean_project_has_no_findings_and_is_readonly() {
     let r = run_status(&root).unwrap();
     assert_eq!(r.findings(), 0, "{:?}", r.lines);
     assert!(r.lines.iter().any(|l| l.contains("project = CLI")));
+    assert!(r.lines.iter().any(|l| l.contains("preset: research")), "{:?}", r.lines);
     // 읽기전용 보장: stamp 무변경
     assert_eq!(fs::read(root.join(".elf/manifest.json")).unwrap(), before);
+}
+
+// ── preset 계보 (S026 — qa 프로젝트를 연구 기준으로 오진하던 버그의 회귀 게이트) ──
+
+fn new_qa_project(tmp: &Path, name: &str) -> PathBuf {
+    run_init(
+        tmp,
+        &InitOptions {
+            name: name.into(),
+            preset: "qa".into(),
+            modules: None,
+            categories: Vec::new(),
+            lang: "ko-KR".into(),
+            date: "2026-07-13".into(),
+        },
+    )
+    .unwrap()
+}
+
+#[test]
+fn clean_qa_project_is_not_misdiagnosed_as_research() {
+    // S026 t01 피해 경로 f의 반전: fresh qa에서 outdated/missing 오진 0 → update 유도 없음
+    let tmp = tempdir().unwrap();
+    let root = new_qa_project(tmp.path(), "Q");
+
+    let r = run_status(&root).unwrap();
+    assert_eq!(r.findings(), 0, "fresh qa must have no findings: {:?}", r.lines);
+    assert!(r.lines.iter().any(|l| l.contains("preset: qa")), "{:?}", r.lines);
+    assert!(
+        !r.lines.iter().any(|l| l.contains("missing: .elf/managed/EliRule.md")),
+        "research files must not be diagnosed on a qa project: {:?}",
+        r.lines
+    );
+}
+
+#[test]
+fn preset_mismatch_warns_but_diagnoses_by_stamp_readonly() {
+    // config 오선언(연구)인데 stamp=qa: status는 중단 대신 경고 + stamp 시그니처 기준 진단, FS 무변경
+    let tmp = tempdir().unwrap();
+    let root = new_qa_project(tmp.path(), "Q");
+    let cfg_path = root.join(".elf/config.json");
+    let mut v: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&cfg_path).unwrap()).unwrap();
+    v.as_object_mut()
+        .unwrap()
+        .insert("preset".into(), serde_json::Value::String("full".into()));
+    fs::write(&cfg_path, serde_json::to_string_pretty(&v).unwrap()).unwrap();
+    let cfg_before = fs::read(&cfg_path).unwrap();
+
+    let r = run_status(&root).unwrap();
+    assert!(
+        r.lines.iter().any(|l| l.contains("preset mismatch")),
+        "{:?}",
+        r.lines
+    );
+    assert!(r.warnings >= 1);
+    // stamp(qa) 기준 진단이므로 연구 파일 오진 없음 + findings 0(fresh)
+    assert_eq!(r.findings(), 0, "{:?}", r.lines);
+    // 읽기전용: config self-heal 없음
+    assert_eq!(fs::read(&cfg_path).unwrap(), cfg_before);
 }
 
 #[test]

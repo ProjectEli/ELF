@@ -63,6 +63,130 @@ fn fresh_project_update_is_idempotent() {
     );
 }
 
+// ── preset 계보 (S026 — qa/general 프로젝트를 연구 manifest로 덮어쓰던 버그의 회귀 게이트) ──
+
+fn new_project_preset(tmp: &Path, name: &str, preset: &str) -> PathBuf {
+    run_init(
+        tmp,
+        &InitOptions {
+            name: name.into(),
+            preset: preset.into(),
+            modules: None,
+            categories: Vec::new(),
+            lang: "ko-KR".into(),
+            date: "2026-07-13".into(),
+        },
+    )
+    .unwrap()
+}
+
+/// 재조작 헬퍼: config.json의 preset 값을 교체(Some) 또는 제거(None — pre-S026 init 재현)
+fn set_config_preset(root: &Path, preset: Option<&str>) {
+    let p = root.join(".elf/config.json");
+    let mut v: serde_json::Value = serde_json::from_str(&fs::read_to_string(&p).unwrap()).unwrap();
+    let obj = v.as_object_mut().unwrap();
+    match preset {
+        Some(s) => {
+            obj.insert("preset".into(), serde_json::Value::String(s.into()));
+        }
+        None => {
+            obj.remove("preset");
+        }
+    }
+    fs::write(&p, serde_json::to_string_pretty(&v).unwrap()).unwrap();
+}
+
+#[test]
+fn qa_project_update_keeps_qa_identity() {
+    // S026 t01 피해 경로 a·b·e의 반전 검증
+    let tmp = tempdir().unwrap();
+    let root = new_project_preset(tmp.path(), "Q", "qa");
+    let agents_before = fs::read(root.join("AGENTS.md")).unwrap();
+
+    let report = run_update(&root, &plain()).unwrap();
+    assert_eq!(report.changed, 0, "fresh qa tree must be no-op: {:?}", report.lines);
+    assert_eq!(report.conflicts, 0);
+    assert!(report.lines.iter().any(|l| l.contains("preset: qa")), "{:?}", report.lines);
+    // a: AGENTS.md가 연구판으로 교체되지 않음
+    assert_eq!(fs::read(root.join("AGENTS.md")).unwrap(), agents_before);
+    // b: 연구 전용 파일 미창조
+    assert!(!root.join(".elf/managed/EliRule.md").exists());
+    assert!(!root.join(".elf/managed/LogConvention.md").exists());
+    assert!(!root.join(".claudeignore").exists());
+    // e: re-stamp가 qa manifest 유지 (계보 정체성 보존)
+    let stamp = fs::read_to_string(root.join(".elf/manifest.json")).unwrap();
+    assert_eq!(stamp, embed::MANIFEST_QA_JSON);
+}
+
+#[test]
+fn general_project_update_keeps_general_identity() {
+    let tmp = tempdir().unwrap();
+    let root = new_project_preset(tmp.path(), "G", "general");
+    let elirule_before = fs::read(root.join(".elf/managed/EliRule.md")).unwrap();
+
+    let report = run_update(&root, &plain()).unwrap();
+    assert_eq!(report.changed, 0, "fresh general tree must be no-op: {:?}", report.lines);
+    assert!(report.lines.iter().any(|l| l.contains("preset: general")), "{:?}", report.lines);
+    // general판 EliRule이 연구판으로 교체되지 않음
+    assert_eq!(fs::read(root.join(".elf/managed/EliRule.md")).unwrap(), elirule_before);
+    // 연구 전용(highIFjournals) 미창조
+    assert!(!root.join(".elf/managed/highIFjournals.md").exists());
+    let stamp = fs::read_to_string(root.join(".elf/manifest.json")).unwrap();
+    assert_eq!(stamp, embed::MANIFEST_GENERAL_JSON);
+}
+
+#[test]
+fn legacy_config_without_preset_is_inferred_and_healed() {
+    // pre-S026 init 재현: config에 preset 키 없음 → stamp src 시그니처로 추론 + self-heal
+    let tmp = tempdir().unwrap();
+    let root = new_project_preset(tmp.path(), "Q", "qa");
+    set_config_preset(&root, None);
+    let agents_before = fs::read(root.join("AGENTS.md")).unwrap();
+
+    // dry-run: 추론 안내만, config 무변경 (읽기전용 예고)
+    let dry = run_update(&root, &UpdateOptions { dry_run: true, force: false }).unwrap();
+    assert!(dry.lines.iter().any(|l| l.contains("inferred") && l.contains("would record")), "{:?}", dry.lines);
+    let cfg: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(root.join(".elf/config.json")).unwrap()).unwrap();
+    assert!(cfg.get("preset").is_none(), "dry-run must not heal config");
+
+    // 본실행: 추론 + self-heal + qa 정체성 유지
+    let report = run_update(&root, &plain()).unwrap();
+    assert!(report.lines.iter().any(|l| l.contains("inferred") && l.contains("recorded")), "{:?}", report.lines);
+    assert_eq!(report.changed, 0);
+    let cfg: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(root.join(".elf/config.json")).unwrap()).unwrap();
+    assert_eq!(cfg["preset"], "qa", "self-heal records the inferred kind");
+    assert_eq!(cfg["lang"], "ko-KR", "existing config fields preserved");
+    assert_eq!(fs::read(root.join("AGENTS.md")).unwrap(), agents_before);
+    assert_eq!(
+        fs::read_to_string(root.join(".elf/manifest.json")).unwrap(),
+        embed::MANIFEST_QA_JSON
+    );
+}
+
+#[test]
+fn preset_mismatch_refuses_update_untouched() {
+    // config 오선언(연구 preset)인데 stamp는 qa — 이종 manifest 계획을 입구에서 거부, 트리 무변경
+    let tmp = tempdir().unwrap();
+    let root = new_project_preset(tmp.path(), "Q", "qa");
+    set_config_preset(&root, Some("full"));
+    let agents_before = fs::read(root.join("AGENTS.md")).unwrap();
+    let stamp_before = fs::read(root.join(".elf/manifest.json")).unwrap();
+
+    let err = run_update(&root, &plain()).unwrap_err();
+    assert!(
+        matches!(err, elf_cli::update::UpdateError::PresetMismatch { .. }),
+        "expected PresetMismatch, got {err:?}"
+    );
+    let msg = err.to_string();
+    assert!(msg.contains("\"full\"") && msg.contains("qa"), "{msg}");
+    // 거부 = 완전 무변경 (파일·stamp·version 전부)
+    assert_eq!(fs::read(root.join("AGENTS.md")).unwrap(), agents_before);
+    assert_eq!(fs::read(root.join(".elf/manifest.json")).unwrap(), stamp_before);
+    assert!(!root.join(".elf/managed/EliRule.md").exists());
+}
+
 // ── pre-2.15 잔재 안내 (S024 t09 — 감지+안내만, 비접촉) ──────
 
 #[test]

@@ -108,14 +108,9 @@ pub fn run_init_ex(
         return Err(InitError::TargetExists(target));
     }
 
-    // preset에 따라 유형 manifest 선택 — qa=질문 아카이브, general=목표지향 비연구, 그 외=연구
-    let base = if opts.preset == "qa" {
-        manifest::embedded_qa()
-    } else if opts.preset == "general" {
-        manifest::embedded_general()
-    } else {
-        manifest::embedded()
-    };
+    // preset에 따라 계보 manifest 선택 — qa=질문 아카이브, general=목표지향 비연구, 그 외=연구
+    let kind = manifest::kind_from_preset(&opts.preset);
+    let base = manifest::embedded_kind(kind);
     // 프로젝트 언어로 배포 entry 해석 (P016 §9)
     let m = base.for_lang(&opts.lang);
 
@@ -256,23 +251,18 @@ pub fn run_init_ex(
     if !dry_run {
         let elf_dir = target.join(".elf");
         fs::create_dir_all(&elf_dir)?;
+        // preset = 계보 정체성 영속화 — update/status가 이 값으로 정본 세트를 선택 (S026).
         let config = serde_json::json!({
             "name": opts.name,
             "lang": opts.lang,
+            "preset": opts.preset,
             "created": opts.date,
         });
         let mut config_text = serde_json::to_string_pretty(&config).expect("config serializes");
         config_text.push('\n');
         fs::write(elf_dir.join("config.json"), config_text)?;
         fs::write(elf_dir.join("version"), format!("{}\n", embed::version()))?;
-        let manifest_json = if opts.preset == "qa" {
-            embed::MANIFEST_QA_JSON
-        } else if opts.preset == "general" {
-            embed::MANIFEST_GENERAL_JSON
-        } else {
-            embed::MANIFEST_JSON
-        };
-        fs::write(elf_dir.join("manifest.json"), manifest_json)?;
+        fs::write(elf_dir.join("manifest.json"), manifest::kind_json(kind))?;
 
         // hybrid 배포본 baseline (블록 내 편집 감지의 비교 기준 — update가 사용)
         for e in &m.files {

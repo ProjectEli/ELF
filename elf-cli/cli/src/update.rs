@@ -28,6 +28,8 @@ pub struct UpdateOptions {
 pub enum UpdateError {
     NotElfProject(PathBuf),
     BadStamp(String),
+    /// config 선언 preset과 stamp 실체(src 시그니처)의 계보 모순 — 이종 manifest 계획 차단 (S026)
+    PresetMismatch { config: String, stamp: manifest::Kind },
     /// 내장 데이터 불일치 등 — 손상된 설치 의심 (panic 대신 안내, t09 정책)
     Internal(String),
     Io(io::Error),
@@ -42,6 +44,10 @@ impl std::fmt::Display for UpdateError {
                 p.display()
             ),
             UpdateError::BadStamp(s) => write!(f, "stamp(.elf/manifest.json): {s}"),
+            UpdateError::PresetMismatch { config, stamp } => write!(
+                f,
+                "preset mismatch: .elf/config.json says \"{config}\" but the stamp (.elf/manifest.json) is a {stamp} manifest — refusing to plan against the wrong template set. Fix \"preset\" in .elf/config.json (expected \"{stamp}\") and re-run"
+            ),
             UpdateError::Internal(s) => write!(
                 f,
                 "internal: {s} — corrupted install? run `elf self-update` or reinstall"
@@ -93,6 +99,57 @@ pub(crate) fn read_config_lang(root: &Path) -> String {
         .unwrap_or_default()
 }
 
+/// `.elf/config.json`의 `preset`(init 원문). None = 미기재(pre-S026 init) → 시그니처 추론 경로.
+pub(crate) fn read_config_preset(root: &Path) -> Option<String> {
+    fs::read_to_string(root.join(".elf").join("config.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get("preset").and_then(|p| p.as_str()).map(String::from))
+}
+
+/// 계보 해석의 출처 — 보고 문구·self-heal 여부 분기용.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum KindSource {
+    /// config `preset` 명시 (시그니처 대조 통과)
+    Config,
+    /// config 미기재 → stamp src 시그니처로 추론
+    Inferred,
+}
+
+/// 프로젝트 계보 해석 (S026 t02) — 판정 전부 결정적(no-LLM: 문자열 매핑 + enum 비교):
+/// - config `preset` 있음 → `kind_from_preset` 매핑 후 stamp 시그니처와 대조. 모순 = `PresetMismatch`
+///   (오선언·config 오복사 상태에서 이종 manifest로 계획하는 사고를 입구에서 차단).
+/// - 없음(pre-S026 init) → stamp `src_signature()` 추론 (기존 프로젝트 무마이그레이션 동작).
+pub(crate) fn resolve_kind(
+    root: &Path,
+    stamp: &Manifest,
+) -> Result<(manifest::Kind, KindSource), UpdateError> {
+    let sig = stamp.src_signature();
+    match read_config_preset(root) {
+        Some(p) => {
+            let kind = manifest::kind_from_preset(&p);
+            if kind != sig {
+                return Err(UpdateError::PresetMismatch { config: p, stamp: sig });
+            }
+            Ok((kind, KindSource::Config))
+        }
+        None => Ok((sig, KindSource::Inferred)),
+    }
+}
+
+/// 추론된 preset을 config.json에 영속화(self-heal — 다음 실행부터 config 직독).
+/// 실패는 무해(다음 실행이 재추론)라 조용히 무시. dry-run에서는 호출하지 않는다.
+fn heal_config_preset(root: &Path, kind: manifest::Kind) {
+    let p = root.join(".elf").join("config.json");
+    let Ok(text) = fs::read_to_string(&p) else { return };
+    let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&text) else { return };
+    let Some(obj) = v.as_object_mut() else { return };
+    obj.insert("preset".into(), serde_json::Value::String(kind.as_str().into()));
+    let Ok(mut out) = serde_json::to_string_pretty(&v) else { return };
+    out.push('\n');
+    let _ = fs::write(&p, out);
+}
+
 pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, UpdateError> {
     let stamp_path = root.join(".elf").join("manifest.json");
     if !stamp_path.is_file() {
@@ -102,12 +159,28 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
     // 프로젝트 언어로 stamp·new 둘 다 해석 — companion/variant가 lang에 맞게 일관 필터됨 (P016 §9).
     // stamp는 init이 전체 JSON으로 찍으므로, 같은 lang으로 필터해야 obsolete 오탐 방지.
     let lang = read_config_lang(root);
-    let stamp = manifest::parse(&stamp_text)
-        .map_err(UpdateError::BadStamp)?
-        .for_lang(&lang);
-    let new_m = manifest::embedded().for_lang(&lang);
+    let stamp_full = manifest::parse(&stamp_text).map_err(UpdateError::BadStamp)?;
+    // 계보 해석 — preset별 정본 세트 선택 + 모순 시 거부 (S026: 이종 manifest 계획 금지)
+    let (kind, kind_source) = resolve_kind(root, &stamp_full)?;
+    let stamp = stamp_full.for_lang(&lang);
+    let new_m = manifest::embedded_kind(kind).for_lang(&lang);
 
     let mut report = UpdateReport::default();
+    match kind_source {
+        KindSource::Config => report.note(format!("preset: {kind}")),
+        KindSource::Inferred => {
+            if opts.dry_run {
+                report.note(format!(
+                    "preset: {kind} (inferred from stamp — would record to .elf/config.json)"
+                ));
+            } else {
+                heal_config_preset(root, kind);
+                report.note(format!(
+                    "preset: {kind} (inferred from stamp — recorded to .elf/config.json)"
+                ));
+            }
+        }
+    }
     warn_if_git_dirty(root, &mut report);
     warn_if_legacy_leftovers(root, &mut report);
 
@@ -128,9 +201,9 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
         apply(root, a, opts, &new_m, &mut report)?;
     }
 
-    // re-stamp는 무조건 (t02 재점검 §2: NoChange여도 stamp 해시는 구버전)
+    // re-stamp는 무조건 (t02 재점검 §2: NoChange여도 stamp 해시는 구버전) — 반드시 같은 계보로 (S026)
     if !opts.dry_run {
-        fs::write(&stamp_path, embed::MANIFEST_JSON)?;
+        fs::write(&stamp_path, manifest::kind_json(kind))?;
         fs::write(
             root.join(".elf").join("version"),
             format!("{}\n", embed::version()),

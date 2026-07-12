@@ -46,6 +46,32 @@ fn init_e2e_success_then_refuse() {
         .code(3);
 }
 
+/// init 완료 안내(next)는 계보별 실재 파일을 가리킴 — qa는 0_Meta가 없음 (S026 부수 수정)
+#[test]
+fn init_next_hint_matches_preset_kind() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = Command::cargo_bin("elf")
+        .unwrap()
+        .current_dir(tmp.path())
+        .args(["init", "QaProj", "--preset", "qa"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(text.contains("next: open README.md"), "{text}");
+    assert!(!text.contains("0_Meta"), "qa init must not point at 0_Meta: {text}");
+
+    let out = Command::cargo_bin("elf")
+        .unwrap()
+        .current_dir(tmp.path())
+        .args(["init", "ResearchProj", "--preset", "minimal"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(text.contains("next: open 0_Meta/ProjectRule.md"), "{text}");
+}
+
 /// usage 오류(미지 플래그) = exit 2
 #[test]
 fn unknown_flag_is_usage_error() {

@@ -97,6 +97,14 @@ Update the ELF-managed files in the current project to the installed CLI version
 
 Behavior per file type → see [File ownership](#file-ownership).
 
+Updates are **preset-aware**: the project type (research / `qa` / `general`) is read from the
+`"preset"` field in `.elf/config.json` (recorded by `elf init`) and the matching template set
+is used for planning and re-stamping. Projects initialized before 2.16.2 have no such field —
+the preset is then inferred from the project's own stamp (`.elf/manifest.json`) and recorded
+on the first non-dry-run update. If `config.json` and the stamp contradict each other,
+`elf update` refuses to run until the `"preset"` field is fixed — this protects the project
+from being updated against the wrong template set.
+
 ```bash
 elf status            # see what would change
 elf update --dry-run  # preview the actions
@@ -111,7 +119,7 @@ elf update            # apply (safe by default)
 
 ### `elf status [--check]`
 
-Diagnose managed-file state (read-only). Reports each file as `ok` / `outdated` / `missing` / `edited`, plus version mismatch and obsolete entries.
+Diagnose managed-file state (read-only). Reports each file as `ok` / `outdated` / `missing` / `edited`, plus version mismatch and obsolete entries. The report starts with the project's `preset:` line (research / qa / general — same resolution as `elf update`); a `config.json`/stamp contradiction is reported as a warning and the diagnosis follows the stamp.
 
 - `--check`: exit **4** if there are any findings — use it as a pre-commit hook or CI gate.
 
@@ -248,7 +256,7 @@ Customize project rules in `ProjectRule.md` (yours) rather than editing managed 
 
 `elf init` and `elf update` maintain `.elf/` (do not edit by hand):
 
-- `config.json` — project name, language, creation date
+- `config.json` — project name, language, preset (project type), creation date
 - `version` — the ELF version that last touched the project
 - `manifest.json` — the record of managed files used by `update`/`status`
 - `managed/` — the deployed rule payload (rules, companions, log-format stubs)

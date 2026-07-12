@@ -40,12 +40,34 @@ pub fn run_status(root: &Path) -> Result<StatusReport, UpdateError> {
     let stamp_text = fs::read_to_string(&stamp_path)?;
     // 프로젝트 언어로 stamp·new 해석 — companion/variant를 lang에 맞게 필터 (P016 §9, update와 동일)
     let lang = update::read_config_lang(root);
-    let stamp = manifest::parse(&stamp_text)
-        .map_err(UpdateError::BadStamp)?
-        .for_lang(&lang);
-    let new_m = manifest::embedded().for_lang(&lang);
+    let stamp_full = manifest::parse(&stamp_text).map_err(UpdateError::BadStamp)?;
 
     let mut report = StatusReport::default();
+
+    // 계보 해석 (S026) — update와 동일 규칙. 단 status는 읽기전용: self-heal 없음,
+    // 모순도 중단 대신 경고 + stamp 시그니처(실물과 정합한 쪽) 기준으로 진단 계속.
+    let kind = match update::resolve_kind(root, &stamp_full) {
+        Ok((kind, update::KindSource::Config)) => {
+            report.lines.push(format!("preset: {kind}"));
+            kind
+        }
+        Ok((kind, update::KindSource::Inferred)) => {
+            report.lines.push(format!(
+                "preset: {kind} (inferred from stamp — `elf update` records it to .elf/config.json)"
+            ));
+            kind
+        }
+        Err(UpdateError::PresetMismatch { config, stamp: sig }) => {
+            report.warn(format!(
+                "preset mismatch: .elf/config.json says \"{config}\" but the stamp is a {sig} manifest — diagnosing as {sig}; fix \"preset\" in .elf/config.json (`elf update` refuses until then)"
+            ));
+            sig
+        }
+        Err(e) => return Err(e),
+    };
+
+    let stamp = stamp_full.for_lang(&lang);
+    let new_m = manifest::embedded_kind(kind).for_lang(&lang);
 
     // 버전 줄: 프로젝트 stamp vs CLI
     let project_version = fs::read_to_string(root.join(".elf").join("version"))

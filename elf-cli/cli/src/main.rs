@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand};
-use elf_cli::{doctor, embed, gallery, init, selfupdate, session, status, trial, update, validate};
+use elf_cli::{
+    doctor, embed, gallery, init, manifest, selfupdate, session, status, trial, update, validate,
+};
 
 /// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드·갱신 CLI (research project scaffold & update CLI)
 #[derive(Parser)]
@@ -221,7 +223,12 @@ fn main() {
                         }
                         println!("[elf]   existing files left untouched");
                     }
-                    println!("[elf] next: open 0_Meta/ProjectRule.md");
+                    // 진입 안내는 계보별 실재 파일로 — qa는 0_Meta 없음 (S026 부수 수정)
+                    let next = match manifest::kind_from_preset(&opts.preset) {
+                        manifest::Kind::Qa => "README.md",
+                        _ => "0_Meta/ProjectRule.md",
+                    };
+                    println!("[elf] next: open {next}");
                 }
                 Err(e @ (init::InitError::TargetExists(_) | init::InitError::AlreadyElf(_))) => {
                     eprintln!("[elf] {e}");
