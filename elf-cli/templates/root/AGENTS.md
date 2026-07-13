@@ -18,9 +18,9 @@
 - **trial 추가 = `elf trial new [제목]`** — 현행 정본 stub을 활성 로그에 append. CLI 미설치 시 `.elf/managed/templates/trialTemplate.md` 수동 복사.
 - **선례 ≠ 규범**: 과거 세션/trial 로그는 참고일 뿐 규범이 아님 — 형식·규칙은 정본을 따르고, 선례가 정본과 다르면 모방하지 말고 사용자에게 보고.
 - **Phase 분리**: `### 가설`·`### 예상`(Phase 1) = 실행 **전** 작성 후 멈춤 → 실행 → `### 관찰`~`### 교훈`(Phase 2). (LogConvention §5.1)
-- **figure 즉시 embed**: plot 생성 turn에 그 trial `### 관찰`에 인라인 embed — 표에 경로만 기재는 embed 아님. (LogConvention §2)
-- **세션 수명주기**: 시작 `elf session new "<제목>"` → 종료 전 `elf validate`(경고 해소) → `elf session close`.
-- **컨텍스트 재구성 후 재정렬**: compact·세션 재시작 등으로 컨텍스트가 재구성되면 활성 로그 헤더(`Handoff`)를 다시 읽고 이어감.
+- **figure 즉시 embed**: plot 생성 turn에 그 trial `### 관찰`에 인라인 embed — 표에 경로만 기재는 embed 아님. **서브에이전트 산출 포함**(회수 시 main이 embed). (LogConvention §2)
+- **세션 수명주기**: 시작 `elf session new "<제목>"` → **figure 생성 trial 직후·종료 전 `elf validate`**(경고 해소) → `elf session close`.
+- **컨텍스트 재구성 후 재정렬**: compact·세션 재시작 등으로 컨텍스트가 재구성되면 활성 로그 헤더(`Handoff`)를 다시 읽고, **`elf validate`로 미이행(미embed 등)을 확인** 후 이어감 — 재구성은 미이행 상태의 추적을 끊는 지점.
 
 ## 소유권·우선순위
 

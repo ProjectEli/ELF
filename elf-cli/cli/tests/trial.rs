@@ -33,6 +33,26 @@ fn topts(title: Option<&str>, session: Option<&str>) -> TrialNewOptions {
 
 // ── trial new ───────────────────────────────────────────────────
 
+/// trial new 출력의 embed 리마인더 — 행동 시점 주입(trial 시작 = figure 작성 이전 보장, S027)
+#[test]
+fn trial_new_stdout_carries_embed_reminder() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    let out = assert_cmd::Command::cargo_bin("elf")
+        .unwrap()
+        .current_dir(&root)
+        .args(["trial", "new", "reminder-check"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(
+        text.contains("embed") && text.contains("### 관찰"),
+        "embed reminder missing in trial new output: {text}"
+    );
+    assert!(text.contains("expected figures"), "{text}");
+}
+
 #[test]
 fn trial_new_appends_canonical_stub_before_next_section() {
     let tmp = tempdir().unwrap();

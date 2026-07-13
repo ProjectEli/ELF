@@ -158,6 +158,7 @@ Write each trial (t{NN}) in two phases. **A stop point between Phase 1 and Phase
 
 ### 5.1 Session-close Standard Procedure
 Just before switching Status to `Complete`:
+- [ ] **Run `elf validate` — resolve the warnings** before proceeding: once moved to Archive the log leaves the structure-check scope, so **before close is the last verification point**
 - [ ] Write `## 다음 세션 후보 (Next-Session Hypothesis)` at the end of the body (1-3 hypothesis candidates + 1-3 prediction candidates, nominal form)
 - [ ] Clean the Handoff: clear the pending part (done, or carried into `## 다음 세션 후보`) — leftovers trigger an `elf session close` warning
 - [ ] Add a key-conclusion summary + Archive path link in `Wiki/`

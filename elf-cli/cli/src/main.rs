@@ -476,6 +476,11 @@ fn main() {
                         println!(
                             "[elf] next: Phase 1 — fill 목표/조건/가설/예상, then stop before execution (LogConvention §5.1)"
                         );
+                        // 행동 시점 주입 (S027): 상시 문서의 embed 규칙은 발동 시점을 보장하지 못함 —
+                        // trial 시작(= figure 작성 이전이 보장되는 유일한 ELF 소유 시점)에 반복 주입
+                        println!(
+                            "[elf] note: list expected figures in 예상, and embed each into `### 관찰` the moment it is created — a table path is not an embed; sub-agent outputs included (LogConvention §2)"
+                        );
                         println!(
                             "[elf] note: keep the header Handoff a replace-style fold (state; pending; refs) — do not append history"
                         );

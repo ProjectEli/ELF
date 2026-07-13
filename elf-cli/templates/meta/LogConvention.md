@@ -95,6 +95,9 @@
 - **trial 번호**: `t01`, `t02`, ... 순서대로. 중복 금지
 - **이미지 경로**: `![alt text](../6_Exp/64_Viz/S{NNN}/filename.png)` (2_Log 기준 상대경로)
 - **Figure 인라인 임베딩 필수 (plot = trial 산출물)**: 모든 plot은 특정 trial(`t{NN}`)의 산출물 — trial 추가(base delta)로 figure 생성 시 **그 작업 turn에 즉시** 해당 trial `### 관찰` 절에 인라인 임베딩(`![alt](경로)`)하고, alt text에 Figure 번호 + 1줄 설명(축·핵심 관찰)을 기재한다. **금지**: ① 파일 목록 테이블에 경로만 기재·본문 미임베딩, ② 확정·피드백 대기·중간(v1) 버전을 이유로 미룸(v1도 즉시 embed 후 갱신), ③ 외부 표시(채팅/뷰어 전송)로 로그 임베딩 대체. `elf validate`가 64_Viz 그림↔본문 임베딩 누락을 검출(`--strict`는 issue 승격; 의도적 제외는 `<!-- noembed: file.png -->`).
+- **예상 산출물 사전등록 (Phase 1)**: figure 산출이 예상되는 trial은 `### 예상`에 예상 산출물(figure·표) 목록을 명시 — 각 항목 = Phase 2에서 **생성 즉시 embed 대상**. **"전부 그린 후 일괄 정리" 계획 금지**(계획 단위 = figure 1건 생성 즉시 embed — 지연 배치는 중단·컨텍스트 재구성에서 유실됨). 예상에 없던 figure도 생성 즉시 embed하고 예상 대비 차이를 `### 관찰`에 명시.
+- **서브에이전트(위임 작업자) 산출 figure 동일 적용**: 위임 작업자가 생성한 figure도 본 규칙의 대상 — **회수(merge) 시점에 main 에이전트가** 해당 trial `### 관찰`에 embed. **위임은 embed 의무를 면제하지 않음(의무 귀속 = main)**. 회수 기록의 산출물이 figure면 경로 기재가 아니라 embed.
+- **행동 시점 리마인더 훅 (권장)**: 상시 규칙은 존재를 보장할 뿐 발동 시점을 보장하지 않음 — harness(에이전트 실행 환경)가 도구 훅을 제공하면 **figure 생성 직후 embed 리마인더 훅 설치를 권장**(원칙 = harness 무관, 구현 = harness별). Claude Code 예시: `.claude/settings.json`에 PostToolUse 훅 등록 — 셸 도구 실행 후 `6_Exp/64_Viz/`의 신규 이미지를 감지하면 "생성된 figure를 해당 trial `### 관찰`에 즉시 embed (LogConvention §2)" 리마인더를 반환. 등록 문법은 사용 harness 문서 참조.
 - **시행착오 — base-delta trial 전개**: 같은 형태 plot/분석을 **반복 개선**할 때는 각 수정 시도를 독립 trial(`t{NN}`)로 전개. 각 trial은 직전을 base로 `### 조건 (Conditions)`에 **delta(변경점) + 이유(직전 시도 문제)**, `### 관찰`에 그 버전 figure embed. plot script가 새로 생성돼도 **버전별 모두 보존**(§3.3), 중간 figure도 각 trial에 남김 → 시행착오가 trial chain으로 재현 가능 보존. **생존 편향 차단**: "조용히 고치고 최종만 보고" 금지(AI 포함) — 각 버전을 그 turn에 trial로 기록(덮어쓰기·사후 회상 금지). **트리거(내재화)**: *작동하는 산출물(figure·표·데이터)을 base로 파라미터·스타일을 바꿔 재생성하는 순간 = 무조건 다음 trial(delta)* + 버전 보존(§3.3). 작동-전 디버그(산출물 생성 실패→성공시키기)만 같은 trial `### 시행착오` 표 — 즉 **완성본 수정 = delta-trial / 작동 디버그 = 시행착오 표**. **소규모 예외 엄격화**: 표로 끝낼 수 있는 건 **산출물 외형이 바뀌지 않는** 수정(오타·경로·주석·변수명)뿐 — **figure/표 외형이 바뀌는 변경(폰트·색·크기·축·스타일·파라미터)은 1회라도 반드시 delta-trial**. 전개 비용은 §3.3 core+wrapper로 해소.
 - **생성 파일 테이블**: 각 task에서 생성된 자료를 테이블로 정리해 가독성 및 토큰 효율 극대화. 스크립트, 데이터, Figure를 테이블로 정리. 유형(`Script`, `Output`, `Figure`, `Config` 등)과 프로젝트 루트 기준 상대경로를 명시.
 - **코드 사용법**: 코드 블록 (```lang ... ```) 으로 기재
@@ -189,7 +192,7 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 - [ ] `### 목표 (Goal)` 작성 (task의 what)
 - [ ] `### 조건 (Conditions)` 작성 (parameter·제약 확정)
 - [ ] `### 가설 (Hypothesis)` 작성 (메커니즘/효과 의심 3-5항, 명사형)
-- [ ] `### 예상 (Prediction)` 작성 (구체 결과 예측 1-3항, 정량 가능 시 정량)
+- [ ] `### 예상 (Prediction)` 작성 (구체 결과 예측 1-3항, 정량 가능 시 정량) — (figure 산출 trial) **예상 산출물(figure·표) 목록 포함**(각 항목 = 생성 즉시 embed 대상, §2)
 - [ ] **멈춤** — 가설·예상 확인 후 Phase 2 진입 (자동 모드 AI도 본 멈춤점 준수)
 
 **Phase 2 — 실행 후 (post-execution)**
@@ -205,6 +208,7 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 ### 5.2 Session 종료 표준 절차
 
 세션 Status를 `Complete`로 전환 직전:
+- [ ] **`elf validate` 실행 — 경고 해소**(미embed·구조 위반) 또는 의도적 예외 명시(`<!-- noembed: file.png -->`) 후 진행: Archive 이동 후에는 구조 검사 범위에서 빠지므로 **close 전이 마지막 검증 기회**
 - [ ] 본문 말미에 `## 다음 세션 후보 (Next-Session Hypothesis)` 섹션 작성
 - [ ] 가설 후보 1-3항 + 예상 후보 1-3항 명시 (명사형, 1줄 list)
 - [ ] Handoff 정리: 미완료 파트 소거(완료 또는 `## 다음 세션 후보`로 이관) — 잔존 시 `elf session close`가 경고

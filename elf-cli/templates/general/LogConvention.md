@@ -143,6 +143,7 @@ Planning으로 분리된 내용은 원본 Log에 blockquote stub으로 표시:
 
 ### 5.1 Session 종료 표준 절차
 세션 Status를 `Complete`로 전환 직전:
+- [ ] **`elf validate` 실행 — 경고 해소** 후 진행: Archive 이동 후에는 구조 검사 범위에서 빠지므로 **close 전이 마지막 검증 기회**
 - [ ] 본문 말미에 `## 다음 세션 후보 (Next-Session Hypothesis)` 작성 (가설 후보 1-3항 + 예상 후보 1-3항, 명사형)
 - [ ] Handoff 정리: 미완료 파트 소거(완료 또는 `## 다음 세션 후보`로 이관) — 잔존 시 `elf session close`가 경고
 - [ ] `Wiki/`에 핵심 결론 요약 + Archive 경로 링크 추가

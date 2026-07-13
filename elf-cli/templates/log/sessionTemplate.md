@@ -25,6 +25,7 @@
 
 ### 예상 (Prediction)
 - [Phase 1, 실행 전 작성 — 결과 수치/방향 1-3항]
+- [figure 산출 trial: 예상 산출물(figure·표) 목록 — 각 항목 = 생성 즉시 embed 대상]
 
 ### 관찰 (Observation)
 - [Phase 2, 실행 후 작성]

@@ -148,6 +148,8 @@ elf session new "Wavelength Optimization"
 
 세션을 종료합니다: 헤더 `Status`를 `Complete`로, 로그를 `2_Log/Archive/`로 이동(파일명 그대로 — 폴더 위치가 곧 상태), Registry 행 갱신. id 생략 시 유일한 활성 세션을 자동 선택하며, 활성 세션이 여럿이면 목록을 보여주고 하나를 지정하도록 요구합니다.
 
+Archive 이동 전에 `elf validate`를 자동 실행하여 **닫는 세션 스코프의 발견**(figure 미embed·trial 구조 경고)을 보고합니다 — 비차단이지만, 로그가 `Archive/`로 이동해 활성 구조 검사 범위를 벗어나기 전 마지막 확인 지점입니다.
+
 | 플래그 | 의미 |
 |------|------|
 | `--force` | `## 다음 세션 후보` 섹션이 비어 있어도 강제 종료 |
@@ -165,7 +167,7 @@ elf session close S007        # 특정 세션 종료
 
 ### `elf trial new [제목]`
 
-**현행 정본 trial stub**(CLI에 embed; 배포 참조 사본 = `.elf/managed/templates/trialTemplate.md`)을 활성 세션 로그에 추가합니다: 다음 `t##` 자동 증번, `S{NNN}` 경로 치환, 헤더 `Modified` 날짜 갱신, `## 다음 세션 후보` 섹션 앞에 삽입. 제목 생략 시 `[작업 제목]` placeholder 유지.
+**현행 정본 trial stub**(CLI에 embed; 배포 참조 사본 = `.elf/managed/templates/trialTemplate.md`)을 활성 세션 로그에 추가합니다: 다음 `t##` 자동 증번, `S{NNN}` 경로 치환, 헤더 `Modified` 날짜 갱신, `## 다음 세션 후보` 섹션 앞에 삽입. 제목 생략 시 `[작업 제목]` placeholder 유지. 출력에 figure 규율의 행동 시점 안내가 포함됩니다 — Phase 1 예상 절에 예상 figure 목록을 적고, 각 figure는 생성 즉시 `### 관찰`에 embed(서브에이전트 산출 포함).
 
 | 플래그 | 의미 |
 |--------|------|

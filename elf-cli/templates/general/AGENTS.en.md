@@ -25,7 +25,7 @@ This project follows **ELF (Eli's Lab Framework) general preset** (goal-oriented
 - **Phase separation**: `### 가설 (Hypothesis)` / `### 예상 (Prediction)` (Phase 1) are written **before** execution, then stop → execute → `### 관찰 (Observation)` through `### 교훈 (Lessons)` (Phase 2). (LogConvention §5)
 - **Preserve output versions**: when iterating, do not overwrite — keep version suffixes (`_v1`/`_v2`); each version maps 1:1 to a delta trial. (LogConvention §3)
 - **Session lifecycle**: start with `elf session new "<title>"` → before closing run `elf validate` (resolve warnings) → `elf session close`.
-- **After a context rebuild** (compaction, session restart): re-read the active log header (`Handoff`) and continue from there.
+- **After a context rebuild** (compaction, session restart): re-read the active log header (`Handoff`), **run `elf validate` to surface unfinished items**, then continue — a rebuild is where unfinished-state tracking breaks.
 
 ## Ownership & precedence
 

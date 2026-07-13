@@ -19,6 +19,7 @@
 ### 예상 (Prediction)
 - [Phase 1, 실행 전 작성 — 결과 수치/방향/그래프 모양 1-3항]
 - [정량 가능 시 정량, 정성도 허용]
+- [figure 산출 trial: 예상 산출물(figure·표) 목록 — 각 항목 = 생성 즉시 embed 대상]
 
 ### 관찰 (Observation)
 - [Phase 2, 실행 후 작성 — 팩트 나열, Figure 인라인]

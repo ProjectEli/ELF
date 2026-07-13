@@ -154,6 +154,8 @@ The title must not contain a tab character (it would break the TSV registry). If
 
 Close a session: set its header `Status` to `Complete`, move the log to `2_Log/Archive/` (filename unchanged — the folder *is* the status), and update its registry row. With no id, the single active session is chosen automatically; if several are open, `elf` lists them and asks you to name one.
 
+Before archiving, close also runs `elf validate` and reports the findings **scoped to the session being closed** (missing figure embeds, trial-structure warnings) — non-blocking, but this is the last check before the log leaves the active-structure scope by moving to `Archive/`.
+
 | Flag | Meaning |
 |------|---------|
 | `--force` | Close even when the `## 다음 세션 후보` (next-session) section is still empty |
@@ -171,7 +173,7 @@ Add CommonMark hard breaks (`\`) to the blockquote headers of existing session l
 
 ### `elf trial new [title]`
 
-Append the **current canonical trial stub** (embedded in the CLI; deployed reference copy at `.elf/managed/templates/trialTemplate.md`) to the active session log: the next `t##` is auto-numbered, `S{NNN}` paths are substituted, the header `Modified` date is refreshed, and the stub is inserted before the `## 다음 세션 후보` section. With no title the `[작업 제목]` placeholder is kept.
+Append the **current canonical trial stub** (embedded in the CLI; deployed reference copy at `.elf/managed/templates/trialTemplate.md`) to the active session log: the next `t##` is auto-numbered, `S{NNN}` paths are substituted, the header `Modified` date is refreshed, and the stub is inserted before the `## 다음 세션 후보` section. With no title the `[작업 제목]` placeholder is kept. The output also reminds you of the figure discipline at the point of action — list expected figures in Phase 1 and embed each one into `### 관찰 (Observation)` the moment it is created (sub-agent outputs included).
 
 | Flag | Meaning |
 |------|---------|

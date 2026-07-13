@@ -156,6 +156,56 @@ fn fill_next_section(root: &std::path::Path, id: &str) {
     std::fs::write(&p, c).unwrap();
 }
 
+/// close 전 자동 validate — 닫는 세션 스코프 경고만 보고, 비차단 (S027 #7: close 직전 = 마지막 검증 기회)
+#[test]
+fn close_reports_validate_findings_scoped_and_nonblocking() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path()); // S001 활성
+    fill_next_section(&root, "S001");
+    // 닫는 세션(S001)의 embed 누락 연출: 64_Viz/S001에 그림 존재, 본문 embed 없음
+    let viz1 = root.join("6_Exp/64_Viz/S001");
+    fs::create_dir_all(&viz1).unwrap();
+    fs::write(viz1.join("plot.png"), b"png").unwrap();
+    // 타 세션(S002)의 embed 누락 연출 — 스코프 밖(닫는 세션 아님) 확인용
+    elf_cli::session::run_session_new(
+        &root,
+        &elf_cli::session::SessionNewOptions { title: "other".into(), date: "2026-07-13".into() },
+    )
+    .unwrap();
+    let viz2 = root.join("6_Exp/64_Viz/S002");
+    fs::create_dir_all(&viz2).unwrap();
+    fs::write(viz2.join("other.png"), b"png").unwrap();
+
+    // 타 로그(S002) 본문에 닫는 세션 파일명이 인용된 깨진 링크 연출 — 접두 매칭이
+    // 본문 인용을 스코프로 오귀속하지 않는지 확인(broken cross-ref → …S001_log.md)
+    let s002 = root.join("2_Log/S002_log.md");
+    let c = fs::read_to_string(&s002)
+        .unwrap()
+        .replace("- [이 작업의 구체적 목표]", "- [과거 로그](../S001_log.md) 참조");
+    fs::write(&s002, c).unwrap();
+
+    let r = run_session_close(&root, &CloseOptions { id: Some("S001".into()), force: false }).unwrap();
+    // 비차단: close 자체는 성공(Archive 이동 완료)
+    assert!(root.join("2_Log/Archive/S001_log.md").is_file());
+    // 닫는 세션의 embed 경고 포함
+    assert!(
+        r.warnings.iter().any(|w| w.contains("validate (S001)") && w.contains("plot.png")),
+        "closing-session validate finding missing: {:?}",
+        r.warnings
+    );
+    // 스코프: 타 세션(S002) 경고는 미포함 — embed도, 본문 인용(broken cross-ref)도
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("other.png")),
+        "out-of-scope finding leaked into close warnings: {:?}",
+        r.warnings
+    );
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("cross-ref")),
+        "another log's broken cross-ref citing this session was misattributed: {:?}",
+        r.warnings
+    );
+}
+
 #[test]
 fn close_archives_and_updates_registry() {
     let tmp = tempdir().unwrap();

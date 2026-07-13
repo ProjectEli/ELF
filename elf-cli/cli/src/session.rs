@@ -593,6 +593,28 @@ pub fn run_session_close(root: &Path, opts: &CloseOptions) -> Result<CloseResult
         ));
     }
 
+    // close 전 자동 validate — **닫는 세션 스코프**의 발견만 보고 (비차단, S027 #7).
+    // Archive 이동 후에는 구조 검사 범위에서 빠지므로 close 직전이 마지막 검증 기회.
+    // 스코프 필터 = 전역·타 세션 경고(소급 면제분 포함)가 close 절차를 오염하지 않게 함.
+    // validate 자체가 실패(레지스트리 escalation 등)해도 close는 진행 — 그 문제는 별도 명령이 보고.
+    if let Ok(v) = crate::validate::run_validate_opts(root, false) {
+        // 라인 형식 2종 커버: 구조 경고 = "S###_log.md: …" / figure-embed 경고 = "S###: figure …"
+        // — 세션 표지는 (issue:/warn: 접두 뒤) 라인 머리에 옴. **접두 매칭**으로 본문 인용의
+        // 오귀속(예: 타 로그의 broken cross-ref 대상 경로에 이 세션 파일명 등장)을 배제.
+        let by_file = format!("{target}_log.md");
+        let by_id = format!("{target}:");
+        let scoped = |l: &&String| {
+            let body =
+                l.strip_prefix("issue: ").or_else(|| l.strip_prefix("warn: ")).unwrap_or(l);
+            body.starts_with(&by_file) || body.starts_with(&by_id)
+        };
+        for l in v.lines.iter().filter(scoped) {
+            warnings.push(format!(
+                "validate ({target}): {l} — fix before closing or state an intentional exception (LogConvention §5.2)"
+            ));
+        }
+    }
+
     let archive_rel = format!("2_Log/Archive/{target}_log.md");
     let archive_path = root.join(&archive_rel);
     if archive_path.exists() {

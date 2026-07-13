@@ -4,6 +4,32 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.17.0] - 2026-07-13
+
+### Added
+- **Figure-embed discipline is now injected at the point of action.** A standing rule in
+  the loaded context guarantees presence, not activation at the right moment — so the rule
+  now travels with the workflow:
+  - `elf trial new` output reminds you to list expected figures in Phase 1 and embed each
+    one into `### 관찰 (Observation)` the moment it is created (sub-agent outputs included).
+  - `elf session close` runs `elf validate` automatically before archiving and reports the
+    findings **scoped to the session being closed** (missing embeds, trial-structure
+    warnings) — non-blocking, but it is the last check before the log leaves the
+    active-structure scope by moving to `Archive/`.
+- **Convention updates** (research preset unless noted):
+  - **Pre-register expected outputs**: a figure-producing trial lists its expected figures/
+    tables in the Phase-1 `### 예상 (Prediction)` section — each item is an
+    embed-on-creation target, and "draw everything, tidy up later" batching is prohibited
+    (deferred batches get lost on interruption or a context rebuild).
+  - **Sub-agent figures**: figures produced by a delegated worker must be embedded by the
+    **main** agent at retrieval — delegation does not waive the embed duty.
+  - **Point-of-action reminder hook**: a harness-agnostic principle with a Claude Code
+    PostToolUse example — when your agent runtime provides tool hooks, install one that
+    reminds you to embed right after a plot lands in `6_Exp/64_Viz/`.
+  - The session-close checklists now include a validate step ("before close is the last
+    verification point"), and the context-rebuild step says to run `elf validate` to
+    surface unfinished items (both presets).
+
 ## [2.16.2] - 2026-07-13
 
 ### Fixed
