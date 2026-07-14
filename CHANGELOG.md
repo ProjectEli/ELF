@@ -4,6 +4,14 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.17.2] - 2026-07-14
+
+### Changed
+- **LLMcliche — `provenance` is now excluded outright.** The §4 data-lineage exception
+  introduced in 2.17.1 is removed: use *source/origin* or a concrete term such as
+  *data lineage* in every context, including data-lineage writing. The §1 entry now says
+  "no exception". meta and general presets, plus the EN companion. Run `elf update`.
+
 ## [2.17.1] - 2026-07-14
 
 ### Added
