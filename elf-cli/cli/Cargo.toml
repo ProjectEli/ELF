@@ -1,7 +1,7 @@
 [package]
 name = "elf-cli"
 # semver 매핑: elf-cli/VERSION "v2.4.1" ↔ "2.4.1" (표시 버전 SSOT = VERSION, 규칙 = Versioning_Policy)
-version = "2.17.2"
+version = "2.18.0"
 edition = "2024"
 description = "ELF (Eli's Lab Framework) scaffold & update CLI"
 repository = "https://github.com/ProjectEli/ELF"
@@ -17,6 +17,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+# tsa stamp — RFC 3161 TSQ POST (rustls; TSA 토큰은 자체 서명이라 http도 유효, https 교체 대응)
+ureq = { version = "3", default-features = false, features = ["rustls"] }
 # self-update (t06 stage 3) — 라이브러리 모드 (별도 updater 바이너리는 UAC update-키워드 함정, S007 t04)
 axoupdater = { version = "0.9", default-features = false, features = ["github_releases", "blocking"] }
 

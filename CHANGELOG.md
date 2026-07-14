@@ -4,6 +4,33 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.18.0] - 2026-07-15
+
+### Added
+- **`elf tsa` — opt-in research-record timestamping.** Once enabled, every commit's file
+  hashes are appended to a daily manifest (`0_Meta/tsa/`, pre-commit hook), and the day's
+  first commit requests an RFC 3161 timestamp token from a TSA (post-commit hook, saved
+  next to the manifest) — verifiable proof that this exact content existed by that day.
+  Off by default; nothing runs until `elf tsa enable`.
+  - `enable` is idempotent and **non-destructive**: an existing foreign hook is left
+    untouched (the exact line to add is printed instead), and it finishes with a baseline
+    seal of all tracked files — retroactive proof of the past is impossible by design, so
+    the baseline anchors "existed by the day I enabled".
+  - `disable` removes only elf-owned hooks and **never deletes evidence** under
+    `0_Meta/tsa/` — re-enabling resumes on top of it.
+  - `record --staged|--all`, `stamp [--backfill]` (catches up after offline days),
+    `verify <file>` (existence history of the exact content), `verify --date <D>`
+    (manifest↔token check + the `openssl ts -verify` command for full signature-chain
+    verification). Hooks never block a commit; stamping runs in the background.
+  - Privacy: the only bytes that ever leave your machine are one 32-byte manifest digest
+    per day — no file contents, no file names. Default TSA is DigiCert's free public
+    endpoint (no account; override with `"tsaUrl"` in `.elf/config.json`). Requests are
+    built in pure Rust — `openssl` is only needed for the rare full chain verification.
+  - GPG commit signing (the optional authorship layer) stays git-owned; `elf tsa enable`
+    and `elf doctor` print how to turn it on.
+- `elf status` shows a tsa summary line and `elf doctor` gains tsa checks when the
+  feature is enabled (both stay silent otherwise). See CLI.md for the full reference.
+
 ## [2.17.2] - 2026-07-14
 
 ### Changed

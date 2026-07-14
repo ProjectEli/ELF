@@ -35,6 +35,7 @@ Installs the binary to `~/.elf/bin` and adds it to PATH. Open a new shell and ve
 | `elf session fix-headers` | Repair session-log header rendering |
 | `elf trial new [title]` | Append the canonical trial stub to the active session log |
 | `elf gallery` | Generate the figure index `_gallery.md` from `6_Exp/64_Viz/` |
+| `elf tsa <sub>` | Research-record timestamping, **opt-in**: per-commit hash manifest + RFC 3161 token |
 | `elf doctor` | Aggregate environment + project health check (read-only) |
 | `elf self-update` | Update the `elf` binary itself |
 
@@ -195,6 +196,32 @@ elf gallery
 # → wrote 6_Exp/64_Viz/_gallery.md (3 session(s), 12 image(s))
 ```
 
+### `elf tsa <subcommand>` (opt-in)
+
+Research-record timestamping — proves *what* existed *when*. Once enabled, every commit's file hashes are appended to a daily manifest (`0_Meta/tsa/YYYY-MM-DD_manifest.json`, pre-commit hook), and the day's first commit requests an RFC 3161 timestamp token from a TSA (post-commit hook; `.tsr` saved next to the manifest). Off by default — nothing runs until you enable it, and most researchers can ignore it entirely.
+
+**Privacy**: the only thing that ever leaves your machine is one 32-byte sha256 digest of the manifest file — no file contents, no file names. **Authorship** (GPG commit signing), the optional third layer, is owned by git itself, not by this command — `elf tsa enable` and `elf doctor` print how to turn it on.
+
+| Subcommand | Effect |
+|---|---|
+| `enable` | Idempotent setup: `"tsa": true` in `.elf/config.json`, creates `0_Meta/tsa/`, installs both hooks **non-destructively** (a foreign hook is left untouched, with the exact line to add manually), prints GPG guidance, then takes a **baseline seal** (records all tracked files + stamps). Retroactive proof of the past is impossible by design — the baseline proves "this existed by the day I enabled" |
+| `disable` | Config off + removes only marker-owned hooks (a foreign hook survives). **Evidence under `0_Meta/tsa/` is never deleted** — re-enabling resumes on top of it |
+| `status` | Enabled state, hook ownership, evidence counts, unstamped manifests (read-only) |
+| `record --staged\|--all [--quiet]` | Hash staged files (hook path) or all tracked files (baseline) into today's manifest — raw-byte sha256, duplicates skipped; the manifest itself is auto-staged so it rides the commit |
+| `stamp [--backfill] [--quiet]` | Request tokens for unstamped manifests (default: today only; `--backfill` = all — catches up after offline commits). A non-granted response is discarded, never saved as evidence |
+| `verify <file>` | Look up the file's current sha256 across all manifests — "when did this exact content exist?" |
+| `verify --date <D>` | Lightweight manifest↔token check (granted status, messageImprint match, genTime), then prints the `openssl ts -verify` command for full signature-chain verification (rare path — disputes/audits) |
+
+Defaults: DigiCert's free public TSA (`http://timestamp.digicert.com`, no account or credentials; override via `"tsaUrl"` in `.elf/config.json`). Requires git — commits are the recording unit. Hooks never block a commit (stamping runs in the background; failures defer to `--backfill`). Everything except `stamp` works fully offline.
+
+```bash
+elf tsa enable            # once per project — hooks + baseline from here on
+git commit …              # recording + stamping now happen automatically
+elf tsa verify paper.md   # existence history of this exact content
+elf tsa stamp --backfill  # after offline days
+elf tsa disable           # stops recording; evidence stays
+```
+
 ### `elf self-update`
 
 Update the `elf` binary itself to the latest release. Works on installer-based installs (it reads the install receipt); otherwise it prints the installer command for manual update. Also reachable as `elf update --self`.
@@ -208,6 +235,7 @@ Aggregate health check (read-only). Reports each item as `OK` / `WARN` / `INFO`:
 - **managed files** — a `elf status` summary (pending / conflicts)
 - **overlay** — active data overlays (`0_Meta/<name>.project.md`), removal entries missing a reason, overlays without an overlayable base
 - **agent entry** — `CLAUDE.md` loads `@AGENTS.md` (warns when the pointer line is missing — Claude Code would not load the rules), flags heavy extra content in the pointer and pending `AGENTS.md.elf-new`/`CLAUDE.md.elf-new` files
+- **tsa** (only when enabled) — unstamped manifests, GPG signing state, `openssl` availability (needed only for full chain verification)
 - **git** — repository and `pre-commit` hook presence
 
 Works outside an ELF project too (environment checks only). Does not hit the network. Always exits **0**.

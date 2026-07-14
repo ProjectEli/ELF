@@ -83,6 +83,18 @@ pub fn run_status(root: &Path) -> Result<StatusReport, UpdateError> {
         ));
     }
 
+    // tsa (opt-in — enabled일 때만 1줄; 상세는 `elf tsa status`/`elf doctor`)
+    if crate::tsa::is_enabled(root) {
+        let (manifests, stamped, unstamped) = crate::tsa::evidence_counts(root);
+        if unstamped == 0 {
+            report.lines.push(format!("tsa: enabled ({manifests} manifest(s), {stamped} stamped)"));
+        } else {
+            report.warn(format!(
+                "tsa: {unstamped} unstamped manifest(s) — run `elf tsa stamp --backfill` when online"
+            ));
+        }
+    }
+
     let mut current: CurrentState = CurrentState::new();
     for e in &new_m.files {
         let state = fs::read(root.join(&e.dest)).ok().map(|b| hash::sha256_lf(&b));

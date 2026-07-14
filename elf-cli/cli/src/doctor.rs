@@ -7,7 +7,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::{manifest, status, update};
+use crate::{manifest, status, tsa, update};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Health {
@@ -75,6 +75,7 @@ pub fn run_doctor(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
             check_i18n(&root, &mut r);
             check_overlay(&root, &mut r);
             check_l2(&root, &mut r);
+            check_tsa(&root, &mut r);
         }
     }
 
@@ -310,6 +311,53 @@ fn removals_missing_reason(text: &str) -> usize {
         }
     }
     missing
+}
+
+/// tsa 진단 (S022) — opt-in이라 disabled면 침묵. enabled 시: GPG 저작자 계층(선택),
+/// 미제출 manifest, 엄밀 검증용 openssl 존재(드문 경로 — 없어도 축적·경량 검증은 자기완결).
+fn check_tsa(root: &Path, r: &mut DoctorReport) {
+    if !tsa::is_enabled(root) {
+        return;
+    }
+    let (manifests, stamped, unstamped) = tsa::evidence_counts(root);
+    if unstamped == 0 {
+        r.add(Health::Ok, "tsa", format!("enabled — {manifests} manifest(s), {stamped} stamped"));
+    } else {
+        r.add(
+            Health::Warn,
+            "tsa",
+            format!("{unstamped} unstamped manifest(s) — run `elf tsa stamp --backfill` when online"),
+        );
+    }
+    let gpg_on = std::process::Command::new("git")
+        .args(["config", "--get", "commit.gpgsign"])
+        .current_dir(root)
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "true")
+        .unwrap_or(false);
+    if gpg_on {
+        r.add(Health::Ok, "tsa gpg", "commit.gpgsign = true (authorship layer active)");
+    } else {
+        r.add(
+            Health::Info,
+            "tsa gpg",
+            "commit signing off — optional authorship layer (`git config commit.gpgsign true`)",
+        );
+    }
+    let openssl = std::process::Command::new("openssl")
+        .arg("version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    if openssl {
+        r.add(Health::Ok, "tsa openssl", "available (full signature-chain verify possible)");
+    } else {
+        r.add(
+            Health::Info,
+            "tsa openssl",
+            "not found — recording/stamping/lightweight verify are self-contained; openssl only needed for full chain verification",
+        );
+    }
 }
 
 fn check_git(cwd: &Path, r: &mut DoctorReport) {

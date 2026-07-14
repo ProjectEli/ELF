@@ -35,6 +35,7 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases
 | `elf session fix-headers` | 세션 로그 헤더 렌더링 보정 |
 | `elf trial new [제목]` | 활성 세션 로그에 정본 trial stub 추가 |
 | `elf gallery` | `6_Exp/64_Viz/`에서 Figure 색인 `_gallery.md` 생성 |
+| `elf tsa <sub>` | 연구 기록 시점인증, **opt-in**: 커밋별 해시 manifest + RFC 3161 토큰 |
 | `elf doctor` | 환경+프로젝트 종합 건강검진(읽기전용) |
 | `elf self-update` | `elf` 바이너리 자체 갱신 |
 
@@ -189,6 +190,32 @@ elf gallery
 # → wrote 6_Exp/64_Viz/_gallery.md (3 session(s), 12 image(s))
 ```
 
+### `elf tsa <서브명령>` (opt-in)
+
+연구 기록 시점인증 — "이 내용이 이 시점에 존재했음"의 증명. 켜두면 커밋마다 파일 해시가 일일 manifest(`0_Meta/tsa/YYYY-MM-DD_manifest.json`, pre-commit 훅)에 기록되고, 당일 첫 커밋이 TSA에 RFC 3161 시점토큰을 요청해 `.tsr`로 저장합니다(post-commit 훅). 기본 off — enable 전에는 아무것도 실행되지 않으며, 필요 없는 연구자는 무시해도 됩니다.
+
+**프라이버시**: 외부로 나가는 것은 manifest 파일의 sha256 해시 32바이트 1건뿐 — 파일 내용·파일명은 전송되지 않습니다. **저작자 계층**(GPG 커밋 서명)은 이 명령이 아니라 git 소유(선택 사항) — `elf tsa enable`과 `elf doctor`가 설정 방법을 안내합니다.
+
+| 서브명령 | 효과 |
+|---|---|
+| `enable` | 멱등 설치: `.elf/config.json`에 `"tsa": true`, `0_Meta/tsa/` 생성, 훅 2종 **비파괴** 설치(기존 타 훅은 건드리지 않고 수동 추가 줄 안내), GPG 안내 출력, 이어서 **baseline seal**(추적 전체 기록+stamp). 과거 시점의 소급 증명은 원리적으로 불가 — baseline은 "도입 시점까지 존재했음"의 기준선 |
+| `disable` | config off + elf 마커 훅만 제거(타 훅 보존). **`0_Meta/tsa/` 증거는 절대 삭제하지 않음** — 재enable 시 이어서 누적 |
+| `status` | 활성 상태·훅 소유·증거 수·미제출 manifest(읽기전용) |
+| `record --staged\|--all [--quiet]` | staged(훅 경로) 또는 추적 전체(baseline)를 당일 manifest에 해시 기록 — 원시 바이트 sha256, 중복 skip; manifest 자신은 auto-stage(커밋 동승) |
+| `stamp [--backfill] [--quiet]` | 미제출 manifest에 토큰 요청(기본 당일만; `--backfill` = 전체 — 오프라인 커밋 소급 보충). granted가 아닌 응답은 증거로 저장하지 않음 |
+| `verify <파일>` | 파일의 현재 sha256을 전체 manifest에서 탐색 — "이 내용이 언제 존재했나" |
+| `verify --date <D>` | manifest↔토큰 경량 검증(granted·messageImprint 대조·genTime) + 엄밀 서명 체인 검증용 `openssl ts -verify` 명령 안내(드문 경로 — 분쟁·감사) |
+
+기본값: DigiCert 무료 공개 TSA(`http://timestamp.digicert.com`, 계정·크리덴셜 불요; `.elf/config.json`의 `"tsaUrl"`로 교체). git 필수 — 커밋이 기록 단위. 훅은 커밋을 절대 막지 않음(stamp는 백그라운드, 실패분은 `--backfill`로). `stamp` 외 전부 오프라인 동작.
+
+```bash
+elf tsa enable            # 프로젝트당 1회 — 이후 훅+baseline
+git commit …              # 기록·시점인증 자동
+elf tsa verify paper.md   # 이 내용의 존재 이력
+elf tsa stamp --backfill  # 오프라인 기간 후 소급
+elf tsa disable           # 기록 중지; 증거는 잔존
+```
+
 ### `elf self-update`
 
 `elf` 바이너리 자체를 최신 릴리즈로 갱신합니다. 인스톨러로 설치된 경우 동작(install receipt 사용), 아니면 인스톨러 명령을 안내. `elf update --self`로도 호출 가능.
@@ -202,6 +229,7 @@ elf gallery
 - **managed 파일** — `elf status` 요약(pending / conflict)
 - **overlay** — 활성 data overlay(`0_Meta/<이름>.project.md`)·제외 사유 누락·비허용 대상 overlay
 - **agent entry** — `CLAUDE.md`가 `@AGENTS.md`를 로드하는지(포인터 줄 부재 시 경고 — Claude Code가 규칙을 로드하지 못함), 포인터에 과다 콘텐츠·`AGENTS.md.elf-new`/`CLAUDE.md.elf-new` 대기 여부
+- **tsa**(enable된 경우만) — 미제출 manifest·GPG 서명 상태·`openssl` 존재(엄밀 체인 검증에만 필요)
 - **git** — 저장소·`pre-commit` 훅 존재
 
 프로젝트 밖에서도 동작(환경 검사만). 네트워크를 쓰지 않으며 항상 exit **0**.

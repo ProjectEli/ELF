@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use elf_cli::{
-    doctor, embed, gallery, init, manifest, selfupdate, session, status, trial, update, validate,
+    doctor, embed, gallery, init, manifest, selfupdate, session, status, trial, tsa, update,
+    validate,
 };
 
 /// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드·갱신 CLI (research project scaffold & update CLI)
@@ -88,6 +89,50 @@ enum Commands {
     Gallery,
     /// 환경+프로젝트 종합 진단 · Environment + project health check (읽기전용/read-only)
     Doctor,
+    /// 연구 기록 시점인증 · Research-record timestamping (manifest + RFC 3161 TSA, opt-in)
+    Tsa {
+        #[command(subcommand)]
+        cmd: TsaCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum TsaCmd {
+    /// 기능 도입 · Enable (config + hooks + baseline seal — 멱등/idempotent, 기존 훅 비파괴)
+    Enable,
+    /// 기능 해제 · Disable (config off + elf 훅만 제거 — 증거 `0_Meta/tsa/`는 보존/kept)
+    Disable,
+    /// 상태 · Status (enabled·hooks·evidence counts — 읽기전용/read-only)
+    Status,
+    /// 해시 기록 · Record file hashes into today's manifest (pre-commit 훅이 호출)
+    Record {
+        /// staged 파일만 · staged files only (훅 기본)
+        #[arg(long, conflicts_with = "all")]
+        staged: bool,
+        /// git 추적 전체 · all tracked files (baseline)
+        #[arg(long)]
+        all: bool,
+        /// 출력 억제 · suppress output (훅용)
+        #[arg(long)]
+        quiet: bool,
+    },
+    /// TSA 시점토큰 요청 · Request timestamp tokens for unstamped manifests (post-commit 훅이 호출)
+    Stamp {
+        /// 과거 누락분 전부 · all unstamped manifests (오프라인 커밋 소급 보충)
+        #[arg(long)]
+        backfill: bool,
+        /// 출력 억제 · suppress output (훅용)
+        #[arg(long)]
+        quiet: bool,
+    },
+    /// 검증 · Verify a file against manifests, or a day's manifest↔token pair (읽기전용)
+    Verify {
+        /// 검증할 파일 · file to look up (sha256 → manifest 이력)
+        file: Option<String>,
+        /// 날짜 쌍 검증 · verify manifest↔token for a date (YYYY-MM-DD)
+        #[arg(long)]
+        date: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -309,6 +354,59 @@ fn main() {
                 println!("[elf] [{mark}] {}: {}", c.label, c.detail);
             }
             println!("[elf] doctor: {} warning(s)", report.warnings());
+        }
+        Commands::Tsa { cmd } => {
+            let cwd = std::env::current_dir().expect("cwd");
+            let Some(root) = update::find_project_root(&cwd) else {
+                eprintln!("[elf] error: not an ELF project (no .elf/manifest.json upward from {})", cwd.display());
+                std::process::exit(1);
+            };
+            let quiet = matches!(
+                cmd,
+                TsaCmd::Record { quiet: true, .. } | TsaCmd::Stamp { quiet: true, .. }
+            );
+            // enabled 게이트: disable 후 타 훅에 수동 잔존한 호출 라인의 무해화 —
+            // 훅 경로(quiet)는 침묵 성공, 직접 실행은 refuse 안내.
+            if matches!(cmd, TsaCmd::Record { .. } | TsaCmd::Stamp { .. }) && !tsa::is_enabled(&root)
+            {
+                if quiet {
+                    return;
+                }
+                eprintln!("[elf] tsa is disabled — run `elf tsa enable` first");
+                std::process::exit(3);
+            }
+            let result = match cmd {
+                TsaCmd::Enable => tsa::run_enable(&root),
+                TsaCmd::Disable => tsa::run_disable(&root),
+                TsaCmd::Status => tsa::run_status(&root),
+                TsaCmd::Record { all, .. } => {
+                    let scope = if all { tsa::RecordScope::All } else { tsa::RecordScope::Staged };
+                    tsa::run_record(&root, scope)
+                }
+                TsaCmd::Stamp { backfill, .. } => tsa::run_stamp(&root, backfill),
+                TsaCmd::Verify { file, date } => {
+                    tsa::run_verify(&root, file.as_deref(), date.as_deref())
+                }
+            };
+            match result {
+                Ok(report) => {
+                    if !quiet {
+                        for line in &report.lines {
+                            println!("[elf] {line}");
+                        }
+                    }
+                }
+                Err(tsa::TsaError::Refuse(e)) => {
+                    eprintln!("[elf] {e}");
+                    std::process::exit(3);
+                }
+                Err(e) => {
+                    if !quiet {
+                        eprintln!("[elf] error: {e}");
+                    }
+                    std::process::exit(1);
+                }
+            }
         }
         Commands::Gallery => {
             let root = log_root_or_exit();

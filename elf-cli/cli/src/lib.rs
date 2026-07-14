@@ -12,5 +12,6 @@ pub mod selfupdate;
 pub mod session;
 pub mod status;
 pub mod trial;
+pub mod tsa;
 pub mod update;
 pub mod validate;
