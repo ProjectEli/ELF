@@ -4,6 +4,22 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.17.1] - 2026-07-14
+
+### Added
+- **LLMcliche — three cliché nouns added**: the §1 list gains `provenance` (inflated
+  nominalization of "source" — use *source/origin*; the data-lineage standard use — data
+  provenance, W3C PROV, reproducibility records — stays allowed via a matching §4
+  exception), `dossier` (non-academic elevation of a compilation — use *record/summary*),
+  and `caveat` (cliché hedging noun — use *limitation/note*), with a before/after example.
+  Promoted from a project overlay (`0_Meta/LLMcliche.project.md`) — the first field use of
+  the overlay-to-core promotion path. meta and general presets, plus the EN companion. Run
+  `elf update`.
+
+### Fixed
+- The LogConvention initiator rule itself used `provenance` — reworded in all four
+  deployed variants (research/general × KO/EN) so the canon does not use a listed word.
+
 ## [2.17.0] - 2026-07-13
 
 ### Added
