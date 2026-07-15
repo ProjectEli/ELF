@@ -121,7 +121,12 @@ fn write_config_flag(root: &Path, on: bool) -> Result<(), TsaError> {
 // ── git 유틸 ───────────────────────────────────────────────────────────────────
 
 fn git(root: &Path, args: &[&str]) -> Result<String, TsaError> {
+    // core.quotepath=false: git 기본값(true)은 non-ASCII 경로를 octal-escape + 큰따옴표로
+    // 인용 출력 → 파싱된 경로가 실물과 불일치. 전역 주입으로 rev-parse(경로 반환)·ls-files·diff
+    // 전부 커버(S029 — record는 추가로 -z 사용). config·add 등 비경로 호출엔 무해.
     let out = Command::new("git")
+        .arg("-c")
+        .arg("core.quotepath=false")
         .args(args)
         .current_dir(root)
         .output()
@@ -314,11 +319,13 @@ pub enum RecordScope {
 /// manifest 자신은 git add(커밋에 봉인 동승 — Mastication pre-commit 동작 승계).
 pub fn run_record(root: &Path, scope: RecordScope) -> Result<TsaReport, TsaError> {
     let mut r = TsaReport::default();
+    // -z: NUL 구분 출력 — 경로 인용(quotepath) 자체를 우회하고 공백·개행 포함 파일명도 견고.
+    // trim 금지(공백 파일명 보존), 빈 요소만 제외(trailing NUL). (S029 — non-ASCII 조용한 skip 수정)
     let listing = match scope {
-        RecordScope::Staged => git(root, &["diff", "--cached", "--name-only", "--diff-filter=ACMR"])?,
-        RecordScope::All => git(root, &["ls-files"])?,
+        RecordScope::Staged => git(root, &["diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR"])?,
+        RecordScope::All => git(root, &["ls-files", "-z"])?,
     };
-    let files: Vec<&str> = listing.lines().filter(|l| !l.trim().is_empty()).collect();
+    let files: Vec<&str> = listing.split('\0').filter(|l| !l.is_empty()).collect();
     if files.is_empty() {
         r.say("nothing to record");
         return Ok(r);

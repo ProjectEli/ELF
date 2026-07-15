@@ -245,3 +245,34 @@ fn status_reports_tsa_line_only_when_enabled() {
     let s = elf_cli::status::run_status(&root).unwrap();
     assert!(s.lines.iter().any(|l| l.contains("tsa: enabled")), "{:?}", s.lines);
 }
+
+#[test]
+fn record_captures_non_ascii_filenames_despite_quotepath() {
+    // S029 회귀: git 기본 core.quotepath=true는 non-ASCII 경로를 octal-escape+인용 출력 →
+    // 구현이 인용 문자열을 그대로 join하면 fs::read 실패로 조용히 skip(무결성 gap).
+    // Mastication 산 증거: baseline record가 한글파일 32건 미기록.
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    tsa::run_enable(&root).unwrap();
+    // 최악 조건 강제: repo-local quotepath=true (코드의 -c false·-z가 이를 이겨야 함)
+    git(&root, &["config", "core.quotepath", "true"]);
+    fs::write(root.join("한글파일.txt"), b"korean").unwrap();
+    fs::write(root.join("café.md"), b"accent").unwrap();
+    fs::write(root.join("plain.txt"), b"ascii").unwrap();
+    git(&root, &["add", "."]);
+    tsa::run_record(&root, RecordScope::Staged).unwrap();
+
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let m: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join(format!("0_Meta/tsa/{today}_manifest.json"))).unwrap(),
+    )
+    .unwrap();
+    let files: Vec<&str> =
+        m["entries"].as_array().unwrap().iter().filter_map(|e| e["file"].as_str()).collect();
+    assert!(files.contains(&"한글파일.txt"), "Korean filename skipped: {files:?}");
+    assert!(files.contains(&"café.md"), "diacritic filename skipped: {files:?}");
+    assert!(files.contains(&"plain.txt"), "ascii control missing: {files:?}");
+    // verify도 non-ASCII 파일을 이력에서 찾을 수 있어야(round-trip)
+    let v = tsa::run_verify(&root, Some("한글파일.txt"), None).unwrap();
+    assert!(v.lines.iter().any(|l| l.starts_with("found:")), "{:?}", v.lines);
+}

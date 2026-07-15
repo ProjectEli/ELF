@@ -4,6 +4,19 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.18.1] - 2026-07-15
+
+### Fixed
+- **`elf tsa record` silently skipped files with non-ASCII paths.** With git's default
+  `core.quotepath=true`, paths containing non-ASCII characters (Korean, CJK, accented
+  Latin, …) are octal-escaped and quoted in `git ls-files`/`diff` output. The parser took
+  the quoted string literally, so the read failed and the file was dropped from the manifest
+  **with no warning** — a silent integrity gap (the tool looked like it recorded everything).
+  Fixed by disabling path quoting on all git calls and reading `record` output NUL-delimited
+  (`-z`), which also makes spaces and newlines in filenames safe. **If you enabled `elf tsa`
+  before this release, run `elf tsa record --all` once** to capture any files that were
+  previously skipped.
+
 ## [2.18.0] - 2026-07-15
 
 ### Added
