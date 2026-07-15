@@ -4,6 +4,39 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.19.0-beta] - 2026-07-16
+
+Pre-release for field validation of the new autoread feature. `releases/latest`
+(the installer one-liner and `elf self-update`) never picks pre-releases, so regular
+installs are unaffected — install this tag explicitly to try it.
+
+### Added
+- **`elf autoread` — governance re-injection after context reconstruction (default-on).**
+  When an AI coding session's context is compacted (or resumed/cleared), the summary the
+  agent continues from is a lossy digest — project rules quietly drift out of view. With
+  Claude Code, elf now detects the reconstruction (a `SessionStart` hook records a
+  per-session marker; nothing is injected at that point) and injects a governance digest
+  on the next prompt (`UserPromptSubmit` hook): the standing-duties section of AGENTS.md,
+  active session headers (Handoff, truncated), and current `elf validate` counts. Until
+  that prompt arrives, every `elf` command prints a one-line reminder banner as a fallback
+  channel. Hook paths are strictly fail-open: any internal error exits 0 with no output
+  and never blocks the session.
+- **Per-project switch, on by default.** The `autoread` key in `.elf/config.json` defaults
+  to on when absent; `elf autoread enable`/`disable` writes it explicitly (disable leaves
+  the hook entries in place but makes them no-ops). `elf autoread` with no arguments
+  prints the digest manually (works in any harness); `status` and `ack` are included.
+  Hooks live in `.claude/settings.json` as two thin entries — the logic stays in the
+  binary. `elf init` and `elf update` keep the entries present (the file is untracked;
+  `elf update` restores it after a fresh clone), the merge preserves everything else in
+  the file, and `elf doctor` reports the state.
+- The managed block of `.gitignore` now excludes `.elf/runtime/` (session-scoped markers).
+
+### Known caveat (beta)
+- Do not run the installed hooks with an elf binary older than 2.19: pre-2.19 binaries
+  exit with code 2 on the new subcommand, which Claude Code treats as a blocking hook
+  error on prompt submission. Normal installs and updates are unaffected — only avoid
+  downgrading elf after hooks are installed.
+
 ## [2.18.3] - 2026-07-15
 
 ### Added

@@ -211,6 +211,24 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
         report.note(format!("re-stamped .elf/ to ELF {}", embed::version()));
     }
 
+    // autoread 훅 보장 (기본 켬의 "설치 자동화" 지점 — S031 t06): config on(부재=on)이면
+    // `.claude/settings.json`에 elf 소유 훅을 멱등 병합. settings.json은 비추적 파생물
+    // (.gitignore가 `.claude/` ignore)이라 clone 직후에는 이 단계가 유일한 복원 경로.
+    // 실패는 update 전체를 막지 않음(warn 강등 — settings.json malformed 등).
+    if crate::autoread::is_enabled(root) {
+        if opts.dry_run {
+            report.note("autoread: would ensure Claude Code hooks (.claude/settings.json)".into());
+        } else {
+            match crate::autoread::install_hooks(root) {
+                Ok(true) => report.note(
+                    "autoread: Claude Code hooks installed/refreshed (.claude/settings.json)".into(),
+                ),
+                Ok(false) => {}
+                Err(e) => report.warn(format!("autoread hooks not installed: {e}")),
+            }
+        }
+    }
+
     Ok(report)
 }
 

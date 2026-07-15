@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use elf_cli::{
-    doctor, embed, gallery, init, manifest, selfupdate, session, status, trial, tsa, update,
-    validate,
+    autoread, doctor, embed, gallery, init, manifest, selfupdate, session, status, trial, tsa,
+    update, validate,
 };
 
 /// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드·갱신 CLI (research project scaffold & update CLI)
@@ -94,6 +94,29 @@ enum Commands {
         #[command(subcommand)]
         cmd: TsaCmd,
     },
+    /// compact 후 거버넌스 자동 재독 · Governance digest re-injection after context reconstruction (기본 켬/default-on)
+    Autoread {
+        #[command(subcommand)]
+        cmd: Option<AutoreadCmd>,
+    },
+}
+
+#[derive(Subcommand)]
+enum AutoreadCmd {
+    /// 켬 · Enable (config `"autoread": true` + Claude Code hooks — 멱등/idempotent, 프로젝트 단위)
+    Enable,
+    /// 끔 · Disable (config `"autoread": false` — 훅은 잔존·no-op/hooks stay but no-op)
+    Disable,
+    /// 상태 · Status (config·hooks·pending markers — 읽기전용/read-only)
+    Status,
+    /// 대기 마커 해제 · Clear pending reconstruction markers
+    Ack,
+    /// (내부) 하네스 훅 진입점 · harness hook entrypoint (stdin JSON)
+    #[command(hide = true)]
+    Hook {
+        /// 이벤트 · event (session-start | prompt)
+        event: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -174,6 +197,20 @@ enum TrialCmd {
 // exit code 규약: 0=성공, 1=실행 오류, 2=usage(clap 기본), 3=refuse, 4=check 발견, 5=escalation(상위 에이전트 위임).
 fn main() {
     let cli = Cli::parse();
+    // autoread 배너 — 재구성 마커 대기 중이면 모든 명령 출력 선두 1행(보조 주입 채널: auto-compact
+    // 직후 프롬프트 미경유 경로 커버). 제외 = autoread 자신(훅 출력 계약·digest 중복)·tsa quiet(훅 경로).
+    let banner_suppressed = matches!(cli.command, Commands::Autoread { .. })
+        || matches!(
+            cli.command,
+            Commands::Tsa { cmd: TsaCmd::Record { quiet: true, .. } | TsaCmd::Stamp { quiet: true, .. } }
+        );
+    if !banner_suppressed {
+        if let Ok(cwd) = std::env::current_dir() {
+            if let Some(b) = autoread::pending_banner(&cwd) {
+                println!("[elf] {b}");
+            }
+        }
+    }
     match cli.command {
         Commands::Init {
             name,
@@ -405,6 +442,57 @@ fn main() {
                         eprintln!("[elf] error: {e}");
                     }
                     std::process::exit(1);
+                }
+            }
+        }
+        Commands::Autoread { cmd } => {
+            let cwd = std::env::current_dir().expect("cwd");
+            match cmd {
+                // 훅 경로 — 전면 fail-open: 프로젝트 미탐지·stdin 오류·내부 실패 전부 exit 0 무출력.
+                Some(AutoreadCmd::Hook { event }) => {
+                    let Some(root) = update::find_project_root(&cwd) else { return };
+                    let mut input = String::new();
+                    use std::io::Read as _;
+                    let _ = std::io::stdin().read_to_string(&mut input);
+                    if let Some(digest) = autoread::run_hook(&root, &event, &input) {
+                        println!("{digest}");
+                    }
+                }
+                cmd => {
+                    let Some(root) = update::find_project_root(&cwd) else {
+                        eprintln!(
+                            "[elf] error: not an ELF project (no .elf/manifest.json upward from {})",
+                            cwd.display()
+                        );
+                        std::process::exit(1);
+                    };
+                    // 인수 없음 = 수동 digest (하네스 무관 fallback — 훅 없는 환경·즉시 재정렬용)
+                    let Some(cmd) = cmd else {
+                        print!("{}", autoread::build_digest(&root, "manual"));
+                        return;
+                    };
+                    let result = match cmd {
+                        AutoreadCmd::Enable => autoread::run_enable(&root),
+                        AutoreadCmd::Disable => autoread::run_disable(&root),
+                        AutoreadCmd::Status => autoread::run_status(&root),
+                        AutoreadCmd::Ack => autoread::run_ack(&root),
+                        AutoreadCmd::Hook { .. } => unreachable!("hook handled above"),
+                    };
+                    match result {
+                        Ok(report) => {
+                            for line in &report.lines {
+                                println!("[elf] {line}");
+                            }
+                        }
+                        Err(autoread::AutoreadError::Refuse(e)) => {
+                            eprintln!("[elf] {e}");
+                            std::process::exit(3);
+                        }
+                        Err(e) => {
+                            eprintln!("[elf] error: {e}");
+                            std::process::exit(1);
+                        }
+                    }
                 }
             }
         }

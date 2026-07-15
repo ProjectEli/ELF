@@ -280,6 +280,18 @@ pub fn run_init_ex(
                 fs::write(baseline, file.contents())?;
             }
         }
+
+        // autoread 훅 (기본 켬 — S031 t06): 신규 scaffold는 config 키 미기재(부재=on)로 켜지고,
+        // 훅은 여기서 최초 배치. in-place에서 기존 settings.json이 malformed면 skip 기록
+        // (비파괴 — init을 막지 않고 `elf update`/`elf autoread enable`이 재시도 경로).
+        match crate::autoread::install_hooks(&target) {
+            Ok(true) => report.created.push(".claude/settings.json (autoread hooks)".into()),
+            Ok(false) => {}
+            Err(crate::autoread::AutoreadError::Refuse(e)) => {
+                report.skipped.push(format!(".claude/settings.json — {e}"));
+            }
+            Err(crate::autoread::AutoreadError::Io(e)) => return Err(InitError::Io(e)),
+        }
     }
 
     Ok(report)

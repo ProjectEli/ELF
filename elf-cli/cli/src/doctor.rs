@@ -7,7 +7,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::{manifest, status, tsa, update};
+use crate::{autoread, manifest, status, tsa, update};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Health {
@@ -76,6 +76,7 @@ pub fn run_doctor(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
             check_overlay(&root, &mut r);
             check_l2(&root, &mut r);
             check_tsa(&root, &mut r);
+            check_autoread(&root, &mut r);
         }
     }
 
@@ -315,6 +316,32 @@ fn removals_missing_reason(text: &str) -> usize {
 
 /// tsa 진단 (S022) — opt-in이라 disabled면 침묵. enabled 시: GPG 저작자 계층(선택),
 /// 미제출 manifest, 엄밀 검증용 openssl 존재(드문 경로 — 없어도 축적·경량 검증은 자기완결).
+/// autoread — default-on 기능의 반쪽 설치(기능 켬·훅 부재) 검사 (S031 t06 — CLAUDE.md 포인터 검사와 동렬).
+fn check_autoread(root: &Path, r: &mut DoctorReport) {
+    if !autoread::is_enabled(root) {
+        r.add(Health::Info, "autoread", "disabled (config) — `elf autoread enable` to turn on");
+        return;
+    }
+    let states = autoread::hook_states(root);
+    let missing: Vec<&str> = states
+        .iter()
+        .filter(|(_, ok)| !ok)
+        .map(|(e, _)| e.as_str())
+        .collect();
+    if missing.is_empty() {
+        r.add(Health::Ok, "autoread", "enabled — Claude Code hooks installed");
+    } else {
+        r.add(
+            Health::Warn,
+            "autoread",
+            format!(
+                "enabled but hook(s) missing: {} — run `elf update` (or `elf autoread enable`)",
+                missing.join(", ")
+            ),
+        );
+    }
+}
+
 fn check_tsa(root: &Path, r: &mut DoctorReport) {
     if !tsa::is_enabled(root) {
         return;

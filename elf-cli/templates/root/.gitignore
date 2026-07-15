@@ -4,9 +4,13 @@
 
 # === Claude Code & AI Toolkit ===
 # (CLAUDE.md는 ELF 진입 포인터라 추적 대상 — clone에도 유지되어야 AGENTS.md가 로드됨)
+# (.claude/settings.json의 autoread 훅은 비추적 파생물 — clone 후 `elf update`가 재생성)
 .claude/
 .ecc/
 .claudeignore
+
+# === ELF runtime state (autoread 재구성 마커 등 — 세션 한정·비추적) ===
+.elf/runtime/
 
 # === MATLAB Autosave files (자동 저장 파일) ===
 *.asv
