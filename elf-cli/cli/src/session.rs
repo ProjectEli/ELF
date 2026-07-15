@@ -218,11 +218,26 @@ pub fn run_session_new(root: &Path, opts: &SessionNewOptions) -> Result<SessionN
 
     let reg_path = root.join(REGISTRY_REL);
     let reg_text = fs::read_to_string(&reg_path).unwrap_or_default();
-    let rows = parse_registry(&reg_text).map_err(SessionError::Escalation)?;
 
+    // 세션 번호의 정본 = 로그 파일 index(2_Log/ + Archive/의 S###_log.md). Registry는 부차.
+    // Registry 파싱은 번호 할당의 전제조건이 아니다 — 파싱 실패(merge 충돌 마커 등)해도
+    // 파일 index로 번호를 낸다(멀티에이전트 Registry 손상 내성, S030). 실패는 경고로 노출하고
+    // 새 행은 raw append(손상부 보존·데이터 무손실) → `elf validate`로 복구.
     let log_nums = scan_log_numbers(root);
-    let reg_nums: Vec<u32> = rows.iter().filter_map(|r| session_num(&r.session)).collect();
-    let warnings = number_warnings(&log_nums, &reg_nums);
+    let mut warnings = Vec::new();
+    let reg_nums: Vec<u32> = match parse_registry(&reg_text) {
+        Ok(rows) => {
+            let nums: Vec<u32> = rows.iter().filter_map(|r| session_num(&r.session)).collect();
+            warnings = number_warnings(&log_nums, &nums);
+            nums
+        }
+        Err(_) => {
+            warnings.push(
+                "registry unparseable (merge conflict?) — numbering from log files only; new row appended as text, run `elf validate` to repair".into(),
+            );
+            Vec::new()
+        }
+    };
 
     let n = next_number(&[log_nums.as_slice(), reg_nums.as_slice()].concat());
     let id = format!("S{n:03}");

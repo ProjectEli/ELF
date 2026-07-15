@@ -71,22 +71,42 @@ fn number_derives_from_archive_too() {
     assert_eq!(run_session_new(&root, &opts("Next")).unwrap().id, "S006");
 }
 
+// S030: session new는 Registry 손상에 내성 — 파일 index(로그)로 번호를 내고 경고를 노출한다.
+// (구 동작 "손상=Escalation 중단·무변경"의 의도적 전환 — 멀티에이전트 가용성 우선. validate/close의
+//  Registry 파싱 escalation은 그대로 유지 — 진단·종료는 정합한 Registry를 요구.)
 #[test]
-fn malformed_registry_escalates_and_writes_nothing() {
+fn malformed_registry_falls_back_to_log_index_with_warning() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    // 4열 행 주입
+    // 4열 행 주입 (컬럼 수 불일치 = 손상)
     fs::write(root.join(REG), "Session\tDate\tTitle\tStatus\tKey Finding\tArchive Path\nS001\t2026-06-13\tFoo\t★ 활성\n").unwrap();
 
-    match run_session_new(&root, &opts("X")) {
-        Err(SessionError::Escalation(e)) => {
-            assert_eq!(e.line, 2);
-            assert!(e.to_string().contains("agent-action:"));
-        }
-        other => panic!("expected escalation, got {other:?}"),
-    }
-    // 무변경: S002 로그 미생성
-    assert!(!root.join("2_Log/S002_log.md").exists());
+    let res = run_session_new(&root, &opts("X")).unwrap();
+    assert_eq!(res.id, "S002"); // 파일 index(S001)+1 — Registry 무시
+    assert!(res.warnings.iter().any(|w| w.contains("unparseable")), "{:?}", res.warnings);
+    assert!(root.join("2_Log/S002_log.md").exists()); // 로그는 생성됨(중단 아님)
+    // 새 행은 raw append(손상부 보존·데이터 무손실)
+    let reg = fs::read_to_string(root.join(REG)).unwrap();
+    assert!(reg.lines().any(|l| l.starts_with("S002\t")));
+}
+
+// 현실 시나리오: worktree merge 충돌 마커로 Registry가 깨져도 파일 index로 번호를 낸다.
+#[test]
+fn merge_conflict_registry_still_numbers_from_log_index() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    fs::write(root.join("2_Log/S005_log.md"), "# S005\n").unwrap(); // 파일 index를 S005까지
+    fs::write(
+        root.join(REG),
+        "Session\tDate\tTitle\tStatus\tKey Finding\tArchive Path\n\
+<<<<<<< HEAD\nS002\ta\tb\t★ 활성\t-\t-\n=======\nS003\tc\td\t★ 활성\t-\t-\n>>>>>>> branch\n",
+    )
+    .unwrap();
+
+    let res = run_session_new(&root, &opts("Y")).unwrap();
+    assert_eq!(res.id, "S006"); // max log(S005)+1, 손상 Registry 무시
+    assert!(res.warnings.iter().any(|w| w.contains("unparseable")));
+    assert!(root.join("2_Log/S006_log.md").exists());
 }
 
 #[test]
@@ -131,18 +151,20 @@ fn e2e_session_new_success() {
 }
 
 #[test]
-fn e2e_malformed_registry_exits_5_with_marker() {
+fn e2e_malformed_registry_falls_back_with_warning() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
     fs::write(root.join(REG), "Session\tDate\tTitle\tStatus\tKey Finding\tArchive Path\nS001\tbad\n").unwrap();
-    Command::cargo_bin("elf")
+    // S030: 손상 Registry여도 exit 0 — 파일 index로 번호 할당 + 경고 노출(중단 아님)
+    let assert = Command::cargo_bin("elf")
         .unwrap()
         .current_dir(&root)
         .args(["session", "new", "X"])
         .assert()
-        .failure()
-        .code(5)
-        .stderr(predicates::str::contains("agent-action:"));
+        .success();
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout).into_owned();
+    assert!(stdout.contains("unparseable"), "{stdout}");
+    assert!(stdout.contains("S002"), "{stdout}");
 }
 
 // ── session close (t02) ──────────────────────────────

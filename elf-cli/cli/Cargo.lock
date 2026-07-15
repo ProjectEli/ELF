@@ -362,7 +362,7 @@ dependencies = [
 
 [[package]]
 name = "elf-cli"
-version = "2.18.1"
+version = "2.18.2"
 dependencies = [
  "assert_cmd",
  "axoupdater",

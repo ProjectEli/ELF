@@ -4,6 +4,18 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.18.2] - 2026-07-15
+
+### Fixed
+- **`elf session new` no longer aborts on a damaged registry.** Previously, if the session
+  registry had a malformed row or a git merge-conflict marker, `session new` stopped with an
+  escalation even though the session log files were intact — a problem when several agents run
+  in parallel and the registry is momentarily broken. Session numbers are now taken from the
+  log-file index (`S###_log.md`) as the source of truth; a broken registry only produces a
+  warning ("run `elf validate` to repair") and the new row is appended as text, so nothing is
+  lost. `session close` and `elf validate` still require a well-formed registry — closing or
+  diagnosing against a broken registry would spread the damage.
+
 ## [2.18.1] - 2026-07-15
 
 ### Fixed
