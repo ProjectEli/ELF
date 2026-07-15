@@ -35,6 +35,10 @@ const MARKER_TTL_SECS: u64 = 24 * 3600;
 const ACTIVE_LIMIT: usize = 5;
 /// Handoff 절단 길이(chars) (실측: S200 Handoff 700자+ — 라우팅 정보로는 선두면 충분. S031 t01)
 const HANDOFF_TRUNC: usize = 200;
+/// fulltext 파일당 절단 길이(chars) — 대상 정본(수~수십 KB)은 통과, 오선언 폭주만 차단 (S031 t16).
+const FULLTEXT_TRUNC: usize = 24_000;
+/// config 키: 재구성 후 digest에 전문 포함할 정본 경로 배열 (opt-in — 라우팅 지식은 프로젝트 소유).
+const FULLTEXT_KEY: &str = "autoread_fulltext";
 
 #[derive(Debug)]
 pub enum AutoreadError {
@@ -82,6 +86,36 @@ pub fn is_enabled(root: &Path) -> bool {
         .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
         .and_then(|v| v.get("autoread").and_then(|b| b.as_bool()))
         .unwrap_or(true)
+}
+
+/// config `autoread_fulltext` — 재구성 후 전문 주입할 정본 경로 목록(루트 상대).
+/// 부재·형식 불일치 = 빈 목록(주입 없음 — digest만). 스위치 bool과 별도 키:
+/// enable/disable(`write_config_flag`)이 목록을 건드리지 않고, pre-fulltext 바이너리와도 호환.
+pub fn fulltext_list(root: &Path) -> Vec<String> {
+    fs::read_to_string(root.join(".elf").join("config.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get(FULLTEXT_KEY).and_then(|a| a.as_array()).cloned())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|e| e.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// 선언 경로 안전 검사 — 루트 상대·트리 내부만. 절대 경로·루트 시작(`/`·`\`)·드라이브
+/// prefix(`C:` — 셋 다 join이 루트를 대체/이탈)·`..` 성분 거부.
+pub(crate) fn fulltext_path_ok(rel: &str) -> bool {
+    let p = Path::new(rel);
+    !p.is_absolute()
+        && !p.has_root()
+        && !p.components().any(|c| {
+            matches!(
+                c,
+                std::path::Component::ParentDir | std::path::Component::Prefix(_)
+            )
+        })
 }
 
 fn write_config_flag(root: &Path, on: bool) -> Result<(), AutoreadError> {
@@ -261,6 +295,23 @@ pub fn run_status(root: &Path) -> Result<AutoreadReport, AutoreadError> {
             if installed { "installed" } else { "absent — run `elf update` or `elf autoread enable`" }
         ));
     }
+    let declared = fulltext_list(root);
+    if declared.is_empty() {
+        r.say(format!(
+            "fulltext: none declared — add root-relative paths to `{FULLTEXT_KEY}` in .elf/config.json to inject canonical rules in full after a reconstruction"
+        ));
+    } else {
+        for rel in &declared {
+            let state = if !fulltext_path_ok(rel) {
+                "UNSAFE PATH (skipped)"
+            } else if root.join(rel).is_file() {
+                "ok"
+            } else {
+                "MISSING"
+            };
+            r.say(format!("fulltext: {rel} — {state}"));
+        }
+    }
     let pending = list_markers(root).len();
     r.say(format!("pending markers: {pending}"));
     Ok(r)
@@ -437,10 +488,55 @@ pub fn build_digest(root: &Path, source: &str) -> String {
         ));
     }
 
-    out.push_str(
-        "\nnext: read the full header (Handoff) of the session log you are working in before your first substantive action; keep Phase discipline (LogConvention §5.1) and embed figures immediately (§2).\n",
-    );
+    // 전문(full-text) layer (S031 t16, ContextReanchor 개정판): 프로젝트가 config에 선언한
+    // 정본만 전문 주입 — 라우팅 지식은 프로젝트 소유, core는 전달만. 미선언 = digest만(현행).
+    let injected_fulltext = append_fulltext(root, &mut out);
+
+    // 말미 지시 — 명령형(산 증거: soft "re-align"만으로는 전문 재독 미달).
+    if injected_fulltext {
+        out.push_str(
+            "\nnext: the full text of the declared canonical rules is included above — apply them; do not act on the compact summary alone. Before your first substantive action, also read the full header (Handoff) of the session log you are working in; keep Phase discipline (LogConvention §5.1) and embed figures immediately (§2).\n",
+        );
+    } else {
+        out.push_str(
+            "\nnext: before your first substantive action (1) read the full header (Handoff) of the session log you are working in, and (2) Read in full the task-relevant canonical rule documents under `0_Meta/` (follow the project's routing rule if it defines one); keep Phase discipline (LogConvention §5.1) and embed figures immediately (§2).\n",
+        );
+    }
     out
+}
+
+/// config `autoread_fulltext` 선언 정본의 전문 블록을 out에 부착. 반환 = 실제 전문을 1건이라도
+/// 실었는지. 선언 오류(트리 이탈 경로·판독 불가)는 1행 표기 후 계속 — fail-open.
+fn append_fulltext(root: &Path, out: &mut String) -> bool {
+    let declared = fulltext_list(root);
+    let mut injected = false;
+    for rel in &declared {
+        if !fulltext_path_ok(rel) {
+            out.push_str(&format!("\n(fulltext skipped — path escapes the project tree: {rel})\n"));
+            continue;
+        }
+        match fs::read_to_string(root.join(rel)) {
+            Ok(text) => {
+                out.push_str(&format!("\n--- full text: {rel} (declared in .elf/config.json {FULLTEXT_KEY}) ---\n"));
+                let total = text.chars().count();
+                if total > FULLTEXT_TRUNC {
+                    let cut: String = text.chars().take(FULLTEXT_TRUNC).collect();
+                    out.push_str(cut.trim_end());
+                    out.push_str(&format!(
+                        "\n…[truncated at {FULLTEXT_TRUNC} chars ({total} total) — Read the file directly for the remainder]\n"
+                    ));
+                } else {
+                    out.push_str(text.trim_end());
+                    out.push('\n');
+                }
+                injected = true;
+            }
+            Err(_) => {
+                out.push_str(&format!("\n(fulltext declared but unreadable: {rel} — fix {FULLTEXT_KEY} in .elf/config.json)\n"));
+            }
+        }
+    }
+    injected
 }
 
 /// 루트 `AGENTS.md`의 상시 의무 절(`## 상시 의무`(KO) / `## Standing duties`(EN)) 추출 —
@@ -515,6 +611,35 @@ mod tests {
         let name = evil.file_name().unwrap().to_string_lossy().into_owned();
         assert!(!name.contains('/') && !name.contains('.') && !name.contains('\\'));
         assert!(marker_path(root, "").file_name().is_some());
+    }
+
+    #[test]
+    fn fulltext_path_rejects_tree_escape() {
+        for bad in ["../secret.md", "a/../../b.md", "/etc/passwd", "\\root.md", "C:\\x.md", "C:x.md"] {
+            assert!(!fulltext_path_ok(bad), "should reject: {bad}");
+        }
+        for good in ["0_Meta/LogConvention.md", "AGENTS.md", "a/b/c.md", "a/./b.md"] {
+            assert!(fulltext_path_ok(good), "should accept: {good}");
+        }
+    }
+
+    #[test]
+    fn fulltext_truncates_over_cap_and_keeps_small_files_whole() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(tmp.path().join(".elf")).unwrap();
+        fs::write(
+            tmp.path().join(".elf/config.json"),
+            format!(r#"{{"{FULLTEXT_KEY}": ["small.md", "big.md"]}}"#),
+        )
+        .unwrap();
+        fs::write(tmp.path().join("small.md"), "tiny rule body").unwrap();
+        fs::write(tmp.path().join("big.md"), "x".repeat(FULLTEXT_TRUNC + 100)).unwrap();
+        let mut out = String::new();
+        assert!(append_fulltext(tmp.path(), &mut out));
+        assert!(out.contains("full text: small.md") && out.contains("tiny rule body"));
+        assert!(out.contains("truncated at") && out.contains("Read the file directly"));
+        // 절단본 길이 확인 — cap + 마커 여유 내
+        assert!(out.chars().count() < FULLTEXT_TRUNC + 1000);
     }
 
     #[test]

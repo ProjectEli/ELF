@@ -211,6 +211,69 @@ fn digest_caps_active_sessions_and_truncates_handoff() {
     assert!(d.contains('…'));
 }
 
+// ── fulltext (config 선언식 전문 주입 — ContextReanchor 개정판, S031 t16) ──────
+
+/// config에 `autoread_fulltext` 배열 기록 (스위치 bool과 별도 키 — 기존 config 병합).
+fn declare_fulltext(root: &Path, paths: &[&str]) {
+    let p = root.join(".elf/config.json");
+    let mut v: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&p).unwrap_or_else(|_| "{}".into())).unwrap();
+    v["autoread_fulltext"] = serde_json::json!(paths);
+    fs::write(&p, serde_json::to_string_pretty(&v).unwrap()).unwrap();
+}
+
+#[test]
+fn fulltext_declared_files_injected_in_full_with_imperative_footer() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    // 미선언 = digest만 + 명령형 전문 재독 지시 (경로 특정은 프로젝트 라우팅 소관)
+    let d0 = autoread::build_digest(&root, "manual");
+    assert!(!d0.contains("--- full text:"));
+    assert!(d0.contains("before your first substantive action"));
+    assert!(d0.contains("Read in full the task-relevant canonical rule documents"));
+
+    fs::create_dir_all(root.join("0_Meta")).ok();
+    fs::write(root.join("0_Meta/LocalRule.md"), "# LocalRule\n\nfigure embed 3단 규칙 본문").unwrap();
+    declare_fulltext(&root, &["0_Meta/LocalRule.md"]);
+    let d = autoread::build_digest(&root, "compact");
+    // 전문 블록 + 출처 표기 + 명령형 적용 지시(fulltext 분기)
+    assert!(d.contains("--- full text: 0_Meta/LocalRule.md"));
+    assert!(d.contains("figure embed 3단 규칙 본문"));
+    assert!(d.contains("declared canonical rules is included above"));
+    assert!(d.contains("do not act on the compact summary alone"));
+}
+
+#[test]
+fn fulltext_unsafe_and_missing_paths_fail_open() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    declare_fulltext(&root, &["../outside.md", "0_Meta/absent.md"]);
+    // 트리 이탈·부재 — digest는 정상 생성(fail-open), 각 1행 표기, 전문 블록 없음
+    let d = autoread::build_digest(&root, "compact");
+    assert!(d.contains("path escapes the project tree: ../outside.md"));
+    assert!(d.contains("declared but unreadable: 0_Meta/absent.md"));
+    assert!(!d.contains("--- full text:"));
+    // 훅 경로도 동일 (주입 자체는 성공)
+    autoread::run_hook(&root, "session-start", &session_start_stdin("s", "compact"));
+    assert!(autoread::run_hook(&root, "prompt", &prompt_stdin("s")).is_some());
+    // status가 선언 상태 표면화
+    let st = autoread::run_status(&root).unwrap();
+    let joined = st.lines.join("\n");
+    assert!(joined.contains("../outside.md — UNSAFE PATH"));
+    assert!(joined.contains("0_Meta/absent.md — MISSING"));
+}
+
+#[test]
+fn fulltext_declaration_survives_toggle_roundtrip() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    declare_fulltext(&root, &["0_Meta/LocalRule.md"]);
+    // disable/enable이 스위치 bool만 조작 — 선언 목록 비파괴 (별도 키 설계 근거)
+    autoread::run_disable(&root).unwrap();
+    autoread::run_enable(&root).unwrap();
+    assert_eq!(autoread::fulltext_list(&root), vec!["0_Meta/LocalRule.md".to_string()]);
+}
+
 // ── 배너 (보조 주입 채널) ─────────────────────────────────────────────────────
 
 #[test]

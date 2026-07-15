@@ -340,6 +340,21 @@ fn check_autoread(root: &Path, r: &mut DoctorReport) {
             ),
         );
     }
+    // fulltext 선언 실효성 — 부재·트리 이탈 경로는 주입 시 fail-open 스킵되므로 여기서만 드러남 (S031 t16).
+    let broken: Vec<String> = autoread::fulltext_list(root)
+        .into_iter()
+        .filter(|rel| !autoread::fulltext_path_ok(rel) || !root.join(rel).is_file())
+        .collect();
+    if !broken.is_empty() {
+        r.add(
+            Health::Warn,
+            "autoread fulltext",
+            format!(
+                "declared file(s) not found: {} — fix `autoread_fulltext` in .elf/config.json",
+                broken.join(", ")
+            ),
+        );
+    }
 }
 
 fn check_tsa(root: &Path, r: &mut DoctorReport) {

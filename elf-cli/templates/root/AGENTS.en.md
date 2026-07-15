@@ -25,7 +25,7 @@ This project follows **ELF (Eli's Lab Framework)** governance. `AGENTS.md` is th
 - **Phase separation**: `### 가설 (Hypothesis)` / `### 예상 (Prediction)` (Phase 1) are written **before** execution, then stop → execute → `### 관찰 (Observation)` through `### 교훈 (Lessons)` (Phase 2). (LogConvention §5.1)
 - **Embed figures immediately**: in the turn a plot is produced, embed it inline in that trial's `### 관찰 (Observation)` — a path in a table is not an embed. **Sub-agent outputs included** (main embeds them at retrieval). (LogConvention §2)
 - **Session lifecycle**: start with `elf session new "<title>"` → run `elf validate` **right after a figure-producing trial and before closing** (resolve warnings) → `elf session close`.
-- **After a context rebuild** (compaction, session restart): re-read the active log header (`Handoff`), **run `elf validate` to surface unfinished items (missing embeds, etc.)**, then continue — a rebuild is where unfinished-state tracking breaks.
+- **After a context rebuild** (compaction, session restart): re-read the active log header (`Handoff`), **run `elf validate` to surface unfinished items (missing embeds, etc.)**, and **re-read the task-relevant canonical rules under `0_Meta/` in full** (auto-included in the digest when declared via `autoread_fulltext` in `.elf/config.json`), then continue — a rebuild is where both unfinished-state and rule-awareness tracking break.
 
 ## Ownership & precedence
 

@@ -12,7 +12,7 @@
     { "src": "templates/root/.claudeignore",         "dest": ".claudeignore",                   "tier": "managed", "sha256": "106c0a73eb58f9719a1d89d5ea95d9a6e86311902d0642b9871d05959968b37c" },
     { "src": "templates/root/.gitignore",            "dest": ".gitignore",                      "tier": "hybrid",  "sha256": "c8419981d593f24163632fcb1f2c2cc5c633db54a73e6c6e7fb5e2f32a1acd9b" },
     { "src": "templates/root/.editorconfig",         "dest": ".editorconfig",                   "tier": "managed", "sha256": "0964430fde7b520069a98037263a86564441b92282f1c152c13caa85a500be57" },
-    { "src": "templates/general/AGENTS.md",          "dest": "AGENTS.md",                       "tier": "managed", "sha256": "2481306053f310161c38b8f3d3b3a2c99be593bad074c3fafa49632f03286387" },
+    { "src": "templates/general/AGENTS.md",          "dest": "AGENTS.md",                       "tier": "managed", "sha256": "0619a94d5cd97876b31669c13f6f447417c0130059f3c82ca5142d6d0082adbf" },
     { "src": "templates/root/CLAUDE.md",             "dest": "CLAUDE.md",                       "tier": "pointer", "sha256": "1b367399983d8c6df5ce89ee30c697d269bb635c0622650c893ca8f58a4b8453" },
     { "src": "templates/meta/ProjectRule.md",        "dest": "0_Meta/ProjectRule.md",           "tier": "seed",    "sha256": "8f9b5f84ee253abdd648ff642b17186d726e3067155ad9c726bfa300246dfc9b" },
     { "src": "templates/log/Session_Registry.tsv",   "dest": "2_Log/Wiki/Session_Registry.tsv", "tier": "seed",    "sha256": "b4eed8d302ff9e87860c183a3fd0c98412ea10e07314e2d66d7bbd0b32deab9e" },
@@ -21,7 +21,7 @@
     { "src": "templates/general/LogConvention.en.md",  "dest": ".elf/managed/LogConvention.en.md",      "tier": "managed", "sha256": "4c74d6e615811066b934e99733829bd0105022952696fd84c80fa0f95d9eefc0", "lang": "en", "role": "companion" },
     { "src": "templates/meta/AI_PARA_Framework.en.md", "dest": ".elf/managed/AI_PARA_Framework.en.md",  "tier": "managed", "sha256": "3cd59b28fd6c7e0004ebb975671f72e0b16cbe000d7f24838cded66b5edbb080", "lang": "en", "role": "companion" },
     { "src": "templates/meta/LLMcliche.en.md",         "dest": ".elf/managed/LLMcliche.en.md",          "tier": "managed", "sha256": "5cb4cee46c91437549277976693dd76908f1521c15062120c773a9e769218754", "lang": "en", "role": "companion" },
-    { "src": "templates/general/AGENTS.en.md",         "dest": "AGENTS.en.md",                    "tier": "managed", "sha256": "84df2ed43a3a4a03fcecb4d879f4b3d53fd586fe93a05f376b99fae4db801b15", "lang": "en", "role": "companion" },
+    { "src": "templates/general/AGENTS.en.md",         "dest": "AGENTS.en.md",                    "tier": "managed", "sha256": "594d69f5421979616b18a4e0584389c01523aac4f732597e47fe17474d452e8d", "lang": "en", "role": "companion" },
     { "src": "templates/meta/ProjectRule.en.md",       "dest": "0_Meta/ProjectRule.md",           "tier": "seed",    "sha256": "bcdac6298a5c1d9b447f6807f4b1f8650179f375ac8f85272f9276f6cc419234", "lang": "en", "role": "variant" },
     { "src": "templates/general/README.en.md",         "dest": "README.md",                       "tier": "seed",    "sha256": "876310f9754f6cc57e87df2909d50225eccd1a5670b8008b1b15322b1a0e3911", "lang": "en", "role": "variant" }
   ],

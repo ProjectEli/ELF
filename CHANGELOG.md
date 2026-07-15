@@ -4,6 +4,35 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.19.0] - 2026-07-16
+
+Promotes the 2.19.0-beta autoread feature to stable, adding a full-text layer on top
+of the digest: field use showed that receiving the digest alone does not reliably get
+an agent to re-open the full rule documents it summarizes.
+
+### Added
+- **`autoread_fulltext` — declared canonical rules injected in full.** Projects can list
+  root-relative paths (e.g. their log convention) in the `autoread_fulltext` array in
+  `.elf/config.json`; after a context reconstruction the digest then carries those files
+  verbatim, so the rules the digest merely summarizes are deterministically back in
+  context. Opt-in: with nothing declared, behavior stays digest-only. What to declare is
+  the project's call — the CLI never guesses relevance. Safety: paths that escape the
+  project tree are refused, each file is capped (24k chars, truncated with a notice),
+  and a missing or unsafe declaration degrades to a one-line note (fail-open, as with
+  all hook paths). `elf autoread status` shows each declaration (ok/missing/unsafe) and
+  `elf doctor` warns about declarations that point nowhere. The switch (`autoread`) and
+  the list are separate keys, so enable/disable round-trips never touch the list.
+- **Imperative closing instruction in the digest.** The injected text now ends with an
+  explicit directive — apply the included full texts (never act on the compact summary
+  alone), or, when nothing is declared, read the task-relevant canonical rules under
+  `0_Meta/` in full before the first substantive action.
+
+### Changed
+- **AGENTS templates: the "after a context rebuild" standing duty now includes
+  rule-state recovery** — re-read the task-relevant canonical rules in full (auto-included
+  in the digest when declared via `autoread_fulltext`) in addition to the existing
+  Handoff re-read and `elf validate` check.
+
 ## [2.19.0-beta] - 2026-07-16
 
 Pre-release for field validation of the new autoread feature. `releases/latest`
