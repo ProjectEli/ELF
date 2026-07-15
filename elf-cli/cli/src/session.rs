@@ -6,7 +6,7 @@
 
 use std::collections::BTreeSet;
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use crate::embed;
@@ -239,35 +239,56 @@ pub fn run_session_new(root: &Path, opts: &SessionNewOptions) -> Result<SessionN
         }
     };
 
-    let n = next_number(&[log_nums.as_slice(), reg_nums.as_slice()].concat());
-    let id = format!("S{n:03}");
-    let log_rel = format!("2_Log/{id}_log.md");
-    let log_path = root.join(&log_rel);
-    if log_path.exists() {
-        return Err(SessionError::Exists(log_rel));
-    }
-
-    // 템플릿 렌더 (managed sessionTemplate — embed 정본)
     let tpl = embed::TEMPLATES
         .get_file("log/sessionTemplate.md")
         .and_then(|f| f.contents_utf8())
         .expect("sessionTemplate embedded (gated by tests)");
+
+    // 원자적 번호 할당 (§12.13 ①-a): `create_new`(O_EXCL/CREATE_NEW) 성공 = 그 번호의 유일
+    // 소유 확정 — "체크 후 쓰기"의 TOCTOU를 "쓰기가 곧 체크"로 소거. AlreadyExists = 다른
+    // 프로세스 선점 → 재스캔·재시도(선점 파일이 스캔에 잡혀 다음 번호로 전진). 파일 존재 =
+    // 번호 예약(파일 index 정본 원리의 쓰기 측). 상한은 병렬 현실 규모를 크게 넘는 여유값.
+    let mut nums = [log_nums.as_slice(), reg_nums.as_slice()].concat();
+    let (mut file, id, log_rel) = 'alloc: {
+        for _ in 0..32 {
+            let n = next_number(&nums);
+            let id = format!("S{n:03}");
+            let log_rel = format!("2_Log/{id}_log.md");
+            match fs::OpenOptions::new().write(true).create_new(true).open(root.join(&log_rel)) {
+                Ok(f) => break 'alloc (f, id, log_rel),
+                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+                    nums = [scan_log_numbers(root).as_slice(), reg_nums.as_slice()].concat();
+                }
+                Err(e) => return Err(e.into()),
+            }
+        }
+        return Err(SessionError::Io(io::Error::other(
+            "could not allocate a session number in 32 attempts (unexpected contention)",
+        )));
+    };
+
+    // 템플릿 렌더 (managed sessionTemplate — embed 정본)
     let content = tpl
         .replace("S{NNN}", &id)
         .replace("YYYY-MM-DD", &opts.date)
         .replace("[세션 제목]", &opts.title);
-    fs::write(&log_path, content)?;
+    file.write_all(content.as_bytes())?;
+    drop(file);
 
-    // Registry 행 추가 (기존 내용 보존, 끝에 append)
-    let mut out = reg_text;
-    if out.is_empty() {
-        out.push_str(registry_header());
-        out.push('\n');
-    } else if !out.ends_with('\n') {
-        out.push('\n');
+    // Registry 행 append (§12.13 ①-b): 전체 rewrite 폐지 — 신규 행 추가는 본질이 append라
+    // O_APPEND(원자적 tail 쓰기·단일 write 행은 로컬 FS에서 인터리브 없음)로 동시 lost update
+    // 소거. 극초기 동시 생성의 헤더 중복은 파서가 헤더 행을 무조건 skip하므로 무해. 행 순서는
+    // 완료순(번호순과 다를 수 있음) — 파서·validate는 행 단위라 무관(Registry = flat 인덱스).
+    let mut row = String::new();
+    if reg_text.is_empty() {
+        row.push_str(registry_header());
+        row.push('\n');
+    } else if !reg_text.ends_with('\n') {
+        row.push('\n');
     }
-    out.push_str(&format!("{id}\t{}\t{}\t★ 활성\t-\t-\n", opts.date, opts.title));
-    fs::write(&reg_path, out)?;
+    row.push_str(&format!("{id}\t{}\t{}\t★ 활성\t-\t-\n", opts.date, opts.title));
+    let mut reg_file = fs::OpenOptions::new().append(true).create(true).open(&reg_path)?;
+    reg_file.write_all(row.as_bytes())?;
 
     Ok(SessionNewResult { id, log_rel, warnings })
 }

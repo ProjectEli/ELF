@@ -294,6 +294,24 @@ fn scan_logs(dir: &Path) -> Vec<(u32, PathBuf)> {
     v
 }
 
+/// dir의 `*_log.md` 중 `S###` 정격이 아닌 파일명(예: `S201-a_log.md`) — 검사 체계 밖으로
+/// 침묵 이탈하는 세션 파일을 감지(S030: 세션 id 변형은 CLI 게이트가 차단, 규칙 문서 아님).
+fn scan_malformed_log_names(dir: &Path) -> Vec<String> {
+    let mut v = Vec::new();
+    if let Ok(entries) = fs::read_dir(dir) {
+        for e in entries.flatten() {
+            if let Some(name) = e.file_name().to_str()
+                && name.ends_with("_log.md")
+                && log_num(name).is_none()
+            {
+                v.push(name.to_string());
+            }
+        }
+    }
+    v.sort();
+    v
+}
+
 /// `6_Exp/64_Viz/S{NNN}/`의 이미지 파일명(정렬). 디렉토리 부재 시 빈 벡터.
 fn scan_viz_images(viz: &Path) -> Vec<String> {
     let mut v = Vec::new();
@@ -338,10 +356,17 @@ pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, Va
         ));
     }
 
-    // ② 번호 중복 + gap
+    // ② 번호 중복 + gap + 비정격 파일명
     let all_log_nums: Vec<u32> = live.iter().chain(archive.iter()).map(|(n, _)| *n).collect();
     for n in duplicate_nums(&all_log_nums) {
         report.issue(format!("duplicate log number S{n:03} across 2_Log/ and Archive/"));
+    }
+    for (dir, label) in [("2_Log", "2_Log/"), ("2_Log/Archive", "2_Log/Archive/")] {
+        for name in scan_malformed_log_names(&root.join(dir)) {
+            report.issue(format!(
+                "malformed session log name: {label}{name} — session ids are plain S### (no suffix/variant); give each parallel session its own number and record relations in the 관련: header field"
+            ));
+        }
     }
     let known: BTreeSet<u32> = log_set.union(&reg_set).copied().collect();
     for n in numbering_gaps(&known) {

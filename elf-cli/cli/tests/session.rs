@@ -109,6 +109,55 @@ fn merge_conflict_registry_still_numbers_from_log_index() {
     assert!(root.join("2_Log/S006_log.md").exists());
 }
 
+// §12.13 ①: 동시 세션 생성 원자성 — create_new(O_EXCL) 번호 예약 + Registry O_APPEND.
+// barrier로 8스레드 동시 출발: 전 성공·번호 전부 고유·로그 실존·Registry 행 무손실(lost update 0).
+#[test]
+fn concurrent_session_new_yields_unique_numbers_and_loses_no_registry_rows() {
+    use std::sync::{Arc, Barrier};
+    let tmp = tempdir().unwrap();
+    let root = Arc::new(new_project(tmp.path())); // S001 존재
+    const N: usize = 8;
+    let barrier = Arc::new(Barrier::new(N));
+    let mut handles = Vec::new();
+    for i in 0..N {
+        let root = Arc::clone(&root);
+        let barrier = Arc::clone(&barrier);
+        handles.push(std::thread::spawn(move || {
+            let o = SessionNewOptions { title: format!("parallel {i}"), date: "2026-07-15".into() };
+            barrier.wait(); // 동시 출발 강제
+            run_session_new(&root, &o).map(|r| r.id)
+        }));
+    }
+    let mut ids: Vec<String> = handles.into_iter().map(|h| h.join().unwrap().unwrap()).collect();
+    ids.sort();
+    // 전부 성공 + 번호 고유 (S002..S009)
+    let expect: Vec<String> = (2..2 + N as u32).map(|n| format!("S{n:03}")).collect();
+    assert_eq!(ids, expect, "unique sequential ids");
+    // 로그 파일 전부 실존 + 제목 렌더 (덮어쓰기 없음)
+    for id in &ids {
+        let c = fs::read_to_string(root.join(format!("2_Log/{id}_log.md"))).unwrap();
+        assert!(c.contains(&format!("# {id}:")), "{id} content intact");
+    }
+    // Registry 행 무손실 — 전체 rewrite였다면 일부 소실
+    let reg = fs::read_to_string(root.join(REG)).unwrap();
+    for id in &ids {
+        assert!(reg.lines().any(|l| l.starts_with(&format!("{id}\t"))), "{id} row present:\n{reg}");
+    }
+    assert!(reg.lines().any(|l| l.starts_with("S001\t")), "pre-existing row kept");
+}
+
+// 번호 선점 파일이 있으면 재시도 없이도 다음 번호로 (파일 index 정본 — create_new가 존재 파일과 충돌하지 않음)
+#[test]
+fn preseeded_log_file_advances_number() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    fs::write(root.join("2_Log/S002_log.md"), "# S002 (manual)\n").unwrap(); // 등록 없는 선점
+    let res = run_session_new(&root, &opts("next")).unwrap();
+    assert_eq!(res.id, "S003");
+    // 선점 파일 불변 (덮어쓰기 없음)
+    assert_eq!(fs::read_to_string(root.join("2_Log/S002_log.md")).unwrap(), "# S002 (manual)\n");
+}
+
 #[test]
 fn tab_in_title_refused() {
     let tmp = tempdir().unwrap();

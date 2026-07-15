@@ -49,6 +49,31 @@ fn unregistered_log_is_issue() {
     assert!(r.issues >= 1);
 }
 
+// S030: 세션 id 변형(접미사 등)은 규칙 문서가 아니라 CLI 게이트가 차단 — 비정격 `*_log.md`는
+// 스캔 체계 밖으로 침묵 이탈하므로 validate가 issue로 표면화.
+#[test]
+fn malformed_session_log_name_is_issue() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    fs::write(root.join("2_Log/S005-a_log.md"), "# S005-a\n").unwrap(); // 접미사 변형
+    fs::create_dir_all(root.join("2_Log/Archive")).unwrap();
+    fs::write(root.join("2_Log/Archive/Sfoo_log.md"), "# bad\n").unwrap(); // 비숫자 변형
+    let r = run_validate(&root).unwrap();
+    assert!(
+        r.lines.iter().any(|l| l.contains("malformed session log name: 2_Log/S005-a_log.md")),
+        "{:?}",
+        r.lines
+    );
+    assert!(
+        r.lines.iter().any(|l| l.contains("2_Log/Archive/Sfoo_log.md")),
+        "{:?}",
+        r.lines
+    );
+    assert!(r.issues >= 2);
+    // 정격 로그(S001)는 비영향
+    assert!(!r.lines.iter().any(|l| l.contains("malformed") && l.contains("S001_log.md")));
+}
+
 #[test]
 fn phantom_registry_row_is_issue() {
     let tmp = tempdir().unwrap();

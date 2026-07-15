@@ -3,7 +3,7 @@
   "generated": "2026-06-23",
   "note": "ELF general preset(experimental) 배포 명세 — 목표지향 비연구 프로젝트 유형. EliRule/LogConvention은 general 전용(학술 제외), 그 외 중립 파일은 연구 manifest(manifest.json)와 동일 src 공유(literal — DRY). `elf init <name> --preset general`가 이 명세로 배포·.elf stamp. sha256=원본 LF 바이트 해시(hash::sha256_lf). overlayable=data overlay 허용(0_Meta/<이름>.project.md, base ⊕ overlay — EliRule Data overlay 절). dest = .elf/managed/ payload 기준.",
   "files": [
-    { "src": "templates/general/EliRule.md",        "dest": ".elf/managed/EliRule.md",               "tier": "managed", "sha256": "449014ffc7a06e2a84eda40f683a56d9e56f72f06b7f9a3c816e0e3a8828a4be" },
+    { "src": "templates/general/EliRule.md",        "dest": ".elf/managed/EliRule.md",               "tier": "managed", "sha256": "8c98d230ce8c9ee8e23997210b70b0737a92f5fdca15f95470f6654819811951" },
     { "src": "templates/general/LogConvention.md",   "dest": ".elf/managed/LogConvention.md",         "tier": "managed", "sha256": "07a91077594c0ff52f7eb93934b50a392d4873b0009755148f14d78a2ec9543e" },
     { "src": "templates/meta/AI_PARA_Framework.md",  "dest": ".elf/managed/AI_PARA_Framework.md",     "tier": "managed", "sha256": "0d158937485cafb0974a833efd6bee831eb6666ee55d4ce5987134967715675b" },
     { "src": "templates/meta/LLMcliche.md",         "dest": ".elf/managed/LLMcliche.md",             "tier": "managed", "overlayable": true, "sha256": "3d87947bc2890b0b7e0b11084555a92ac39ace0f8423a7290b4b1cdc24e1550c" },
@@ -17,7 +17,7 @@
     { "src": "templates/meta/ProjectRule.md",        "dest": "0_Meta/ProjectRule.md",           "tier": "seed",    "sha256": "8f9b5f84ee253abdd648ff642b17186d726e3067155ad9c726bfa300246dfc9b" },
     { "src": "templates/log/Session_Registry.tsv",   "dest": "2_Log/Wiki/Session_Registry.tsv", "tier": "seed",    "sha256": "b4eed8d302ff9e87860c183a3fd0c98412ea10e07314e2d66d7bbd0b32deab9e" },
     { "src": "templates/general/README.md",          "dest": "README.md",                       "tier": "seed",    "sha256": "ce31372c962826cae051e716024e2ebcc62b5a68ac0fb9bb9caab92bf698cf5f" },
-    { "src": "templates/general/EliRule.en.md",        "dest": ".elf/managed/EliRule.en.md",            "tier": "managed", "sha256": "7b17d89965b8409189204b09baa408e93df5d8913e3d74f81db25db3bfff9db8", "lang": "en", "role": "companion" },
+    { "src": "templates/general/EliRule.en.md",        "dest": ".elf/managed/EliRule.en.md",            "tier": "managed", "sha256": "0db1233dc854521c078981a7e947a77d0ed5a229fc99ec0a2e18b6d008f4c572", "lang": "en", "role": "companion" },
     { "src": "templates/general/LogConvention.en.md",  "dest": ".elf/managed/LogConvention.en.md",      "tier": "managed", "sha256": "4c74d6e615811066b934e99733829bd0105022952696fd84c80fa0f95d9eefc0", "lang": "en", "role": "companion" },
     { "src": "templates/meta/AI_PARA_Framework.en.md", "dest": ".elf/managed/AI_PARA_Framework.en.md",  "tier": "managed", "sha256": "3cd59b28fd6c7e0004ebb975671f72e0b16cbe000d7f24838cded66b5edbb080", "lang": "en", "role": "companion" },
     { "src": "templates/meta/LLMcliche.en.md",         "dest": ".elf/managed/LLMcliche.en.md",          "tier": "managed", "sha256": "5cb4cee46c91437549277976693dd76908f1521c15062120c773a9e769218754", "lang": "en", "role": "companion" },

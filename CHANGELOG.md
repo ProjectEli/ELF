@@ -4,6 +4,30 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.18.3] - 2026-07-15
+
+### Added
+- **One writer per session (multi-agent rule).** EliRule gains a session-ownership section
+  (research §2.8, general §2.5; KO + EN): every session log has exactly one writer — an
+  agent or a person. Concurrent writers silently overwrite each other in trial insertion
+  and header Handoff updates, so parallel work means one session per agent, with
+  relationships recorded in the header `관련:` (related) field rather than in session
+  numbers. Other agents' logs are read-only; consolidation happens in a single-writer
+  session. Run `elf update` to receive the new rule text.
+- **`elf validate` now flags malformed session log names.** A file named like
+  `S201-a_log.md` (any `*_log.md` that is not plain `S###`) used to be silently ignored by
+  every scan — invisible to the registry, numbering, and validation. It is now reported as
+  an issue in both `2_Log/` and `2_Log/Archive/`.
+
+### Fixed
+- **Concurrent `elf session new` no longer loses sessions or registry rows.** Two agents
+  running `session new` at the same moment could compute the same number, silently
+  overwrite each other's log file, and drop a registry row (the registry was rewritten
+  whole). Numbers are now allocated atomically — creating the log file with an exclusive
+  create is the reservation, retrying on collision — and registry rows are appended
+  instead of rewritten. Verified with 8 threads starting simultaneously: all unique
+  numbers, no lost rows.
+
 ## [2.18.2] - 2026-07-15
 
 ### Fixed

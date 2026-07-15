@@ -101,6 +101,13 @@ Data-type ELF-managed files (marked `overlayable` in the manifest — currently 
 - **Registration discipline**: overlay entries are added or changed only with user approval — the AI does not register them autonomously. Propose entries of general value to ELF core.
 - Check: `elf doctor` detects overlays, verifies removal reasons, and warns on overlays without an overlayable base.
 
+### 2.5 Session ownership — one writer per session (multi-agent)
+
+- **Every session log has exactly one writer** (an agent or a person). Never let multiple agents/terminals write to the same session log concurrently — a session log is the linear record of a single line of thought, and concurrent writes silently overwrite each other (lost updates) in trial insertion and header Handoff updates.
+- Parallel work means **one session per agent**: each runs `elf session new` for its own number. Relationships are carried not by the number but by the header `관련:` (related) field, with a one-phrase reason (e.g. `S200 (branch origin — owns approach A)`).
+- Other agents' session logs are **read-only** — never edit another session's log or Handoff.
+- Consolidating parallel sessions' conclusions happens in a separate session (or the origin session) with a **single writer**, listing the input sessions in `관련:`.
+
 ---
 
 ## 3. AI Communication Rules
