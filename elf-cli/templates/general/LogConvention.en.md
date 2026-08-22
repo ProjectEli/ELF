@@ -82,20 +82,6 @@ the `.claudeignore` rules. For the detailed principles, see `.elf/managed/AI_PAR
 | {type} | `path` |
 ```
 
-End of session body, at session close:
-
-```markdown
----
-
-## 다음 세션 후보 (Next-Session Hypothesis)
-
-### 가설 후보
-- {1-3 follow-up hypotheses, nominal form}
-
-### 예상 후보
-- {1-3 predicted results for the above hypotheses}
-```
-
 > Note: the section headers above (`### 목표 (Goal)`, etc.) are the literal operative
 > format defined by the Korean original; they are kept verbatim here.
 
@@ -110,7 +96,7 @@ End of session body, at session close:
 - **Hypothesis/Prediction sections (Phase 1)**: write **before** running the trial. Nominal-form list. If hypotheses exceed 5 items or a reasoning chain exceeds 5 steps, escape to `1_Concept/12_Planning` and leave a one-line cross-ref stub. No paragraph prose. Quantify where possible.
 - **Observation section (Phase 2)**: write **after** running the trial. A comparison table against hypothesis/prediction is recommended (2 columns: `예상 (Prediction)` vs `관찰 (Observation)`).
 - **Interpretation one-line rule**: the first line states one of `Hypothesis hit: hit / miss / partial`. Interpretation from the second line.
-- **Next-Session Hypothesis**: just before closing the session (Status → Complete), write at the end of the body. Carry over into the next session's t01 `### 가설 (Hypothesis)` / `### 예상 (Prediction)` to avoid breaking the hypothesis chain across sessions.
+- **`## 다음 세션 후보` (Next-Session Hypothesis) section — not recommended (off since v2.20)**: low utilization; record follow-ups in the **Handoff pending part** while active, in the **registry key finding (fold)** at close, and in `1_Concept/12_Planning/` when they span sessions. Backward compatible: the section in existing logs stays valid (`elf trial new` inserts before it) and `elf session close` no longer requires it. Old template = `.elf/managed/templates/Archive/sessionTemplate_v1.md`.
 - **Background section (optional, conditional)**: separate `### 배경 (Background)` above `### 목표` **only when context exceeds the goal** (prior-session synthesis, multiple inputs). Ordinary trials let the goal absorb it — no standing heading, no empty background. Keep it light (1-2 lines).
 - **Initiator**: name the initiator of the work/pivot in the background (or goal) in one word (`user-raised` / `AI-originated`) — preserves the origin of the thinking flow. The verbatim original query is preserved by the session JSONL, so it is not duplicated in the log (SSOT = absorbed into the trial body).
 - **Rejected-alternative placement (by timing)**: path rejected at entry → `### 배경` (one line, no Phase-1 after-the-fact editing) / scope exclusion → `### 조건` / result-based rejection → `### 해석`·`### 교훈`. Do not dump all into the background (timing inversion / post-hoc rationalization).
@@ -159,8 +145,7 @@ Write each trial (t{NN}) in two phases. **A stop point between Phase 1 and Phase
 ### 5.1 Session-close Standard Procedure
 Just before switching Status to `Complete`:
 - [ ] **Run `elf validate` — resolve the warnings** before proceeding: once moved to Archive the log leaves the structure-check scope, so **before close is the last verification point**
-- [ ] Write `## 다음 세션 후보 (Next-Session Hypothesis)` at the end of the body (1-3 hypothesis candidates + 1-3 prediction candidates, nominal form)
-- [ ] Clean the Handoff: clear the pending part (done, or carried into `## 다음 세션 후보`) — leftovers trigger an `elf session close` warning
+- [ ] Clean the Handoff: clear the pending part (done, or carried into the registry key finding / a `12_Planning/` document) — leftovers trigger an `elf session close` warning
 - [ ] Add a key-conclusion summary + Archive path link in `Wiki/`
 - [ ] Move `S{NNN}_log.md` → `Archive/` under the same file name
 - [ ] Update the status in `Session_Registry.tsv` + rewrite the key finding as the final conclusion (fold)

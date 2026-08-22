@@ -169,7 +169,7 @@ enum SessionCmd {
     Close {
         /// 닫을 세션 ID · session id (생략 시 유일 활성 자동 선택)
         id: Option<String>,
-        /// '다음 세션 후보' 미작성도 강제 종료 · force close
+        /// 호환용(무효과) · accepted for compatibility, no effect since 2.20 (the next-section gate was removed)
         #[arg(long)]
         force: bool,
     },
@@ -572,8 +572,7 @@ fn main() {
                     Err(
                         e @ (session::SessionError::NoOpenSession
                         | session::SessionError::MultipleOpen(_)
-                        | session::SessionError::NotFound(_)
-                        | session::SessionError::MissingNextSection(_)),
+                        | session::SessionError::NotFound(_)),
                     ) => unreachable!("session new cannot yield close-only error: {e:?}"),
                 }
             }
@@ -610,12 +609,6 @@ fn main() {
                     Err(session::SessionError::NotFound(id)) => {
                         eprintln!("[elf] session not found: {id}");
                         std::process::exit(1);
-                    }
-                    Err(session::SessionError::MissingNextSection(id)) => {
-                        eprintln!(
-                            "[elf] refuse: {id} has no filled '다음 세션 후보' section (LogConvention §5.2) — fill it or use --force"
-                        );
-                        std::process::exit(3);
                     }
                     Err(session::SessionError::Exists(p)) => {
                         eprintln!("[elf] refuse: {p} already exists");

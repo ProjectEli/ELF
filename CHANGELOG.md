@@ -4,6 +4,14 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.20.0] - 2026-08-22
+
+### Changed
+- **Next-session section turned off.** New session logs no longer include the `## 다음 세션 후보` (next-session hypothesis) section, and `elf session close` no longer refuses when it is missing (`--force` is still accepted and has no effect). Record follow-ups in the header `Handoff`, the registry key finding, or a planning document instead.
+
+### Added
+- The previous session template is preserved as `.elf/managed/templates/Archive/sessionTemplate_v1.md` for backward compatibility; existing logs that contain the section stay valid and `elf trial new` still inserts new trials before it.
+
 ## [2.19.0] - 2026-07-16
 
 Promotes the 2.19.0-beta autoread feature to stable, adding a full-text layer on top

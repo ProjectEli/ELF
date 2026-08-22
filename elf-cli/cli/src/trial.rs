@@ -57,8 +57,8 @@ fn render_stub(tpl: &str, trial_id: &str, session_id: &str, title: Option<&str>)
     s
 }
 
-/// stub을 `## 다음 세션 후보` 헤딩 직전(그 앞 trial 구분과 동일한 `---` 경계 유지)에 삽입.
-/// 섹션 부재 시 EOF에 `---` 구분과 함께 append. 기존 본문 불변(순수).
+/// stub 삽입 위치: 구 로그(≤ v2.19 템플릿)에 `## 다음 세션 후보` 헤딩이 있으면 그 직전(그 앞 trial 구분과 동일한
+/// `---` 경계 유지 — 하위호환), 없으면(v2.20 템플릿 기본) EOF에 `---` 구분과 함께 append. 기존 본문 불변(순수).
 pub fn insert_trial(content: &str, stub: &str) -> String {
     let stub = stub.trim_end_matches('\n');
     // `## 다음 세션 후보` 헤딩 라인의 시작 바이트 탐색

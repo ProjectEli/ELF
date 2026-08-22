@@ -159,14 +159,14 @@ Before archiving, close also runs `elf validate` and reports the findings **scop
 
 | Flag | Meaning |
 |------|---------|
-| `--force` | Close even when the `## 다음 세션 후보` (next-session) section is still empty |
+| `--force` | Accepted for compatibility — no effect since 2.20 (the next-session gate was removed) |
 
 ```bash
 elf session close             # close the one active session
 elf session close S007        # close a specific session
 ```
 
-Refuses with exit **3** if the next-session section is unfilled (fill it or pass `--force`). If the header `Handoff` still lists pending items, a **non-blocking warning** is printed — resolve them or carry them into the next-session section; a closing note also reminds you to rewrite the registry key finding as the session's final conclusion (fold). A parse-broken registry exits **5** (escalation).
+The old `## 다음 세션 후보` (next-session) gate was removed in 2.20 — close no longer refuses on that section (`--force` is accepted as a no-op). If the header `Handoff` still lists pending items, a **non-blocking warning** is printed — resolve them or record them in the registry key finding / a planning document; a closing note also reminds you to rewrite the registry key finding as the session's final conclusion (fold). A parse-broken registry exits **5** (escalation).
 
 ### `elf session fix-headers [--dry-run]`
 

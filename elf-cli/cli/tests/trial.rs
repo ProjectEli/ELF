@@ -54,7 +54,7 @@ fn trial_new_stdout_carries_embed_reminder() {
 }
 
 #[test]
-fn trial_new_appends_canonical_stub_before_next_section() {
+fn trial_new_appends_canonical_stub_at_end() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path()); // init = S001 활성 로그(t01 stub 포함)
 
@@ -68,11 +68,12 @@ fn trial_new_appends_canonical_stub_before_next_section() {
     assert!(!log.contains("t{NN}"));
     assert!(log.contains("64_Viz/S001/"));
     assert!(log.contains("### 가설 (Hypothesis)"));
-    // 삽입 위치: t01 < t02 < 다음 세션 후보
+    // 삽입 위치: t01 < t02, 본문 말미(v2.20 템플릿 = 후보 절 없음 → EOF append)
     let t01 = log.find("## t01").unwrap();
     let t02 = log.find("## t02").unwrap();
-    let next = log.find("## 다음 세션 후보").unwrap();
-    assert!(t01 < t02 && t02 < next);
+    assert!(t01 < t02);
+    assert!(!log.contains("## 다음 세션 후보"));
+    assert!(log.trim_end().ends_with("| Figure | `경로` |"), "stub appended at end of body");
     // 헤더 Modified 갱신 (hard break 보존)
     assert!(log.contains("> **Modified**: 2026-07-06\\"));
 
@@ -168,7 +169,7 @@ fn close_warns_on_pending_handoff_nonblocking() {
         .replace("> **Handoff**: -", "> **Handoff**: 설계 확정; 미완료 = 문서 반영; 참조 t01");
     fs::write(&p, c).unwrap();
 
-    // 다음 세션 후보 미작성 상태 → force로 종료 (경고는 비차단으로 함께 반환)
+    // close (v2.20: 후보 절 게이트 없음 — force는 호환용 no-op; 경고는 비차단으로 함께 반환)
     let r = run_session_close(&root, &CloseOptions { id: None, force: true }).unwrap();
     assert_eq!(r.id, "S001");
     assert!(

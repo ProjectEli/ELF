@@ -153,14 +153,14 @@ Archive 이동 전에 `elf validate`를 자동 실행하여 **닫는 세션 스�
 
 | 플래그 | 의미 |
 |------|------|
-| `--force` | `## 다음 세션 후보` 섹션이 비어 있어도 강제 종료 |
+| `--force` | 호환용 — 2.20부터 무효과(다음 세션 후보 게이트 제거) |
 
 ```bash
 elf session close             # 유일한 활성 세션 종료
 elf session close S007        # 특정 세션 종료
 ```
 
-다음 세션 후보 섹션이 미작성이면 exit **3**으로 거부(작성하거나 `--force`). 헤더 `Handoff`에 미완료 항목이 남아 있으면 **비차단 경고** 출력 — 해소하거나 다음 세션 후보로 이관; 종료 후에는 Registry key finding을 최종 결론(fold)으로 재작성하라는 안내가 출력됩니다. Registry 파싱 불가 시 exit **5**(escalation).
+구 `## 다음 세션 후보` 게이트는 2.20에서 제거 — 절이 없어도 거부하지 않습니다(`--force`는 호환용 no-op). 헤더 `Handoff`에 미완료 항목이 남아 있으면 **비차단 경고** 출력 — 해소하거나 Registry key finding·Planning 문서로 이관; 종료 후에는 Registry key finding을 최종 결론(fold)으로 재작성하라는 안내가 출력됩니다. Registry 파싱 불가 시 exit **5**(escalation).
 
 ### `elf session fix-headers [--dry-run]`
 

@@ -70,20 +70,6 @@
 | {유형} | `경로` |
 ```
 
-세션 종료 시 본문 말미:
-
-```markdown
----
-
-## 다음 세션 후보 (Next-Session Hypothesis)
-
-### 가설 후보
-- {후속 가설 1-3항, 명사형}
-
-### 예상 후보
-- {위 가설의 예상 결과 1-3항}
-```
-
 ### 규칙
 - **작성 언어**: 로그는 `.elf/managed/EliRule.md`의 `PROJECT_LANG` 설정 언어로 작성하되, **토큰 최소화**를 위해 명사형 종결어미('-음/함/임')와 단어 중심 개조식을 사용. 기술 용어는 영어 병기 가능.
 - **Status**: `★ 활성`(현재 작업 중), `In Progress`(중간 단계), `Complete`(완료, 아카이빙 전).
@@ -95,7 +81,7 @@
 - **가설/예상 절 (Phase 1)**: trial 실행 **전** 작성. 명사형 list. 가설 5항 초과·사고 chain 5단계 초과 시 `1_Concept/12_Planning`으로 escape + cross-ref stub 1줄. 단락 서술 금지. 가능한 정량화.
 - **관찰 절 (Phase 2)**: trial 실행 **후** 작성. 가설/예상 대조 표 권장(2열: `예상` vs `관찰`).
 - **해석 절 1줄 규칙**: 첫 줄은 `가설 적중 여부: 적중 / 탈락 / 부분 적중` 중 택1. 둘째 줄부터 해석.
-- **다음 세션 후보**: 세션 종료(Status → Complete) 직전, 본문 말미에 작성. 다음 세션 t01 `### 가설`·`### 예상`으로 carry-over하여 세션 간 가설 chain 단절 방지.
+- **`## 다음 세션 후보` 절 — 비권장(off, v2.20~)**: 활용도가 낮아 작성 권장 중단. 후속 과제·가설은 세션 활성 중 **Handoff 미완료 파트** · close 시 **Registry key finding(fold)** · 다중 세션이면 `1_Concept/12_Planning/`에 기록. 하위호환: 기존 로그의 절은 유효(`elf trial new`는 절 앞에 삽입), `elf session close`는 절을 요구하지 않음. 구 템플릿 = `.elf/managed/templates/Archive/sessionTemplate_v1.md`.
 - **배경 절 (선택·조건부)**: `### 목표` 위 `### 배경 (Background)`은 **맥락이 목표를 초과할 때만** 분리(선행 세션 종합·다중 입력 등). 일반 trial은 목표가 흡수 — 상시 heading·빈 배경 금지. 경량(1-2줄).
 - **발의주체**: 작업·전환의 발의 주체를 배경(없으면 목표)에 1단어 명시(`사용자 제기` / `AI 발상`) — 사고흐름의 발의 출처 보존. 원본 쿼리 verbatim은 세션 JSONL이 보존하므로 로그엔 비병기(SSOT=trial 본문 흡수).
 - **버린 대안 위치(시점 기준)**: 진입 시 기각 경로 → `### 배경`(1줄, Phase1 사후편집 금지) / 범위 제외 → `### 조건` / 결과 기반 기각 → `### 해석`·`### 교훈`. 일괄 배경 삽입 금지(시점 역행).
@@ -144,8 +130,7 @@ Planning으로 분리된 내용은 원본 Log에 blockquote stub으로 표시:
 ### 5.1 Session 종료 표준 절차
 세션 Status를 `Complete`로 전환 직전:
 - [ ] **`elf validate` 실행 — 경고 해소** 후 진행: Archive 이동 후에는 구조 검사 범위에서 빠지므로 **close 전이 마지막 검증 기회**
-- [ ] 본문 말미에 `## 다음 세션 후보 (Next-Session Hypothesis)` 작성 (가설 후보 1-3항 + 예상 후보 1-3항, 명사형)
-- [ ] Handoff 정리: 미완료 파트 소거(완료 또는 `## 다음 세션 후보`로 이관) — 잔존 시 `elf session close`가 경고
+- [ ] Handoff 정리: 미완료 파트 소거(완료, 또는 Registry key finding·`12_Planning/` 문서로 이관) — 잔존 시 `elf session close`가 경고
 - [ ] `Wiki/`에 핵심 결론 요약 + Archive 경로 링크 추가
 - [ ] `S{NNN}_log.md` → `Archive/`로 파일명 그대로 이동
 - [ ] `Session_Registry.tsv` 상태 갱신 + key finding을 최종 결론(fold)으로 재작성

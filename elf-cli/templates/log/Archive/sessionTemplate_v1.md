@@ -1,3 +1,6 @@
+<!-- ARCHIVED TEMPLATE — 구 sessionTemplate(v2.19 이하, `## 다음 세션 후보` 절 포함). v2.20부터 비권장(off): 신규 세션 정본 = ../sessionTemplate.md(후보 절 없음). 하위호환 보존용 — 기존 로그의 절은 유효하며 `elf trial new`는 절이 있으면 그 앞에 삽입.
+     Archived session template (v2.19 and earlier, with the next-session section). Not recommended since v2.20; canonical = ../sessionTemplate.md. Kept for backward compatibility — the section in existing logs stays valid. -->
+
 # S{NNN}: [세션 제목]
 
 > **Created**: YYYY-MM-DD\
@@ -44,3 +47,15 @@
 | Script | `경로` |
 | Output | `경로` |
 | Figure | `경로` |
+
+---
+
+## 다음 세션 후보 (Next-Session Hypothesis)
+
+> 세션 종료 시 작성. 현 세션 결과로부터 자연스럽게 떠오른 후속 가설/예상을 명사형 1-3항으로 정리. 다음 세션 S{NNN+1} 시작 시 t01 `### 가설`·`### 예상`으로 carry-over.
+
+### 가설 후보
+- [후속 가설 1-3항]
+
+### 예상 후보
+- [위 가설의 예상 결과 1-3항]

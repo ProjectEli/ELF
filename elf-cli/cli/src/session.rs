@@ -174,8 +174,6 @@ pub enum SessionError {
     MultipleOpen(Vec<String>),
     /// close: 지정 세션 없음
     NotFound(String),
-    /// close: '다음 세션 후보' 미작성 (refuse, --force로 우회)
-    MissingNextSection(String),
     Io(io::Error),
 }
 
@@ -441,31 +439,6 @@ pub fn handoff_pending(handoff: &str) -> Option<String> {
     }
 }
 
-/// `## 다음 세션 후보` 섹션에 placeholder(`- [...]`) 아닌 실제 bullet이 1개 이상이면 true.
-/// (LogConvention §5.2 — 섹션 존재 + 작성 완료 게이트)
-pub fn next_section_filled(content: &str) -> bool {
-    let mut in_section = false;
-    for raw in content.lines() {
-        let l = raw.trim_end_matches('\r');
-        if l.starts_with("## 다음 세션 후보") {
-            in_section = true;
-            continue;
-        }
-        if in_section && l.starts_with("## ") {
-            break;
-        }
-        if in_section
-            && let Some(rest) = l.trim().strip_prefix("- ")
-        {
-            let rest = rest.trim();
-            if !rest.is_empty() && !rest.starts_with('[') {
-                return true;
-            }
-        }
-    }
-    false
-}
-
 /// 헤더 Status를 Complete로 (트레일링 `\`·`\r` 보존). 변경 없으면 None.
 pub fn mark_status_complete(content: &str) -> Option<String> {
     let mut out: Vec<String> = content.split('\n').map(str::to_string).collect();
@@ -562,6 +535,7 @@ fn deepen_link_target(raw: &str) -> Option<String> {
 
 pub struct CloseOptions {
     pub id: Option<String>,
+    /// 호환용 — v2.20부터 무효과. 구 `## 다음 세션 후보` 미작성 refuse 게이트(≤ v2.19)의 우회 플래그였음.
     pub force: bool,
 }
 
@@ -617,15 +591,12 @@ pub fn run_session_close(root: &Path, opts: &CloseOptions) -> Result<CloseResult
     }
     let content = fs::read_to_string(&log_path)?;
 
-    if !opts.force && !next_section_filled(&content) {
-        return Err(SessionError::MissingNextSection(target));
-    }
-
-    // Handoff 미완료 잔존 경고 (비차단 — LogConvention §5.2: 소거 또는 다음 세션 후보로 이관)
+    // Handoff 미완료 잔존 경고 (비차단 — LogConvention §5.2: 소거 또는 Registry key finding·Planning 문서로 이관).
+    // 구 `## 다음 세션 후보` 게이트(≤ v2.19·MissingNextSection refuse)는 v2.20에서 제거 — 절은 비권장(off)·기존 로그의 절은 유효.
     let mut warnings = Vec::new();
     if let Some(pending) = header_handoff(&content).as_deref().and_then(handoff_pending) {
         warnings.push(format!(
-            "Handoff still lists pending items: \"{pending}\" — resolve them or carry them into '## 다음 세션 후보' (LogConvention §5.2)"
+            "Handoff still lists pending items: \"{pending}\" — resolve them or record them in the registry key finding / a planning doc (LogConvention §5.2)"
         ));
     }
 
@@ -747,13 +718,6 @@ mod tests {
         assert!(out.contains("> **Status**: Complete\\\n"));
         assert!(out.contains("> **Created**: x\\\n")); // 타 줄 불변
         assert!(mark_status_complete(&out).is_none());
-    }
-
-    #[test]
-    fn next_section_filled_detects_real_bullets() {
-        assert!(!next_section_filled("## 다음 세션 후보\n\n### 가설 후보\n- [후속 가설 1-3항]\n"));
-        assert!(next_section_filled("## 다음 세션 후보\n\n### 가설 후보\n- 실제 가설\n"));
-        assert!(!next_section_filled("no section\n- 실제 가설\n")); // 섹션 밖 bullet 무시
     }
 
     #[test]

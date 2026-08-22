@@ -220,19 +220,11 @@ fn e2e_malformed_registry_falls_back_with_warning() {
 
 use elf_cli::session::{find_log_root, run_session_close, CloseOptions};
 
-/// sessionTemplate의 '다음 세션 후보' placeholder를 실제 내용으로 (close 게이트 통과용)
-fn fill_next_section(root: &std::path::Path, id: &str) {
-    let p = root.join(format!("2_Log/{id}_log.md"));
-    let c = std::fs::read_to_string(&p).unwrap().replace("- [후속 가설 1-3항]", "- 실제 후속 가설");
-    std::fs::write(&p, c).unwrap();
-}
-
 /// close 전 자동 validate — 닫는 세션 스코프 경고만 보고, 비차단 (S027 #7: close 직전 = 마지막 검증 기회)
 #[test]
 fn close_reports_validate_findings_scoped_and_nonblocking() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path()); // S001 활성
-    fill_next_section(&root, "S001");
     // 닫는 세션(S001)의 embed 누락 연출: 64_Viz/S001에 그림 존재, 본문 embed 없음
     let viz1 = root.join("6_Exp/64_Viz/S001");
     fs::create_dir_all(&viz1).unwrap();
@@ -281,7 +273,6 @@ fn close_reports_validate_findings_scoped_and_nonblocking() {
 fn close_archives_and_updates_registry() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path()); // S001 활성
-    fill_next_section(&root, "S001");
 
     let r = run_session_close(&root, &CloseOptions { id: Some("S001".into()), force: false }).unwrap();
     assert_eq!(r.id, "S001");
@@ -296,7 +287,6 @@ fn close_archives_and_updates_registry() {
 fn close_deepens_relative_cross_refs() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path()); // S001 활성
-    fill_next_section(&root, "S001");
     let p = root.join("2_Log/S001_log.md");
     let mut c = fs::read_to_string(&p).unwrap();
     c.push_str("\nsee [plan](../1_Concept/P.md) and [ext](https://e.com) and [img](../../elf-cli/x.md)\n");
@@ -313,21 +303,35 @@ fn close_deepens_relative_cross_refs() {
 fn close_default_picks_single_open() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    fill_next_section(&root, "S001");
     let r = run_session_close(&root, &CloseOptions { id: None, force: false }).unwrap();
     assert_eq!(r.id, "S001");
 }
 
+/// v2.20: 구 `## 다음 세션 후보` 게이트 제거 — 절이 없어도 close 성공, `--force`는 호환용 no-op.
 #[test]
-fn close_refuses_without_filled_next_section() {
+fn close_no_longer_requires_next_section() {
     let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path()); // S001은 placeholder 다음세션후보
-    match run_session_close(&root, &CloseOptions { id: Some("S001".into()), force: false }) {
-        Err(SessionError::MissingNextSection(_)) => {}
-        other => panic!("expected MissingNextSection, got {other:?}"),
-    }
-    assert!(root.join("2_Log/S001_log.md").exists()); // 무변경
-    run_session_close(&root, &CloseOptions { id: Some("S001".into()), force: true }).unwrap(); // --force 통과
+    let root = new_project(tmp.path()); // v2.20 템플릿 = 후보 절 없음
+    let log = std::fs::read_to_string(root.join("2_Log/S001_log.md")).unwrap();
+    assert!(!log.contains("## 다음 세션 후보"), "new template must not carry the next-section block");
+    run_session_close(&root, &CloseOptions { id: Some("S001".into()), force: false }).unwrap();
+    assert!(root.join("2_Log/Archive/S001_log.md").exists());
+    // --force: 여전히 수용되나 동작 차이 없음
+    let root2 = new_project(&tmp.path().join("sub2"));
+    run_session_close(&root2, &CloseOptions { id: Some("S001".into()), force: true }).unwrap();
+    assert!(root2.join("2_Log/Archive/S001_log.md").exists());
+}
+
+/// 구 템플릿(≤ v2.19) 로그 — 절이 남아 있어도 close 동작 동일(하위호환: 절 유효·요구 없음).
+#[test]
+fn close_accepts_legacy_log_with_next_section() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    let p = root.join("2_Log/S001_log.md");
+    let c = std::fs::read_to_string(&p).unwrap()
+        + "\n---\n\n## 다음 세션 후보 (Next-Session Hypothesis)\n\n### 가설 후보\n- [후속 가설 1-3항]\n";
+    std::fs::write(&p, c).unwrap(); // placeholder 상태(구 게이트라면 refuse였을 형태)
+    run_session_close(&root, &CloseOptions { id: Some("S001".into()), force: false }).unwrap();
     assert!(root.join("2_Log/Archive/S001_log.md").exists());
 }
 
@@ -362,12 +366,14 @@ fn find_log_root_finds_2log_from_subdir() {
 }
 
 #[test]
-fn e2e_close_refuse_then_force() {
+fn e2e_close_succeeds_without_force_and_force_is_noop() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
     Command::cargo_bin("elf").unwrap().current_dir(&root)
-        .args(["session", "close", "S001"]).assert().failure().code(3);
-    Command::cargo_bin("elf").unwrap().current_dir(&root)
+        .args(["session", "close", "S001"]).assert().success()
+        .stdout(predicates::str::contains("closed S001"));
+    let root2 = new_project(&tmp.path().join("sub2"));
+    Command::cargo_bin("elf").unwrap().current_dir(&root2)
         .args(["session", "close", "S001", "--force"]).assert().success()
         .stdout(predicates::str::contains("closed S001"));
 }
