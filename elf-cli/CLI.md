@@ -35,6 +35,7 @@ Installs the binary to `~/.elf/bin` and adds it to PATH. Open a new shell and ve
 | `elf session fix-headers` | Repair session-log header rendering |
 | `elf trial new [title]` | Append the canonical trial stub to the active session log |
 | `elf gallery` | Generate the figure index `_gallery.md` from `6_Exp/64_Viz/` |
+| `elf autoread [sub]` | Governance digest after a context reconstruction — print it (any harness); Claude Code hooks inject it automatically (default-on) |
 | `elf tsa <sub>` | Research-record timestamping, **opt-in**: per-commit hash manifest + RFC 3161 token |
 | `elf doctor` | Aggregate environment + project health check (read-only) |
 | `elf self-update` | Update the `elf` binary itself |
@@ -195,6 +196,30 @@ Scan `6_Exp/64_Viz/` and regenerate `6_Exp/64_Viz/_gallery.md` — a figure inde
 elf gallery
 # → wrote 6_Exp/64_Viz/_gallery.md (3 session(s), 12 image(s))
 ```
+
+### `elf autoread [subcommand]`
+
+Governance re-injection after a context reconstruction. When an AI coding session's context is compacted, resumed, or cleared, the agent continues from a lossy summary and the project rules quietly drop out of view. `elf autoread` prints a **digest** that puts them back: the standing-duties section of `AGENTS.md`, the active session headers (Handoff, truncated), the current `elf validate` counts, and a closing instruction to act on the full rule texts rather than the summary. With no subcommand it prints the digest to stdout — usable from any agent harness (paste or pipe it into the next prompt).
+
+**Claude Code integration (automatic).** `elf init` and `elf update` keep two thin hook entries in `.claude/settings.json` (the file is untracked; the merge preserves everything else in it): a `SessionStart` hook records a per-session marker under `.elf/runtime/` (nothing is injected at that point), and a `UserPromptSubmit` hook injects the digest on the next prompt. Until that prompt arrives, every `elf` command prints a one-line reminder banner as a fallback channel. Hook paths are strictly fail-open — any internal error exits 0 with no output and never blocks the session. The managed block of `.gitignore` excludes `.elf/runtime/`.
+
+| Subcommand | Effect |
+|---|---|
+| *(none)* | Print the digest (any harness) |
+| `enable` | `"autoread": true` in `.elf/config.json` + Claude Code hook entries — idempotent, per project. An absent key means on |
+| `disable` | `"autoread": false` — hook entries stay in place but become no-ops |
+| `status` | Config, hook installation, `autoread_fulltext` declarations (ok / missing / unsafe), pending markers — read-only |
+| `ack` | Clear pending reconstruction markers by hand |
+
+**`autoread_fulltext` (opt-in).** List root-relative paths (e.g. your log convention) in the `autoread_fulltext` array of `.elf/config.json`; after a reconstruction the digest then carries those files verbatim, so the rules it summarizes are deterministically back in context. Paths that escape the project tree are refused, each file is capped at 24k characters (truncated with a notice), and a missing or unsafe entry degrades to a one-line note. The switch (`autoread`) and the list are separate keys. `elf doctor` reports the autoread state and warns about declarations that point nowhere.
+
+```bash
+elf autoread              # print the digest now
+elf autoread status       # config · hooks · fulltext declarations · pending markers
+elf autoread disable      # per-project off (hooks remain as no-ops)
+```
+
+> Do not run the installed hooks with an `elf` binary older than 2.19: it exits with code 2 on the unknown subcommand, which Claude Code treats as a blocking hook error on prompt submission. Normal installs and updates are unaffected — only avoid downgrading `elf` after hooks are installed.
 
 ### `elf tsa <subcommand>` (opt-in)
 

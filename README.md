@@ -1,31 +1,218 @@
 [English](README.md) | [한국어](README.ko.md)
 
-# Eli's Lab Framework (ELF): Base-Delta Protocol for Agile R&D
+# Eli's Lab Framework (ELF)
 
-A hardware-software-experimental data integrated logging standard (Protocol) designed to support fast feedback loops (Agile) during device development and R&D validation phases. Guarantees complete data traceability while minimizing researcher documentation fatigue.
+**Base-Delta: every change is an experiment — and the agent writes it down.**
 
-## Core Philosophy
+Now you keep not just the result, but how it was made.\
+In ELF, every change becomes a trial — hypothesis, run, lesson — written by the agent on the spot.\
+Every result keeps its process, and the next step starts from the last lesson.
 
-* **Single Source of Truth:** Hardware design, analysis code, and raw data are organically connected within a single project.
-* **Base-Delta Logging:** Not every variable is recorded. A Baseline is declared, and only changed variables (Deltas) are logged lightly to prevent research delays.
-* **Systematic Enforcement:** Bypasses file name length limitations (Windows 260-character limit) and guarantees reproducibility through code.
-* **AI Governance:** Enforces a unified logging standard for both humans and AI through `.elf/managed/LogConvention.md`, and prevents context contamination via `.elf/managed/AI_PARA_Framework.md`.
+## Sessions and trials
 
-## Project Directory Structure
+| Unit | What it is | What it holds |
+|---|---|---|
+| **trial** `t##` | one change = one experiment | before the run: goal, conditions, hypothesis, prediction / after: observation, interpretation, lesson, files |
+| **session** `S###` | one goal, with trials accumulating under it | header (goal, related, Handoff) + t01, t02, … → on close, a one-line conclusion goes to the registry |
 
-This project treats the folder hierarchy itself as a communication standard.
+```text
+S012  goal: SNR by wavelength
+ ├─ t01  baseline: 3-wavelength sweep        hypothesis → run → 810 nm best
+ ├─ t02  delta: photons 1e8 → 1e9            hypothesis → run → unchanged
+ └─ t03  delta: skin model 3 → 5 layers      hypothesis → run → 735 nm overtakes
+ close → registry: "810 nm best — revisit 735 nm with the 5-layer model"
+```
+
+- Every record is standardized by number — `S012 t02`. The log, script, data, and figure share it, so later you cite and find any trial with one number: in a paper, a plan, or a prompt.
+- You decide the next trial. The agent writes down the next change with its hypothesis and prediction from the previous result; you review it and decide whether it runs.
+
+| Term | Meaning |
+|---|---|
+| `S###` · `t##` | Session and trial numbers. The log, script, data, and figure share them |
+| delta | What changed from the previous trial, and why |
+| Handoff | One line of current state in the session header — "valid conclusion; pending; references", rewritten as a whole |
+| Registry | `2_Log/Wiki/Session_Registry.tsv` — one row per session (status, one-line conclusion) |
+| Archive | Where closed logs go (`2_Log/Archive/`). Excluded from the agent's autonomous exploration |
+| validate | `elf validate` — consistency check of logs, registry, numbering, cross-refs, figure embeds, and trial sections |
+
+## Principles
+
+| Principle | One line |
+|---|---|
+| **Base-Delta** | Declare the baseline once; after that, record only what changed. One change is a trial, one goal is a session — trials accumulate into sessions, sessions into the project's record. |
+| **Hypothesis first** | Write the hypothesis and prediction, stop, then run. That is what makes one change one experiment. |
+| **People judge, the agent writes, the tool checks** | One format for both, so each picks up where the other left off — and `elf validate` catches what is missing. |
+| **Everything stays local** | Markdown and folders, nothing else — no server, no account. Manage it with git, read it without ELF. |
+
+## In practice
+
+| Scene | What you say | What gets recorded |
+|---|---|---|
+| Start | "Create a new session. Goal: SNR by wavelength." | `elf session new` → header + registry row. t01 hypothesis and prediction, then a **stop** — you confirm, then it runs |
+| Change | "Raise the photon count to 1e9 and run again." | t02: base = t01, delta + reason → hypothesis → run → the figure lands in Observation → hit or miss |
+| Resume | (a month later, or after a context reset) "Where were we on the SNR comparison?" | Continues from the Handoff and the registry conclusion — from the record, not from memory |
+| Trace | "Fig 3 says 810 nm — what is that based on?" | The S012 t01→t03 chain with script and data paths, as recorded |
+| Paper | "Outline the manuscript from the conclusions so far." | Registry conclusions → `7_Paper/72_Drafts` — accumulation becomes the paper |
+
+## Walkthrough
+
+Your first session with an AI coding agent — any agent that reads `AGENTS.md`. The S012 above is what a session looks like after it has accumulated; here we start from S001. There are two starting points — **A** if you have no data yet, **B** if you already do. They are the same study at two moments: A simulates SNR by wavelength, B analyzes data measured with a prototype optical sensor. Using ELF without an agent is covered in the last line.
+
+**1. Install and create a project**
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.ps1 | iex"
+```
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.sh | sh
+```
+
+A single binary is installed to `~/.elf/bin` (no Node or Python). Open a new shell and check with `elf --version`.
+
+```bash
+elf init MyProject --preset experimental --lang en-US   # 6_Exp + 7_Paper. With no name, initializes the current folder
+cd MyProject
+```
+
+`[elf] created MyProject (ELF v2.20.0, preset: experimental, lang: en-US)` — along with the folder structure you get `AGENTS.md` (the shared entry digest for agents) and `2_Log/S001_log.md` (the first session stub). The agent starts by reading `AGENTS.md`, so nothing else needs to be set up. Claude Code files (`CLAUDE.md` pointer, hook settings) are created too; other agents can ignore them. Project-specific rules go in `0_Meta/ProjectRule.md`. `--lang en-US` sets the agent's response language and deploys English companions of the rule documents (the operative rules are Korean; the English copies are for reading, and log section headings are bilingual, e.g. `### 목표 (Goal)`).
+
+**2-A. From scratch — start from an idea sketch**
+
+| Step | What you say | What gets recorded | What you do |
+|---|---|---|---|
+| Idea | "I need to sort out my thinking on the wavelength choice for a wearable optical sensor. Current view: taking skin penetration and hemoglobin absorption together, around 810 nm looks favorable. Note the evidence and the counter-cases." | `1_Concept/13_Ideas/wavelength_choice.md` (not in the log) | Judge the direction |
+| Plan | "Write a concrete plan to test this as a plan document: compare SNR by wavelength in simulation first, then confirm with measurements from the prototype sensor." | `1_Concept/12_Planning/P001_wavelength_optimization.md` | Approve the steps |
+| Session | "Start with step 1 of P001. S001 goal: SNR by wavelength — 735/810/940 nm, Monte Carlo simulation." | S001 header `관련: P001` + registry row | Confirm the goal |
+| t01 | "t01: 3-wavelength sweep. Baseline conditions as written in P001 — 3-layer skin model, 1e8 photons." | t01 pre-run sections → **stop** → run → observation, interpretation, lesson · `61_Sim/Scripts/S001_t01_*.m` · `61_Sim/Data/S001/` | Review hypothesis and prediction → say run |
+
+Reference papers go in `1_Concept/11_Literature/` — the rules include a source-reliability rule and a journal domain list.
+
+**2-B. With existing data — start from analysis**
+
+| Step | Command / what you say | What gets recorded | What you do |
+|---|---|---|---|
+| Data in | Copy the measured raw CSV into `6_Exp/62_Empirical/Raw/` | Nothing yet — originals kept read-only and out of git; recording starts at t01 | Check the originals |
+| Session | "I have CSVs of 3-wavelength reflectance measured with the prototype optical sensor. S001 goal: SNR by wavelength from this data." | S001 header + registry row | Confirm the goal |
+| t01 cleaning | "t01: data overview and cleaning. Drop the saturated stretches and the motion-noise stretches." | `62_Empirical/Processed/S001/` · `63_Analysis/Scripts/S001_t01_*.m` (range and filters in Conditions) | Approve the cleaning criteria |
+| t02 analysis | "t02: SNR by wavelength on the cleaned data, with the same definition as the simulation." | t02 pre-run sections → **stop** → figure in `64_Viz/S001/` + data array `.mat`/`.csv` → interpretation, lesson | Review hypothesis and prediction → say run |
+
+**3. Shared — next change → close**
+
+| Step | Command / what you say | What gets recorded | What you do |
+|---|---|---|---|
+| Next change | "Raise the photon count to 1e9 and run again." (A) → `elf trial new "photons 1e9"` | `[elf] appended t02 to 2_Log/S001_log.md (S001)` — t02: base = t01, delta + reason → stop → run → record. Repeat from the last result | Decide whether it runs |
+| Close | `elf validate` → `elf session close` | `[elf] ok: registry, logs, numbering, and cross-refs are consistent` → `[elf] closed S001 → 2_Log/Archive/S001_log.md (Status: Complete, registry updated)` | Check the one-line conclusion in the registry |
+
+`elf validate` reports missing figures, non-canonical sections, and registry mismatches as warnings or issues; `elf session close` runs validate once more, moves the log to `Archive/`, and fixes its relative cross-refs. If the Handoff still lists pending items, it warns.
+
+A trial the agent leaves behind looks like this (A's t02):
+
+```markdown
+## t02: photons 1e9
+
+### 목표 (Goal)
+- Raise t01's photon count 1e8 → 1e9 to check that the 810 nm lead is not sampling noise
+
+### 조건 (Conditions)
+- base = t01, delta = photons 1e8 → 1e9 (reason: 810 and 940 nm confidence intervals overlap in t01)
+
+### 가설 (Hypothesis)
+- Less noise narrows the intervals; the ranking holds
+
+### 예상 (Prediction)
+- 810 nm keeps the lead; interval width ≤ 1/3
+- Output: `S001_t02_SNR_ci.png`
+
+### 관찰 (Observation)
+- 810 nm keeps the lead; interval width 0.28×
+- ![S001_t02: SNR by wavelength, 1e9 photons](../6_Exp/64_Viz/S001/S001_t02_SNR_ci.png)
+
+### 해석 (Interpretation)
+- 가설 적중 여부: hit
+- The overlap at 1e8 was sampling noise
+
+### 교훈 (Lessons)
+- Ranking calls need 1e9 photons or more
+
+### 생성 파일 (Files)
+
+| Type | File |
+|------|------|
+| Script | `6_Exp/61_Sim/Scripts/S001_t02_sweep.m` |
+| Output | `6_Exp/61_Sim/Data/S001/S001_t02_results.mat` |
+| Figure | `6_Exp/64_Viz/S001/S001_t02_SNR_ci.png` |
+```
+
+Without an agent: paste `.elf/managed/templates/trialTemplate.md` into the log and write it yourself; `elf trial new`, `elf validate`, and `elf session close` work the same.
+
+## How it works
+
+| Mechanism | Role |
+|---|---|
+| `AGENTS.md` | The agent's entry digest — record in the same turn, canon over precedent (no imitating drifted logs), re-read the Handoff after a context rebuild. The canonical rules live in `.elf/managed/` (EliRule, LogConvention, AI_PARA_Framework); project rules in `0_Meta/ProjectRule.md` |
+| Stop before the run | Hypothesis and prediction are fixed before execution (LogConvention §5.1). The agent honors this stop even in autonomous mode |
+| `elf validate` | Checks registry ↔ logs, numbering, cross-refs, missing figure embeds, and trial section structure. `session close` runs it automatically |
+| `elf autoread` | `elf autoread` (no arguments) prints a digest — rule summary, active session Handoff, validate counts — for any agent to re-read after a context rebuild. In Claude Code, hooks (`.claude/settings.json`) inject it automatically on the first prompt after a compaction or restart (on by default; `autoread_fulltext` adds full rule texts) |
+| Handoff · Registry | Handoff = one line "valid conclusion; pending; references", rewritten as a whole; registry key finding = the session's one-line conclusion — where you resume from |
+| One writer | One session log has one writer (an agent or a person). Parallel work means one session per agent, with relationships noted in the header `관련:` (related) field |
+| Archive firewall | `Archive/` is off-limits to autonomous exploration — an `AGENTS.md` rule (open only when you name a path). In Claude Code, `.claudeignore` also blocks it from search (AI_PARA_Framework) |
+| Overlays | Customize vocabulary and search domains in `0_Meta/<name>.project.md` (effective rules = base ⊕ overlay). `elf update` never touches it |
+
+## CLI
+
+> Full reference (every flag, exit codes, file ownership): **[elf-cli/CLI.md](elf-cli/CLI.md)**
+
+| Command | Role |
+|---|---|
+| `elf init [name] [--preset …] [--modules …] [--lang …]` | Create a project. With no name, in place in the current folder. Presets `full`/`experimental`/`software`/`minimal` (experimental: `general`, `qa`) |
+| `elf session new <title>` / `close [S###]` / `fix-headers` | Create a session · close it (validate → move to Archive → registry and cross-ref fix-up) · repair header line breaks |
+| `elf trial new [title]` | Append the canonical trial stub to the active log (auto-numbered `t##`) |
+| `elf validate [--check] [--strict]` | Consistency check (read-only). `--check` exits 4 on issues; `--strict` promotes missing embeds and structure warnings to issues |
+| `elf gallery` | Build the figure index `_gallery.md` from `6_Exp/64_Viz/` |
+| `elf autoread [enable\|disable\|status]` | Rule re-injection after a context rebuild. With no argument, prints the digest (any agent); automatic hook injection is Claude Code only (on by default) |
+| `elf update [--dry-run] [--force]` | Update managed files to the installed CLI version — research data, logs, and settings are never touched |
+| `elf status [--check]` | Diagnose managed-file state (read-only). `--check` exits 4 on findings |
+| `elf doctor` | Environment and project health check (read-only) |
+| `elf tsa <sub>` | Optional: per-commit file-hash manifest + RFC 3161 timestamp — proof of what existed when. Off by default; the only thing that leaves your machine is a 32-byte manifest digest |
+| `elf self-update` | Update the `elf` binary |
+
+Operations:
+
+```bash
+elf self-update          # apply a new version ① update the CLI
+elf status               # ② see what would change
+elf update --dry-run     # ③ preview without writing
+elf update               # ④ managed files only — on "edited: … — kept; new version at ….elf-new" your edit stays; diff and merge (or --force to take the canonical version)
+elf status --check       # team/CI gate — exit 4 on findings (elf validate --check works the same way)
+```
+
+In `.gitignore`, ELF manages only the marker block (`# >>> ELF managed >>>` … `# <<< ELF managed <<<`); everything else is preserved.
+
+## Project layout
+
+- File names carry only the number — `S001_t02_sweep.m` · `Data/S001/S001_t02_results.mat` · `64_Viz/S001/S001_t02_SNR_ci.png`. The conditions live in the log.
+- Cross-refs in logs are relative paths — plans `../1_Concept/12_Planning/P00x.md`, data `../6_Exp/61_Sim/Data/S###/`, figures `../6_Exp/64_Viz/S###/`. `session close` fixes them for the Archive depth.
+- Plans go in `1_Concept/12_Planning/P###_title.md`, ideas in `13_Ideas/`, and logs hold facts only. Analysis code lives in `6_Exp/63_Analysis/Scripts/` and `61_Sim/Scripts/` (`.m` cell mode, `%%`).
+
+Full folder structure:
 
 ```text
 Project_Root/
+│
+├── AGENTS.md                        # Agent entry digest (shared by all agents, ELF-managed)
+├── CLAUDE.md · .claude/settings.json · .claudeignore   # Claude Code only (pointer · autoread hooks · Archive exclusion) — other agents ignore them
+├── README.md · LICENSE · .gitignore · .editorconfig · .gitattributes
 │
 │  ─── Core ───────────────────────────────
 │
 ├── .elf/                            # ELF control plane (version·config·manifest — do not edit)
 │   └── managed/                     # Managed rule payload: EliRule·LogConvention·AI_PARA_Framework
-│       └── templates/               #   ·LLMcliche·highIFjournals + session/trial stubs
+│       └── templates/               #   ·LLMcliche·highIFjournals + session/trial stubs (Archive/ = previous templates)
 ├── 0_Meta/                          # Project governance — yours (`elf update` never writes here)
 │   ├── ProjectRule.md               # Project-specific rules and objectives
-│   └── <name>.project.md            # Data overlays (effective rules = base ⊕ overlay)
+│   ├── <name>.project.md            # Data overlays (effective rules = base ⊕ overlay)
+│   └── tsa/                         # (optional) elf tsa manifests and timestamps
 │
 ├── 1_Concept/                       # Research planning, literature, ideas
 │   ├── 11_Literature/               # Paper PDFs, bibliographic info, base formulas
@@ -78,247 +265,7 @@ Project_Root/
 │   └── 73_Presentations/            # Presentation materials (PPT, posters)
 ```
 
-> For detailed usage and operational rules for each folder, refer to `.elf/managed/EliRule.md`.
-
-## Data Logging Pipeline Specification
-
-### 1. File Naming Convention (Session-Trial Naming)
-
-* Listing experimental conditions or variable information in file names is **strictly prohibited**.
-* **Format:** `[SessionID]_[TrialID].[extension]` (e.g., `S001_t1.csv`, `S001_t2.bin`)
-
-### 2. Base-Delta Logging (Hybrid Logging)
-
-* **Running Log (`2_Log/S###_log.md`):**
-  * A narrative markdown file that records immediate hypothesis-test-lesson cycles in text.
-  * Written per trial (`t1`, `t2`...) in a stream-of-consciousness style, recording only the **intentionally changed variables (Delta)** and observed results.
-  * Format and detailed rules: refer to `.elf/managed/LogConvention.md`.
-
-### 3. Planning Document Rules
-
-* Research roadmaps, figure compositions, experimental strategies, etc. are managed separately in `1_Concept/12_Planning/`.
-* **Format:** `P###_title.md` (e.g., `P001_wavelength_optimization.md`)
-* When referencing Planning from a log: `→ see 1_Concept/12_Planning/P###_xxx.md`
-
-### 4. Post-Processing Analysis Specification (Cell Mode Scripting)
-
-* Analysis code must be located in `6_Exp/63_Analysis/Scripts/` or `6_Exp/61_Sim/Scripts/` and must not be mixed inside data folders.
-* Pure `.m` files are used instead of `.mlx` to prevent vendor lock-in.
-* Code is executed section by section using `%%` (Cell Mode), and derived insights are reflected in the running log.
-* Analysis outputs (figures, mat files) are saved in `6_Exp/64_Viz/` or `6_Exp/62_Empirical/Processed/S###/` within per-session folders.
-
-### 5. Cross-Reference Rules
-
-Cross-reference formats are unified to ensure traceability between project documents.
-
-| From → To | Format |
-|-----------|--------|
-| Logs → Planning | `→ see 1_Concept/12_Planning/P###_xxx.md` |
-| Logs → Sim Data | `→ see 6_Exp/61_Sim/Data/S###/` |
-| Logs → Script | `→ see 6_Exp/63_Analysis/Scripts/S###_analysis.m` |
-| Planning → Logs | `← tracked in 2_Log/S###_log.md` |
-
-## AI Governance
-
-When AI agents (Claude, etc.) participate in the project, the following rules apply:
-
-1. **Context Acquisition:** Before starting work, read the active session log in `2_Log/` and `2_Log/Wiki/Session_Registry.tsv` to confirm the state of previous work.
-2. **Unified Standard Compliance:** Follow the logging rules in `.elf/managed/LogConvention.md` in the same way as a human researcher.
-3. **Handoff Recording:** Upon task completion, record performed actions, created/modified files, and Next Steps in the session log (`2_Log/S###_log.md`) — use the log header's `Handoff` field.
-4. **Idea Separation:** Hypotheses and ideas generated by AI are stored separately in `1_Concept/` (small ideas → `13_Ideas/`, plans → `12_Planning/`), not in logs.
-5. **PARA-Based Context Management:** Use the `Archive/` folder and `.claudeignore` to prevent AI context contamination. For detailed rules, refer to `.elf/managed/AI_PARA_Framework.md`.
-6. **Communication Rules:** Maintain an objective and dry writing style. No analogies or metaphors. Deliver conclusions clearly and directly. No exaggeration or emotional modifiers. For detailed rules, refer to section 3 of `.elf/managed/EliRule.md`.
-7. **Data Reusability:** When generating any Plot/Graph, save the original Data Array alongside as `.mat`/`.csv`. For detailed rules, refer to section 2.6 of `.elf/managed/EliRule.md`.
-8. **Data-File Customization:** Add/remove/override vocabulary or search domains via a project overlay `0_Meta/<name>.project.md` (user-owned; effective rules = base ⊕ overlay; each removal states a reason). Spec: `.elf/managed/EliRule.md` §2.7.
-
-## Quick Start
-
-### 1. Install the `elf` CLI (recommended)
-
-**Windows (PowerShell):**
-
-```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.ps1 | iex"
-```
-
-**Linux / macOS:**
-
-```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.sh | sh
-```
-
-A self-contained single binary is installed to `~/.elf/bin` and added to PATH — no Node/Python runtime required. Verify with `elf --version` in a new shell.
-
-### 2. Create a project
-
-```bash
-cd /desired/parent/directory
-elf init MyProject --lang English                   # default: full preset
-elf init MyProject --preset experimental --lang English   # 6_Exp + 7_Paper only
-elf init MyProject --modules hw,sw --lang English   # custom module selection
-```
-
-Core folders (0~2) are always created; module folders (3~7) are included per preset (`full`/`experimental`/`software`/`minimal`) or `--modules` selection.
-
-
-## CLI Commands & Usage Scenarios
-
-> Full command reference (every flag, exit codes, escalation, file ownership): **[elf-cli/CLI.md](elf-cli/CLI.md)**
-
-| Command | Role |
-|---------|------|
-| `elf init <name> [--preset …] [--modules …] [--lang …]` | Scaffold a new project |
-| `elf update [--dry-run] [--force]` | Update ELF-managed files in a project to the current CLI version — **never touches your files** |
-| `elf status [--check]` | Diagnose managed-file state (read-only). `--check` exits 4 on findings |
-| `elf validate [--check]` | Check session/registry/log consistency (read-only). `--check` exits 4 on issues |
-| `elf session new <title>` | Create + register the next session log (auto-increments `S###`) |
-| `elf session close [S###]` | Close the active session → archive + update registry (fixes cross-refs) |
-| `elf session fix-headers` | Repair session-log header hard breaks (`\`) |
-| `elf gallery` | Generate the figure index `_gallery.md` from `6_Exp/64_Viz/` |
-| `elf doctor` | Aggregate environment + project health check (read-only) |
-| `elf self-update` (= `elf update --self`) | Update the `elf` binary itself to the latest release |
-
-### Scenario A — Start a new project
-
-```bash
-elf init NIRS_Probe --preset experimental --lang English
-cd NIRS_Probe
-# Read .elf/managed/EliRule.md · LogConvention.md → start research in 2_Log/S001_log.md
-```
-
-### Scenario B — Apply a new ELF version to an existing project
-
-```bash
-elf self-update          # ① update the CLI itself
-cd MyProject
-elf status               # ② diagnose what would change (outdated / edited / missing)
-elf update --dry-run     # ③ preview the action list without writing
-elf update               # ④ update — replaces ELF-managed files only; research data, logs, and your settings are never touched
-```
-
-> **Upgrading a project created before v2.15** (rules still in `0_Meta/`, stubs in a root
-> `templates/`): the current CLI does not read or migrate that layout. Take the two-step
-> path — install **v2.15.1** from the [Releases page](https://github.com/ProjectEli/ELF/releases/tag/v2.15.1),
-> run `elf update` and then `elf migrate` there, and only then update the CLI to the
-> latest (`elf self-update`). Running the latest `elf update` directly on such a project
-> deploys a second copy of the rules under `.elf/managed/` and leaves the old files as
-> unmanaged leftovers — it warns and names them, but nothing is deleted or migrated.
-
-### Scenario C — When an ELF-managed file you edited conflicts
-
-```bash
-elf update
-# → "edited: .elf/managed/LogConvention.md — kept; new version at ….elf-new"
-#   Your edit is preserved; the new version lands as <file>.elf-new → diff and merge manually
-elf update --force       # or: discard your edits and replace with the canonical version
-```
-
-For `.gitignore`, ELF manages only the marker block (`# >>> ELF managed >>>` … `# <<< ELF managed <<<`); user rules outside the block are always preserved.
-
-### Scenario D — Gate drift in teams/CI
-
-```bash
-elf status --check       # exits 4 on findings → use as a pre-commit hook / CI gate
-```
-
-## Usage
-
-> **Tip — drive the session lifecycle with the CLI:** the workflow below can be automated — `elf session new` (start), `elf gallery` (figure index), `elf validate` (consistency check), `elf session close` (complete). The manual steps remain valid for any workflow, so adopt the CLI incrementally.
-
-### 0. Templates
-
-The `.elf/managed/templates/` folder provides ready-to-use stubs:
-
-| File | When to use |
-|------|-------------|
-| `sessionTemplate.md` | Copy to `2_Log/` when starting a new session (rename to `S###_log.md`) |
-| `trialTemplate.md` | Paste into an active session log when adding a new trial (`t02`, `t03`, ...) |
-
-> **Note**: `ProjectRule.md` is auto-generated and placed in `0_Meta/` during initialization. Edit Sections 1–8 of `0_Meta/ProjectRule.md` directly to fit your project.
-
-### 1. Read the Rules First
-
-Before starting research, read the two governance documents generated in `.elf/managed/`:
-
-| Document | Purpose |
-|----------|---------|
-| `EliRule.md` | Folder structure spec, naming convention, operational rules (Section 1-2), AI communication rules (Section 3) |
-| `LogConvention.md` | Session log format, file naming, archiving workflow, cross-reference rules |
-
-### 2. Start a New Session
-
-Create a log file in `2_Log/`:
-
-```markdown
-# S002: Wavelength Optimization Simulation
-
-> **Created**: 2026-04-01\
-> **Modified**: 2026-04-01\
-> **Status**: ★ Active\
-> **Goal**: Compare SNR across 735/810/940 nm wavelengths via Monte Carlo simulation\
-> **Related**: P001_wavelength_optimization.md\
-> **Handoff**: -
-```
-
-- Session numbers (`S001`, `S002`, ...) increment sequentially — no gaps, no duplicates.
-- File naming: `S###_log.md` (e.g., `S002_log.md`).
-- `elf session new "<title>"` creates the log from the template and registers it automatically (auto-increments `S###`); or copy `.elf/managed/templates/sessionTemplate.md` manually.
-
-### 3. Develop Tasks (t01, t02, ...)
-
-Within each session, break work into sequential tasks:
-
-```markdown
-## t01: MCX Forward Simulation — 3-wavelength sweep
-
-### Goal
-- Run MCX simulation for λ = {735, 810, 940} nm at SDS = 20 mm
-
-### Conditions
-- Tissue model: 3-layer (epidermis/dermis/subcutaneous)
-- Photon count: 1e8 per wavelength
-- fmel = 0.10 (Fitzpatrick III)
-
-### Results
-- 940 nm shows highest sensitivity (ΔR/Δh = 0.12 mm⁻¹)
-- 735 nm has lowest noise floor but saturates at h > 15 mm
-
-![S002_t01: SNR comparison](../6_Exp/64_Viz/S002/S002_t01_SNR_comparison.png)
-
-### Lesson
-- 810 nm is the best compromise between sensitivity and dynamic range
-
-### Generated Files
-
-| Type | File |
-|------|------|
-| Script | `61_Sim/Scripts/S002_t01_wavelength_sweep.m` |
-| Output | `61_Sim/Data/S002/S002_t01_results.mat` |
-| Figure | `64_Viz/S002/S002_t01_SNR_comparison.png` |
-```
-
-- Tasks build on each other: `t01` → `t02` → `t03`.
-- Each task has: **Goal**, **Conditions**, **Results**, **Lesson**, **Generated Files**.
-- Embed figures inline in the results section — never list file paths without visual embedding.
-
-### 4. Complete a Session
-
-When a session is done:
-
-1. **Update Status**: Change `★ Active` to `Complete` in the log header.
-2. **Summarize to Wiki**: Add a 1-2 line summary to `2_Log/Wiki/` knowledge documents with a link to the archived log.
-3. **Update Session Registry**: Add a row to `2_Log/Wiki/Session_Registry.tsv`:
-   ```
-   S002	2026-04-01	Wavelength Optimization	Complete	810 nm optimal	Archive/S002_log.md
-   ```
-4. **Archive the log**: Move the log file to `2_Log/Archive/` (filename unchanged).
-5. **Archive scripts** (if one-time): Move to `Scripts/Archive/`.
-
-> `elf session close [S###]` automates steps 1, 3 (status), and 4 — including fixing the log's relative cross-references for its new depth. Steps 2 and 5 remain manual.
-
-### 5. AI Agent Handoff (Optional)
-
-If using AI agents, record performed actions, modified files, and next steps in the session log's `Handoff` field upon task completion.
+The purpose and operating rules of each folder are in `.elf/managed/EliRule.md`.
 
 ## License
 

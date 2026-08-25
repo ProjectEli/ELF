@@ -35,6 +35,7 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases
 | `elf session fix-headers` | 세션 로그 헤더 렌더링 보정 |
 | `elf trial new [제목]` | 활성 세션 로그에 정본 trial stub 추가 |
 | `elf gallery` | `6_Exp/64_Viz/`에서 Figure 색인 `_gallery.md` 생성 |
+| `elf autoread [서브]` | 컨텍스트 재구성 후 거버넌스 digest — 출력(모든 하네스); Claude Code 훅이 자동 주입(기본 켬) |
 | `elf tsa <sub>` | 연구 기록 시점인증, **opt-in**: 커밋별 해시 manifest + RFC 3161 토큰 |
 | `elf doctor` | 환경+프로젝트 종합 건강검진(읽기전용) |
 | `elf self-update` | `elf` 바이너리 자체 갱신 |
@@ -189,6 +190,30 @@ elf trial new --session S007     # 활성 복수 — 대상 지정
 elf gallery
 # → wrote 6_Exp/64_Viz/_gallery.md (3 session(s), 12 image(s))
 ```
+
+### `elf autoread [서브명령]`
+
+컨텍스트 재구성 후 거버넌스 재주입. AI 코딩 세션의 컨텍스트가 compaction·재개·초기화되면 에이전트는 손실된 요약에서 이어가고, 프로젝트 규칙은 조용히 시야에서 빠집니다. `elf autoread`는 이를 되돌리는 **digest**를 출력합니다 — `AGENTS.md`의 상시 의무 절, 활성 세션 헤더(Handoff, 절단), 현재 `elf validate` 집계, 그리고 요약이 아니라 규칙 전문에 따라 행동하라는 마무리 지시. 서브명령 없이 실행하면 digest를 stdout으로 출력합니다 — 어떤 에이전트 하네스에서도 쓸 수 있습니다(다음 프롬프트에 붙여 넣거나 파이프).
+
+**Claude Code 연동(자동).** `elf init`·`elf update`가 `.claude/settings.json`에 얇은 훅 항목 2개를 유지합니다(파일은 미추적, 병합 시 다른 설정은 보존): `SessionStart` 훅이 `.elf/runtime/`에 세션 단위 마커를 기록하고(이 시점엔 주입 없음), `UserPromptSubmit` 훅이 다음 프롬프트에 digest를 주입합니다. 그 프롬프트가 오기 전까지는 모든 `elf` 명령이 1줄 리마인더 배너를 출력합니다(대체 채널). 훅 경로는 엄격히 fail-open — 내부 오류는 exit 0·무출력으로 끝나며 세션을 막지 않습니다. `.gitignore` 관리 블록이 `.elf/runtime/`을 제외합니다.
+
+| 서브명령 | 효과 |
+|---|---|
+| *(없음)* | digest 출력(모든 하네스) |
+| `enable` | `.elf/config.json`에 `"autoread": true` + Claude Code 훅 항목 — 멱등, 프로젝트 단위. 키가 없으면 켬 |
+| `disable` | `"autoread": false` — 훅 항목은 남되 no-op |
+| `status` | config·훅 설치 상태·`autoread_fulltext` 선언(ok / missing / unsafe)·대기 마커 — 읽기전용 |
+| `ack` | 대기 중인 재구성 마커를 수동 해제 |
+
+**`autoread_fulltext`(opt-in).** `.elf/config.json`의 `autoread_fulltext` 배열에 루트 기준 상대경로(예: 로그 규약)를 적으면, 재구성 후 digest가 그 파일들을 원문 그대로 포함해 요약된 규칙이 확실히 컨텍스트로 돌아옵니다. 프로젝트 트리를 벗어나는 경로는 거부, 파일당 24k자 상한(초과 시 안내와 함께 절단), 없거나 안전하지 않은 항목은 1줄 안내로 대체됩니다. 스위치(`autoread`)와 목록은 별개 키입니다. `elf doctor`가 autoread 상태를 보고하고, 가리키는 곳이 없는 선언을 경고합니다.
+
+```bash
+elf autoread              # 지금 digest 출력
+elf autoread status       # config · 훅 · fulltext 선언 · 대기 마커
+elf autoread disable      # 프로젝트 단위 끔 (훅은 no-op으로 잔존)
+```
+
+> 2.19 미만의 `elf` 바이너리로 설치된 훅을 실행하지 마세요: 알 수 없는 서브명령에 exit 2를 반환하고, Claude Code는 이를 프롬프트 제출 시 차단 훅 오류로 처리합니다. 일반 설치·갱신은 영향 없음 — 훅 설치 후 `elf`를 다운그레이드하는 경우만 피하면 됩니다.
 
 ### `elf tsa <서브명령>` (opt-in)
 
