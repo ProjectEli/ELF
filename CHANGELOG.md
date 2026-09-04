@@ -4,6 +4,17 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.21.0] - 2026-09-04
+
+### Removed
+- **Token-economy rule removed (retroactive).** EliRule §3 no longer contains the
+  "토큰 최소화 및 압축 (Token Economy)" rule (old #8) — removed from the research and
+  `general` presets and their English companions, with the remaining rules renumbered
+  (old 9–13 → 8–12). LogConvention's log-writing rule now asks for nominal endings only,
+  dropping the token-minimization rationale and the word-centered-bullet mandate.
+  Retroactive: existing projects pick the updated rule files up via `elf update`;
+  logs already written need no rewrite.
+
 ## [2.20.0] - 2026-08-22
 
 ### Changed

@@ -75,7 +75,7 @@ elf init MyProject --preset experimental   # 6_Exp + 7_Paper. 이름 없이 실�
 cd MyProject
 ```
 
-`[elf] created MyProject (ELF v2.20.0, preset: experimental, lang: ko-KR)` — 폴더 구조와 함께 `AGENTS.md`(에이전트 공통 진입 규칙 요약)·`2_Log/S001_log.md`(첫 세션 stub)가 생깁니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 별도 설정이 없습니다. Claude Code용 파일(`CLAUDE.md` 포인터·훅 설정)도 함께 생성되며, 다른 에이전트에서는 무시해도 됩니다. 프로젝트 고유 규칙은 `0_Meta/ProjectRule.md`에 적습니다. 영어 응답·영어 규칙 문서가 필요하면 `--lang en-US`(규칙 정본은 한국어, 영어본은 읽기용 companion).
+`[elf] created MyProject (ELF v2.21.0, preset: experimental, lang: ko-KR)` — 폴더 구조와 함께 `AGENTS.md`(에이전트 공통 진입 규칙 요약)·`2_Log/S001_log.md`(첫 세션 stub)가 생깁니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 별도 설정이 없습니다. Claude Code용 파일(`CLAUDE.md` 포인터·훅 설정)도 함께 생성되며, 다른 에이전트에서는 무시해도 됩니다. 프로젝트 고유 규칙은 `0_Meta/ProjectRule.md`에 적습니다. 영어 응답·영어 규칙 문서가 필요하면 `--lang en-US`(규칙 정본은 한국어, 영어본은 읽기용 companion).
 
 **2-A. 처음부터 — 아이디어 스케치부터 시작**
 

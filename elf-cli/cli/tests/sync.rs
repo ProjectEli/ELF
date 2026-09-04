@@ -2,7 +2,7 @@
 //! research(meta) EliRule와 general EliRule의 **보편 tone 규칙**이 byte-identical로
 //! 유지되는지 검증 — 한쪽만 수정되어 조용히 갈라지는 drift를 cargo test에서 적발.
 //! 도메인 특화 규칙(4 엔지니어링 팩트 / 5 Data Reusability↔Reproducibility /
-//! 6 물리적 인과 / 10 실험 관찰↔중립 관찰)은 **의도적 분기**라 동일성 미강제.
+//! 6 물리적 인과 / 9 실험 관찰↔중립 관찰)은 **의도적 분기**라 동일성 미강제.
 //! 신규 §3 규칙은 UNIVERSAL/DIVERGENT 중 하나로 분류해야 통과(미분류 시 실패) — 자기유지.
 
 use elf_cli::embed;
@@ -49,9 +49,10 @@ fn section3_universal_rules_match_between_research_and_general() {
     assert!(!general.is_empty(), "general §3 규칙 파싱 실패 — 헤더 포맷 변경?");
 
     // 보편 규칙: 두 유형에서 byte-identical 유지 (silent drift 차단)
-    const UNIVERSAL: [u32; 9] = [1, 2, 3, 7, 8, 9, 11, 12, 13];
+    // (v2.21: 구 8 "토큰 최소화 및 압축" 소급 삭제로 구 9~13 → 8~12 재번호)
+    const UNIVERSAL: [u32; 8] = [1, 2, 3, 7, 8, 10, 11, 12];
     // 의도적 분기(도메인 특화) — 동일성 미강제
-    const DIVERGENT: [u32; 4] = [4, 5, 6, 10];
+    const DIVERGENT: [u32; 4] = [4, 5, 6, 9];
 
     // 1) 규칙 번호 집합 일치 — 한쪽에만 규칙 추가/삭제 시 적발
     let rkeys: Vec<u32> = research.keys().copied().collect();

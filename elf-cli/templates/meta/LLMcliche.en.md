@@ -7,7 +7,7 @@
 > `AI_PARA_Framework.md` §1.1.
 
 > **Status**: this document is a **non-exhaustive, non-binding reference** that helps
-> apply the *principle* of `EliRule.md §3 rule 12` (LLM Cliché Ban). **Not a fixed
+> apply the *principle* of `EliRule.md §3 rule 11` (LLM Cliché Ban). **Not a fixed
 > whitelist/blacklist** — an unlisted word is still a target if it reads as cliché, and a
 > listed word is allowed when used with a precise technical meaning. The norm is EliRule's
 > principle; this list is only examples. Models update often and their outputs overlap
@@ -93,7 +93,7 @@ denotation**. Examples:
 ---
 
 ## References
-- Norm (principle): `.elf/managed/EliRule.md` §3 rule 12 (LLM Cliché Ban) — this document is its applied examples.
+- Norm (principle): `.elf/managed/EliRule.md` §3 rule 11 (LLM Cliché Ban) — this document is its applied examples.
 - Metaphor exclusion: `EliRule.md` §3 rule 3.
 - Per-project technical homonym exceptions: `ProjectRule.md`.
 - Per-project vocabulary add/remove/override (overlay): `0_Meta/LLMcliche.project.md` — base ⊕ overlay; removals need a reason (EliRule §2.7).

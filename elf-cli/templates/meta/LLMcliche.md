@@ -1,6 +1,6 @@
 # LLMcliche: LLM 상투 표현 배제 참고자료 (Reference)
 
-> **위상**: 본 문서는 `EliRule.md §3 rule 12`(LLM Cliché Ban)의 *원칙* 적용을 돕는 **비망라·비구속 참고자료(reference)**다. **고정 whitelist/blacklist 아님** — 미수록 어휘도 상투적이면 배제 대상이며, 수록 어휘도 정확한 기술적 의미로 쓰면 허용된다. 규범은 EliRule의 원칙이고 본 목록은 예시일 뿐임. 모델은 자주 갱신되고 출력이 크게 중첩되므로 forensic fingerprint로 쓰지 말 것.
+> **위상**: 본 문서는 `EliRule.md §3 rule 11`(LLM Cliché Ban)의 *원칙* 적용을 돕는 **비망라·비구속 참고자료(reference)**다. **고정 whitelist/blacklist 아님** — 미수록 어휘도 상투적이면 배제 대상이며, 수록 어휘도 정확한 기술적 의미로 쓰면 허용된다. 규범은 EliRule의 원칙이고 본 목록은 예시일 뿐임. 모델은 자주 갱신되고 출력이 크게 중첩되므로 forensic fingerprint로 쓰지 말 것.
 
 배제 기준(요약): 막연한 filler·과용 register·voiceless 상투구는 배제하고 **구체·능동·직접 서술**로 대체. 영어 출력 한정(한국어 dry 로그 무관; 영어 어휘·문구 혼용 시 적용).
 
@@ -77,7 +77,7 @@
 ---
 
 ## 참조
-- 규범(원칙): `.elf/managed/EliRule.md` §3 rule 12 (LLM Cliché Ban) — 본 문서는 그 적용 예시.
+- 규범(원칙): `.elf/managed/EliRule.md` §3 rule 11 (LLM Cliché Ban) — 본 문서는 그 적용 예시.
 - 은유 배제: `EliRule.md` §3 rule 3.
 - 프로젝트별 기술 동음어 예외: `ProjectRule.md`.
 - 프로젝트 어휘 추가·제외·재정의(overlay): `0_Meta/LLMcliche.project.md` — base ⊕ overlay, 제외는 사유 필수 (EliRule §2.7).
