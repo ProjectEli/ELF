@@ -143,11 +143,12 @@ elf validate --check --strict   # also gate on figure-embed gaps
 
 ### `elf session new <title>`
 
-Create the next session log (auto-incremented `S###`, derived from logs in `2_Log/` + `2_Log/Archive/` and the registry) from the template, and register it in `2_Log/Wiki/Session_Registry.tsv`.
+Create the next session log (auto-incremented `S###`, derived from logs in `2_Log/` + `2_Log/Archive/` and the registry) from the template, and register it in `2_Log/Wiki/Session_Registry.tsv`. The new log holds the **header only** (plus the rule comment) — add the first trial with `elf trial new`, which numbers it t01. Before 2.22 the template carried a placeholder `t01` stub, so `elf trial new` started at t02 and the stub had to be deleted by hand.
 
 ```bash
 elf session new "Wavelength Optimization"
 # → creates 2_Log/S002_log.md and appends a registry row
+# → next: elf trial new "<title>" → t01
 ```
 
 The title must not contain a tab character (it would break the TSV registry). If the registry cannot be parsed, `elf` exits **5** (escalation — see below) instead of writing.

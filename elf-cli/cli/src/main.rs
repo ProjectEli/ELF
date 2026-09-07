@@ -306,11 +306,16 @@ fn main() {
                         println!("[elf]   existing files left untouched");
                     }
                     // 진입 안내는 계보별 실재 파일로 — qa는 0_Meta 없음 (S026 부수 수정)
-                    let next = match manifest::kind_from_preset(&opts.preset) {
+                    let kind = manifest::kind_from_preset(&opts.preset);
+                    let next = match kind {
                         manifest::Kind::Qa => "README.md",
                         _ => "0_Meta/ProjectRule.md",
                     };
                     println!("[elf] next: open {next}");
+                    if kind != manifest::Kind::Qa {
+                        // v2.22: S001 로그는 헤더만(t01 stub 제거) — 첫 trial은 `elf trial new`
+                        println!("[elf] next: elf trial new \"<title>\" → S001 t01 (the session log holds the header only)");
+                    }
                 }
                 Err(e @ (init::InitError::TargetExists(_) | init::InitError::AlreadyElf(_))) => {
                     eprintln!("[elf] {e}");
@@ -551,6 +556,8 @@ fn main() {
                             println!("[elf] warn: {w}");
                         }
                         println!("[elf] created {} ({}) + registry row", res.log_rel, res.id);
+                        // v2.22: 로그는 헤더만 — 첫 trial은 `elf trial new`(t01). 안내가 곧 작업 위치(S035 t02 교훈)
+                        println!("[elf] next: elf trial new \"<title>\" → t01 — the log holds the header only; fill Phase 1, then stop before execution (LogConvention §5.1)");
                     }
                     Err(session::SessionError::Escalation(e)) => {
                         eprintln!("[elf] {e}");

@@ -56,31 +56,35 @@ fn trial_new_stdout_carries_embed_reminder() {
 #[test]
 fn trial_new_appends_canonical_stub_at_end() {
     let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path()); // init = S001 활성 로그(t01 stub 포함)
+    let root = new_project(tmp.path()); // init = S001 활성 로그(헤더만 — v2.22 t01 stub 제거)
 
-    let r = run_trial_new(&root, &topts(Some("두 번째 작업"), None)).unwrap();
-    assert_eq!(r.trial, "t02");
+    let before = fs::read_to_string(root.join("2_Log/S001_log.md")).unwrap();
+    assert!(!before.contains("## t"), "fresh log carries no trial stub");
+
+    let r = run_trial_new(&root, &topts(Some("첫 작업"), None)).unwrap();
+    assert_eq!(r.trial, "t01");
     assert_eq!(r.session, "S001");
 
     let log = fs::read_to_string(root.join("2_Log/S001_log.md")).unwrap();
-    assert!(log.contains("## t02: 두 번째 작업"));
+    assert!(log.contains("## t01: 첫 작업"));
     // 정본 stub 렌더: placeholder 치환 완료 + 정본 헤딩 포함
     assert!(!log.contains("t{NN}"));
     assert!(log.contains("64_Viz/S001/"));
     assert!(log.contains("### 가설 (Hypothesis)"));
-    // 삽입 위치: t01 < t02, 본문 말미(v2.20 템플릿 = 후보 절 없음 → EOF append)
-    let t01 = log.find("## t01").unwrap();
-    let t02 = log.find("## t02").unwrap();
-    assert!(t01 < t02);
+    // 첫 trial은 헤더 규범 주석 뒤에 바로(구분선 중복 없음), 본문 말미(EOF append)
+    assert!(!log.contains("---\n\n---"));
+    assert!(log.find("-->").unwrap() < log.find("## t01").unwrap());
     assert!(!log.contains("## 다음 세션 후보"));
     assert!(log.trim_end().ends_with("| Figure | `경로` |"), "stub appended at end of body");
     // 헤더 Modified 갱신 (hard break 보존)
     assert!(log.contains("> **Modified**: 2026-07-06\\"));
 
-    // 연속 증번
-    assert_eq!(run_trial_new(&root, &topts(None, None)).unwrap().trial, "t03");
+    // 연속 증번: t01 < t02, trial 사이 구분선
+    assert_eq!(run_trial_new(&root, &topts(None, None)).unwrap().trial, "t02");
     let log2 = fs::read_to_string(root.join("2_Log/S001_log.md")).unwrap();
-    assert!(log2.contains("## t03: [작업 제목]")); // 제목 생략 → placeholder 유지
+    assert!(log2.contains("## t02: [작업 제목]")); // 제목 생략 → placeholder 유지
+    assert!(log2.find("## t01").unwrap() < log2.find("## t02").unwrap());
+    assert!(log2.contains("\n\n---\n\n## t02"), "trials separated by a rule");
 }
 
 #[test]
@@ -113,7 +117,7 @@ fn trial_new_with_multiple_open_requires_session_flag() {
     let r = run_trial_new(&root, &topts(Some("지정"), Some("S002"))).unwrap();
     assert_eq!(r.session, "S002");
     assert!(
-        fs::read_to_string(root.join("2_Log/S002_log.md")).unwrap().contains("## t02: 지정")
+        fs::read_to_string(root.join("2_Log/S002_log.md")).unwrap().contains("## t01: 지정")
     );
 }
 

@@ -542,6 +542,13 @@ mod tests {
     }
 
     #[test]
+    fn header_only_log_has_no_structure_findings() {
+        // v2.22: session new/init 직후(헤더 + 규범 주석만, trial 0) — 구조 검사 findings 없음
+        let log = "# S001: T\n\n> **Created**: 2026-09-07\\\n> **Modified**: 2026-09-07\\\n> **Status**: ★ 활성\\\n> **목표**: x\\\n> **관련**: -\\\n> **Handoff**: -\n\n---\n\n<!-- 규범 -->\n";
+        assert!(trial_structure_findings(log).is_empty());
+    }
+
+    #[test]
     fn detects_unknown_heading_and_order() {
         let log = "## t01: 작업\n\n### 결과 (Results)\n- r\n\n### 가설 (Hypothesis)\n- h\n\n### 목표 (Goal)\n- x\n";
         let f = trial_structure_findings(log);

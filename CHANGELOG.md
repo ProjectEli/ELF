@@ -4,6 +4,16 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.22.0] - 2026-09-07
+
+### Changed
+- **New session logs no longer carry a placeholder `t01` stub.** `elf session new` and the
+  `S001` log created by `elf init` now hold the header (and the rule comment) only; add the
+  first trial with `elf trial new`, which numbers it **t01**. Previously the template's
+  built-in stub made `elf trial new` start at t02 and left a placeholder t01 to delete by
+  hand. Both commands now print a `next:` hint pointing at `elf trial new`. `elf update`
+  refreshes the template in existing projects; logs already written are unaffected.
+
 ## [2.21.0] - 2026-09-04
 
 ### Removed

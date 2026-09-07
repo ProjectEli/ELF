@@ -76,7 +76,8 @@ pub fn insert_trial(content: &str, stub: &str) -> String {
         Some(h) => format!("{}{}\n\n---\n\n{}", &content[..h], stub, &content[h..]),
         None => {
             let trimmed = content.trim_end_matches('\n');
-            if trimmed.ends_with("---") {
+            // 헤더만 있는 로그(v2.22 — 템플릿 t01 stub 제거): 규범 주석 뒤에 바로 t01 (구분선 중복 방지)
+            if trimmed.ends_with("---") || trial_numbers(content).is_empty() {
                 format!("{trimmed}\n\n{stub}\n")
             } else {
                 format!("{trimmed}\n\n---\n\n{stub}\n")

@@ -43,6 +43,7 @@ fn new_session_increments_after_s001_and_registers() {
     assert!(log.contains("2026-06-13"));
     assert!(!log.contains("S{NNN}"));
     assert!(!log.contains("[세션 제목]"));
+    assert!(!log.contains("## t"), "v2.22: session log is header-only — first trial via elf trial new");
     assert!(log.contains("> **Created**: 2026-06-13\\")); // hard break 보존
 
     // Registry 행 추가 (기존 S001 보존 + S002 append)

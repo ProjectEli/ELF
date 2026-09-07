@@ -7,7 +7,7 @@
     { "src": "templates/general/LogConvention.md",   "dest": ".elf/managed/LogConvention.md",         "tier": "managed", "sha256": "8941970bc57a84f6691f817fa0b98ea692a0dfbd009df96c2e28b8b6a8da95c2" },
     { "src": "templates/meta/AI_PARA_Framework.md",  "dest": ".elf/managed/AI_PARA_Framework.md",     "tier": "managed", "sha256": "0d158937485cafb0974a833efd6bee831eb6666ee55d4ce5987134967715675b" },
     { "src": "templates/meta/LLMcliche.md",         "dest": ".elf/managed/LLMcliche.md",             "tier": "managed", "overlayable": true, "sha256": "823b8ba59cdd3ecc73eeee17127b4dab13d83b0e985eb9d6841955b21aa5eeaf" },
-    { "src": "templates/log/sessionTemplate.md",     "dest": ".elf/managed/templates/sessionTemplate.md",    "tier": "managed", "sha256": "07a2b62abfccc1a402b284aa85d8acb652713cd2061cd5e4bb8163a0082aca1f" },
+    { "src": "templates/log/sessionTemplate.md",     "dest": ".elf/managed/templates/sessionTemplate.md",    "tier": "managed", "sha256": "7bc726392be8991eb3d07cdb869ad286d8c520cb2c74298121124df783601527" },
     { "src": "templates/log/Archive/sessionTemplate_v1.md",     "dest": ".elf/managed/templates/Archive/sessionTemplate_v1.md",    "tier": "managed", "sha256": "2b0d4af45fef43a2543e10a5e238acddbe9d36f687ba243f905f9d315bf901f4" },
     { "src": "templates/log/trialTemplate.md",       "dest": ".elf/managed/templates/trialTemplate.md",      "tier": "managed", "sha256": "efa83166162b20ce65e2867f2eac94c9309cc371409629a6464c53758ba8b0a2" },
     { "src": "templates/root/.claudeignore",         "dest": ".claudeignore",                   "tier": "managed", "sha256": "106c0a73eb58f9719a1d89d5ea95d9a6e86311902d0642b9871d05959968b37c" },

@@ -137,11 +137,12 @@ elf validate --check --strict   # figure-embed 누락도 게이트
 
 ### `elf session new <제목>`
 
-다음 세션 로그(`2_Log/` + `2_Log/Archive/` + Registry에서 `S###` 자동 증번)를 템플릿에서 생성하고 `2_Log/Wiki/Session_Registry.tsv`에 등록합니다.
+다음 세션 로그(`2_Log/` + `2_Log/Archive/` + Registry에서 `S###` 자동 증번)를 템플릿에서 생성하고 `2_Log/Wiki/Session_Registry.tsv`에 등록합니다. 생성된 로그는 **헤더(+규범 주석)만** 담습니다 — 첫 trial(t01)은 `elf trial new`로 추가합니다. 2.22 이전에는 템플릿에 placeholder `t01` stub이 내장되어 `elf trial new`가 t02부터 시작했고 stub을 수동 삭제해야 했습니다.
 
 ```bash
 elf session new "Wavelength Optimization"
 # → 2_Log/S002_log.md 생성 + Registry 행 추가
+# → next: elf trial new "<제목>" → t01
 ```
 
 제목에 탭 문자는 불가(TSV Registry 파탄). Registry를 파싱할 수 없으면 기록하지 않고 exit **5**(escalation — 아래 참조).
