@@ -42,7 +42,7 @@ S012  목표: 파장별 SNR 비교
 | **Base-Delta** | 기준선은 한 번, 이후엔 바뀐 것만 기록합니다. 변경 하나가 trial, 목표 하나가 session — trial이 session으로, session이 프로젝트의 기록으로 쌓입니다. |
 | **가설이 먼저** | 실행 전에 가설·예상을 적고 멈춥니다. 그래서 변경 하나가 실험 하나가 됩니다. |
 | **사람은 판단, 에이전트는 기록, 도구는 검증** | 같은 형식으로 쓰기 때문에 서로의 작업을 이어받고, `elf validate`가 빠진 것을 잡습니다. |
-| **전부 로컬에** | 마크다운과 폴더뿐입니다. 서버도 계정도 없이 git으로 관리하고, ELF 없이도 읽을 수 있습니다. |
+| **전부 로컬에** | 마크다운과 폴더뿐입니다. 서버도 계정도 없이 git으로 관리하고, ELF 없이도 읽을 수 있습니다. 보안을 위해 에이전트의 공개 링크 게시는 원칙적으로 금지됩니다. |
 
 ## 실사용 장면
 
@@ -75,7 +75,7 @@ elf init MyProject --preset experimental   # 6_Exp + 7_Paper. 이름 없이 실�
 cd MyProject
 ```
 
-`[elf] created MyProject (ELF v2.22.0, preset: experimental, lang: ko-KR)` — 폴더 구조와 함께 `AGENTS.md`(에이전트 공통 진입 규칙 요약)·`2_Log/S001_log.md`(첫 세션 stub)가 생깁니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 별도 설정이 없습니다. Claude Code용 파일(`CLAUDE.md` 포인터·훅 설정)도 함께 생성되며, 다른 에이전트에서는 무시해도 됩니다. 프로젝트 고유 규칙은 `0_Meta/ProjectRule.md`에 적습니다. 영어 응답·영어 규칙 문서가 필요하면 `--lang en-US`(규칙 정본은 한국어, 영어본은 읽기용 companion).
+`[elf] created MyProject (ELF v2.23.0, preset: experimental, lang: ko-KR)` — 폴더 구조와 함께 `AGENTS.md`(에이전트 공통 진입 규칙 요약)·`2_Log/S001_log.md`(첫 세션 stub)가 생깁니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 별도 설정이 없습니다. Claude Code용 파일(`CLAUDE.md` 포인터·훅 설정)도 함께 생성되며, 다른 에이전트에서는 무시해도 됩니다. 프로젝트 고유 규칙은 `0_Meta/ProjectRule.md`에 적습니다. 영어 응답·영어 규칙 문서가 필요하면 `--lang en-US`(규칙 정본은 한국어, 영어본은 읽기용 companion).
 
 **2-A. 처음부터 — 아이디어 스케치부터 시작**
 

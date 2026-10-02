@@ -4,6 +4,22 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.23.0] - 2026-10-03
+
+### Added
+- **Egress control rule (EliRule §2 — external egress and publication control).** Project
+  content leaves the project repository and the user's machine only on the user's explicit
+  instruction for that specific act. Publishing tools that create public or shared links
+  (e.g. claude.ai Artifact publish, Claude Docs, share links from external-service
+  connectors) are off by default — the agent saves a local file instead and the user
+  uploads it; a project may relax this only by declaring so in `ProjectRule.md`. Copying
+  into private storage the user owns is allowed only on explicit instruction; transfers to
+  the user's own machine (e.g. SendUserFile), local saving and local git are not controlled;
+  model inference itself and opted-in tool behavior (e.g. `elf tsa`) are explicitly out of
+  scope. Added as research §2.9 / general §2.6 (KO + EN), plus a standing-duty line in
+  `AGENTS.md` for all three presets (in the `qa` preset, which has no `ProjectRule.md`, relaxation is a per-case user decision). Rules only — no technical blocking. `elf update`
+  delivers the new text to existing projects.
+
 ## [2.22.0] - 2026-09-07
 
 ### Changed

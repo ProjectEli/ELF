@@ -42,7 +42,7 @@ S012  goal: SNR by wavelength
 | **Base-Delta** | Declare the baseline once; after that, record only what changed. One change is a trial, one goal is a session — trials accumulate into sessions, sessions into the project's record. |
 | **Hypothesis first** | Write the hypothesis and prediction, stop, then run. That is what makes one change one experiment. |
 | **People judge, the agent writes, the tool checks** | One format for both, so each picks up where the other left off — and `elf validate` catches what is missing. |
-| **Everything stays local** | Markdown and folders, nothing else — no server, no account. Manage it with git, read it without ELF. |
+| **Everything stays local** | Markdown and folders, nothing else — no server, no account. Manage it with git, read it without ELF. For security, the agent is not allowed to publish public links as a rule. |
 
 ## In practice
 
@@ -75,7 +75,7 @@ elf init MyProject --preset experimental --lang en-US   # 6_Exp + 7_Paper. With 
 cd MyProject
 ```
 
-`[elf] created MyProject (ELF v2.22.0, preset: experimental, lang: en-US)` — along with the folder structure you get `AGENTS.md` (the shared entry digest for agents) and `2_Log/S001_log.md` (the first session stub). The agent starts by reading `AGENTS.md`, so nothing else needs to be set up. Claude Code files (`CLAUDE.md` pointer, hook settings) are created too; other agents can ignore them. Project-specific rules go in `0_Meta/ProjectRule.md`. `--lang en-US` sets the agent's response language and deploys English companions of the rule documents (the operative rules are Korean; the English copies are for reading, and log section headings are bilingual, e.g. `### 목표 (Goal)`).
+`[elf] created MyProject (ELF v2.23.0, preset: experimental, lang: en-US)` — along with the folder structure you get `AGENTS.md` (the shared entry digest for agents) and `2_Log/S001_log.md` (the first session stub). The agent starts by reading `AGENTS.md`, so nothing else needs to be set up. Claude Code files (`CLAUDE.md` pointer, hook settings) are created too; other agents can ignore them. Project-specific rules go in `0_Meta/ProjectRule.md`. `--lang en-US` sets the agent's response language and deploys English companions of the rule documents (the operative rules are Korean; the English copies are for reading, and log section headings are bilingual, e.g. `### 목표 (Goal)`).
 
 **2-A. From scratch — start from an idea sketch**
 

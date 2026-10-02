@@ -108,6 +108,18 @@ Data-type ELF-managed files (marked `overlayable` in the manifest — currently 
 - Other agents' session logs are **read-only** — never edit another session's log or Handoff.
 - Consolidating parallel sessions' conclusions happens in a separate session (or the origin session) with a **single writer**, listing the input sessions in `관련:`.
 
+### 2.6 External egress and publication control (Egress Control)
+
+- **Principle**: moving project content (data, outputs, logs, manuscripts, decisions, the user's own words) outside the project repository and the user's machine happens only on the **user's explicit instruction for that specific act**. One instruction = one transfer; it is not a standing delegation. **A tool's own suggestion (publish, share, write feedback, etc.) is not an instruction.**
+- **Publishing is off by default**: do not use tools that create a public or shared **link or sharing setting** — e.g., claude.ai Artifact publish (all artifact types), Claude Docs document creation, share-link or public-setting creation by external-service write tools in general (MCP connectors included), or any other external hosting. When external sharing is needed, the AI **saves a local file**, reports the path, and the user uploads it. Relaxation is possible **only when the project declares it explicitly in `ProjectRule.md`** (no declaration = prohibited).
+- **Allowed only on explicit instruction**: copying or updating files into **private storage the user owns** (no change to sharing settings) — e.g., a shared-folder copy script, creating or updating a file inside a cloud drive. One-line notice before running (what, to where), a session-log entry afterwards, no repeated dry runs.
+- **Not controlled (allowed)**: transfers to the user themself (e.g., Claude Code `SendUserFile` — to the user's machine, not public), saving local files, local git (including local remotes), and retraction (e.g., Artifact delete, unsharing).
+- **Out of scope (explicit exclusion)**: model inference itself (the premise of using an agent — file contents reaching the model server as prompt) and the designed behavior of tools the user opted into (e.g., `elf tsa` sending a 32-byte hash to the TSA) are not egress under this clause.
+- **Delegation does not exempt**: publishing or transfers performed by sub-agents, skills, or hooks remain the main agent's responsibility.
+- **Out of scope (project-level rules)**: the content of web-search queries, pushes to external git remotes, and messages to peer LLM sessions are governed by each project's `ProjectRule.md` or memory.
+- **On violation**: report to the user immediately, delete where possible (e.g., Artifact delete), and record it in the session log. Prevention of recurrence is by reference to this clause.
+- **No technical blocking**: rules only. A harness hook (e.g., a Claude Code PreToolUse hook blocking publishing tools) remains a future option, not a requirement of this clause.
+
 ---
 
 ## 3. AI Communication Rules
