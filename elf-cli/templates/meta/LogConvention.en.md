@@ -13,15 +13,14 @@ writing experiment logs, saving result files, and AI handoff.
 
 ## 1. Log File Location & Naming (PARA workflow)
 
-All research and planning work follows the PARA (Projects, Areas, Resources, Archives)
-scheme and the `.claudeignore` rules. For the detailed principles, see
-`.elf/managed/AI_PARA_Framework.md`.
+All research and planning work follows the "location is the state" rule — folder root = in progress, `Wiki/` = key summaries, `Archive/` = closed records (reading allowed), `Deprecated/` = withdrawn (reading allowed, not a basis for current decisions). For the detailed principles, see `.elf/managed/AI_PARA_Framework.md`.
 
 | Item | Rule |
 |------|------|
-| **In progress (Active Sandbox)** | When starting a new session (S{NNN}), always create and write the log (`S{NNN}_log.md`) at the **top (root) of `2_Log/`**. |
+| **In progress (folder root)** | When starting a new session (S{NNN}), always create and write the log (`S{NNN}_log.md`) at the **top (root) of `2_Log/`**. |
 | **Conclusion summary (Wiki)** | When a session completes, summarize the key lessons or produced parameters in one or two lines in a knowledge document under `Wiki/`. Always include an absolute/relative path link to the original archived log file. |
-| **Archive** | When a session ends, **always** move the full original log file to `Archive/` **under the same file name** (e.g., `Archive/S{NNN}_log.md` — no prefix tag; folder location is the state). |
+| **Archive** | When a session ends, **always** move the full original log file to `Archive/` **under the same file name** (e.g., `Archive/S{NNN}_log.md` — no prefix tag; folder location is the state). Closed records remain valid and may be read. |
+| **Deprecated** | Withdrawn session logs, trials, sections, or blocks are moved with `elf deprecate` to `Deprecated/`, leaving a one-line move marker at the original position (§6). They may be read but are not a basis for current decisions. The user decides what to deprecate. |
 | **Content rule** | Record only **pure metadata (a fact sheet)** — simulation parameters, run results, errors/fixes. |
 | **Prohibited** | Do not record ideas, planning, or direction discussion in `2_Log/`; separate them into `1_Concept/`: small snippets and naive ideas in `13_Ideas/`, multi-session plans in `12_Planning/`. |
 
@@ -66,7 +65,7 @@ scheme and the `.claudeignore` rules. For the detailed principles, see
 - {hypothesis/prediction comparison table recommended}
 
 ### 해석 (Interpretation)
-- Hypothesis hit: {hit / miss / partial}
+- Prediction match: {match / partial / mismatch}
 - {physical/logical interpretation of the observed facts}
 
 ### 교훈 (Lessons)
@@ -88,8 +87,8 @@ scheme and the `.claudeignore` rules. For the detailed principles, see
 ### Rules
 - **Writing language**: write logs in the language set by `PROJECT_LANG` in `.elf/managed/EliRule.md`, and always use nominal endings ('-음/함/임') (EliRule §3, sentence-ending form). English may be added for technical terms.
 - **Status**: `★ 활성 (active)` (currently working), `In Progress` (intermediate stage), `Complete` (done, before archiving).
-- **Handoff**: a **replace-style state snapshot** — three `;` parts: `currently valid conclusion/position (the fold of what accumulated, e.g. "A rejected · B adopted"); pending; references (where the synthesis lives)`. Update by **rewriting the whole line**, not by appending. **Do not list history / completed timelines** — the session overview belongs to the registry key finding, details to the trial bodies. Keep it one line. **`;` is reserved for part boundaries** — use `·`/`,` inside a part, and start the pending/reference parts with their labels (`미완료`/`pending`, `참조`/`refs`) — tools identify a boundary as `;` immediately followed by a label. On session handover or a context rebuild, `Read(offset=0, limit=9)` reads just this field to re-orient. Closing with pending items left triggers an `elf session close` warning. Initial value `-`.
-- **Registry key finding**: the same fold principle as Handoff — replace-update it with the currently valid final conclusion (not an accumulating narrative), and rewrite it as the final fold at session close (§5.2).
+- **Handoff**: a **replace-style state snapshot** — three `;` parts: `currently valid conclusion/position (the current net result of what accumulated, e.g. "A rejected · B adopted"); pending; references (location of the synthesis trial)`. Update by **rewriting the whole line**, not by appending. **Do not list history / completed timelines** — the session overview belongs to the registry key finding, details to the trial bodies. Keep it one line. **`;` is reserved for part boundaries** — use `·`/`,` inside a part, and start the pending/reference parts with their labels (`미완료`/`pending`, `참조`/`refs`) — tools identify a boundary as `;` immediately followed by a label. On session handover or a context rebuild, `Read(offset=0, limit=9)` reads just this field to restore the working state. Closing with pending items left triggers an `elf session close` warning. Initial value `-`.
+- **Registry key finding**: the same replace-update principle as Handoff — replace-update it with the currently valid final conclusion (not an accumulating narrative), and rewrite it as the final conclusion at session close (§5.2).
 - **Header line breaks**: the trailing `\` on each blockquote (`>`) header line is a CommonMark **hard break** — it preserves line separation in strict renderers (e.g., Discord preview) (without it, the six items collapse into one line). **Do not delete.** The last line (Handoff) has no `\` (block end). Keep the header at 6 lines → the `limit=9` quick-read stays valid.
 - **Trial numbers**: `t01`, `t02`, … in order. No duplicates.
 - **Image paths**: `![alt text](../6_Exp/64_Viz/S{NNN}/filename.png)` (relative to `2_Log`).
@@ -97,18 +96,18 @@ scheme and the `.claudeignore` rules. For the detailed principles, see
 - **Pre-register expected outputs (Phase 1)**: a trial expected to produce figures lists its expected outputs (figures/tables) in `### 예상 (Prediction)` — each item is an **embed-on-creation target** in Phase 2. **A "draw everything, tidy up later" plan is prohibited** (the planning unit = embed each figure the moment it is created — deferred batches get lost on interruption/context rebuild). A figure not in the prediction is still embedded on creation, with the deviation noted in `### 관찰 (Observation)`.
 - **Sub-agent (delegated worker) figures — same rule**: figures produced by a delegated worker are covered too — **the main agent embeds them** into that trial's `### 관찰 (Observation)` at merge (retrieval) time. **Delegation does not waive the embed duty (the duty stays with main)**. If a retrieved deliverable is a figure, record it as an embed, not as a path.
 - **Point-of-action reminder hook (recommended)**: a standing rule guarantees presence, not activation timing — when the harness (agent runtime) provides tool hooks, **installing a post-plot embed-reminder hook is recommended** (the principle is harness-agnostic; the implementation is per-harness). Claude Code example: register a PostToolUse hook in `.claude/settings.json` that detects new images under `6_Exp/64_Viz/` after a shell tool run and returns the reminder "embed the produced figure into that trial's `### 관찰 (Observation)` now (LogConvention §2)". See your harness's documentation for the registration syntax.
-- **Trial and error — base-delta trials**: when **iteratively improving** the same kind of plot/analysis, expand each revision as an independent trial (`t{NN}`). Each trial takes the previous one as base, with the **delta (what changed) + reason (problem with the previous attempt)** in `### 조건 (Conditions)` and that version's figure embedded in `### 관찰 (Observation)`. Even when the plot script is regenerated, **keep every version** (§3.3), and keep intermediate figures in each trial → trial-and-error is preserved as a reproducible trial chain. **Block survivorship bias**: no "quietly fix and report only the final" (AI included) — record each version as a trial in that turn (no overwriting, no after-the-fact recall). **Trigger (internalize)**: *the moment you regenerate a working output (figure/table/data) with changed parameters/style = always the next trial (delta)* + version preservation (§3.3). Only pre-working debugging (making a failed output succeed) stays in the same trial's `### 시행착오 (Trial-and-Error)` table — i.e., **editing a finished output = delta-trial / debugging to working = trial-and-error table**. **Tighten the small-change exception**: only changes that **do not alter the output's appearance** (typo, path, comment, variable name) can end in a table — **any change to a figure/table's appearance (font, color, size, axes, style, parameters) is a delta-trial even once**. Expansion cost is handled by the §3.3 core+wrapper pattern.
+- **Trial and error — base-delta trials**: when **iteratively improving** the same kind of plot/analysis, expand each revision as an independent trial (`t{NN}`). Each trial takes the previous one as base, with the **delta (what changed) + reason (problem with the previous attempt)** in `### 조건 (Conditions)` and that version's figure embedded in `### 관찰 (Observation)`. Even when the plot script is regenerated, **keep every version** (§3.3), and keep intermediate figures in each trial → trial-and-error is preserved as a reproducible trial chain. **Block survivorship bias**: no "quietly fix and report only the final" (AI included) — record each version as a trial in that turn (no overwriting, no after-the-fact recall). **Trigger (internalize)**: *the moment you regenerate a working output (figure/table/data) with changed parameters/style = always the next trial (delta)* + version preservation (§3.3). Only pre-working debugging (making a failed output succeed) stays in the same trial's `### 시행착오 (Trial-and-Error)` table — i.e., **editing a finished output = delta-trial / debugging to working = trial-and-error table**. **Stricter small-change exception**: only changes that **do not alter the output's appearance** (typo, path, comment, variable name) can end in a table — **any change to a figure/table's appearance (font, color, size, axes, style, parameters) is a delta-trial even once**. Expansion cost is handled by the §3.3 core+wrapper pattern.
 - **Files table**: organize the assets produced in each task as a table to maximize readability. Tabulate scripts, data, and figures. State the type (`Script`, `Output`, `Figure`, `Config`, etc.) and the path relative to the project root.
 - **Code usage**: record in code blocks (```lang ... ```).
 - **Parameter table**: organize variable name, value, and unit as a table.
-- **Hypothesis/Prediction sections (Phase 1)**: write **before** running the trial. Nominal-form list. If hypotheses exceed 5 items or a reasoning chain exceeds 5 steps, escape to `1_Concept/12_Planning` and leave a one-line cross-ref stub. No paragraph prose. Do not just repeat qualitative predictions — quantify where possible.
+- **Hypothesis/Prediction sections (Phase 1)**: write **before** running the trial. Nominal-form list. If hypotheses exceed 5 items or a reasoning chain exceeds 5 steps, move it to `1_Concept/12_Planning` and leave a one-line cross-ref stub. No paragraph prose. Do not just repeat qualitative predictions — quantify where possible.
 - **Observation section (Phase 2)**: write **after** running the trial. A comparison table against hypothesis/prediction is recommended (2 columns: `예상 (Prediction)` vs `관찰 (Observation)`).
-- **Interpretation one-line rule**: the first line states one of `Hypothesis hit: hit / miss / partial`. Mechanism interpretation from the second line.
+- **Interpretation one-line rule**: the first line states one of `Prediction match: match / partial / mismatch` (logs written before v2.24 may keep the older `가설 적중 여부` line — retroactive policy). Mechanism interpretation from the second line.
 - **`## 다음 세션 후보` (Next-Session Hypothesis) section — not recommended (off since v2.20)**: low utilization, so writing it is no longer recommended (old rule: list follow-up hypotheses/predictions before close and carry them into the next session's t01). Record follow-ups instead in the **Handoff pending part** while the session is active, in the **registry key finding (fold)** at close, and in `1_Concept/12_Planning/` when they span sessions. Backward compatible: the section in existing logs stays valid (`elf trial new` still inserts before it when present) and `elf session close` no longer requires it (`--force` unnecessary). Old template preserved at `.elf/managed/templates/Archive/sessionTemplate_v1.md`.
-- **Background section (optional, conditional)**: separate `### 배경 (Background)` above `### 목표` **only when context exceeds the goal** (prior-session synthesis, multiple inputs). Ordinary trials let the goal absorb it — no standing heading, no empty background. Keep it light (1-2 lines).
-- **Initiator**: name the initiator of the work/pivot in the background (or goal) in one word (`user-raised` / `AI-originated`) — preserves the origin of the thinking flow. The verbatim original query is preserved by the session JSONL, so it is not duplicated in the log (SSOT = absorbed into the trial body).
-- **Rejected-alternative placement (by timing)**: path rejected at entry → `### 배경` (one line, no Phase-1 after-the-fact editing) / scope exclusion → `### 조건` / result-based rejection → `### 해석`·`### 교훈`. Do not dump all into the background (timing inversion / post-hoc rationalization).
-- **Canon over precedent (precedent ≠ norm)**: past session/trial logs are reference material only, not the norm for format or rules — the canonical sources are this document and `.elf/managed/templates/` (sessionTemplate, trialTemplate). When a precedent deviates from the canon, follow the canon and do not imitate the deviation (report it to the user). Adding a trial via `elf trial new` (appends the current canonical stub to the active log; without the CLI, copy trialTemplate manually) is recommended.
+- **Background section (optional, conditional)**: separate `### 배경 (Background)` above `### 목표` **only when context exceeds the goal** (prior-session synthesis, multiple inputs). Ordinary trials include it in the goal section — no standing heading, no empty background. Keep it light (1-2 lines).
+- **Initiator**: name the initiator of the work/pivot in the background (or goal) in one word (`user-raised` / `AI-originated`) — preserves the origin of the work. The verbatim original query is preserved by the session JSONL, so it is not duplicated in the log (SSOT = included in the trial body).
+- **Rejected-alternative placement (by timing)**: path rejected at entry → `### 배경` (one line, no Phase-1 after-the-fact editing) / scope exclusion → `### 조건` / result-based rejection → `### 해석`·`### 교훈`. Do not place all of them in the background (timing inversion / post-hoc rationalization).
+- **Canonical rules over precedent (precedent ≠ norm)**: past session/trial logs are reference material only, not the norm for format or rules — the canonical sources are this document and `.elf/managed/templates/` (sessionTemplate, trialTemplate). When a precedent deviates from the canonical rules, follow the canonical rules and do not imitate the deviation (report it to the user). Adding a trial via `elf trial new` (appends the current canonical stub to the active log; without the CLI, copy trialTemplate manually) is recommended.
 - **Retroactive policy**: trials/sessions before this rule took effect are not force-backfilled. **Applies to new writing from now on.** For a trial about to enter the archive, filling one line in retrospect is recommended.
 
 ---
@@ -138,7 +137,7 @@ scheme and the `.claudeignore` rules. For the detailed principles, see
 - Graph: `S{NNN}_{description}.png`
 - When script trials must be distinguished: `S{NNN}_t{NN}.m`, `S{NNN}_t{NN}_postProcess.m`
 - **Preserve iterative-improvement (trial-and-error) versions**: do not overwrite scripts/figures; preserve a **version suffix** — `S{NNN}_A06a_*`→`_A06b_*`… or `_v1`/`_v2`. Each version ↔ a delta trial 1:1. Overwriting loses the intermediate (failed) versions → not reproducible.
-- **core + wrapper pattern (handles expansion cost)**: instead of cloning a full script per version, use a **shared core + a thin per-version wrapper** (delta = parameters) — `S{NNN}_A06_core.m` (absorbs variants via parameters like `normMode`, `isoLevels`, `clim`) + `S{NNN}_A06{a..}_plot.m` (one struct call each = that version's delta). The code diff is the delta, satisfying readability and preservation at once.
+- **core + wrapper pattern (handles expansion cost)**: instead of cloning a full script per version, use a **shared core + a thin per-version wrapper** (delta = parameters) — `S{NNN}_A06_core.m` (accepts variants via parameters like `normMode`, `isoLevels`, `clim`) + `S{NNN}_A06{a..}_plot.m` (one struct call each = that version's delta). The code diff is the delta, satisfying readability and preservation at once.
 
 ### 3.4 Visualization
 
@@ -171,7 +170,7 @@ Content separated into Planning is marked in the original log with a blockquote 
 When an AI agent starts a new session (S{NNN}):
 
 - [ ] Create `2_Log/S{NNN}_log.md` (follow the format above)
-- [ ] If a preceding session is being continued, read its Handoff / registry key finding (fold) → reflect it in the new trial t01's `### 배경 (Background)` / `### 가설 (Hypothesis)` and list the session id in `관련:` (replaces the old `## 다음 세션 후보` carry-over)
+- [ ] If a preceding session is being continued, read its Handoff / registry key finding → reflect it in the new trial t01's `### 배경 (Background)` / `### 가설 (Hypothesis)` and list the session id in `관련:` (replaces the old `## 다음 세션 후보` carry-over)
 - [ ] Create the `6_Exp/61_Sim/Data/S{NNN}/` directory
 - [ ] Write the simulation/experiment script `6_Exp/61_Sim/Scripts/S{NNN}_*.m`
 - [ ] After running, save the result .mat + .png
@@ -183,7 +182,7 @@ When an AI agent starts a new session (S{NNN}):
 
 ### 5.1 Trial Standard Operating Procedure (Phase 1 / Phase 2 split)
 
-Write each trial (t{NN}) in two phases. **A stop point between Phase 1 and Phase 2 is required** — it prevents ad-hoc execution and forces hypothesis-observation cycle closure.
+Write each trial (t{NN}) in two phases. **A stop point between Phase 1 and Phase 2 is required** — it prevents ad-hoc execution and forces completion of the hypothesis-observation cycle.
 
 **Phase 1 — before execution (pre-execution, stop point)**
 - [ ] Create the trial stub: `elf trial new [title]` recommended (appends the current trialTemplate to the active log; without the CLI, copy `.elf/managed/templates/trialTemplate.md` manually or write the `## t{NN}: [task title]` header by hand)
@@ -192,7 +191,7 @@ Write each trial (t{NN}) in two phases. **A stop point between Phase 1 and Phase
 - [ ] Write `### 조건 (Conditions)` (fix parameters/constraints)
 - [ ] Write `### 가설 (Hypothesis)` (3-5 suspected mechanisms/effects, nominal form)
 - [ ] Write `### 예상 (Prediction)` (1-3 concrete result predictions, quantified where possible) — (figure-producing trials) **include the expected outputs (figures/tables)**; each item is an embed-on-creation target (§2)
-- [ ] **Stop** — after confirming hypothesis/prediction, enter Phase 2 (an auto-mode AI also honors this stop point)
+- [ ] **Stop** — after confirming hypothesis/prediction, enter Phase 2 (an auto-mode AI also observes this stop point)
 
 **Phase 2 — after execution (post-execution)**
 - [ ] Run the trial (script/simulation/survey, etc.)
@@ -200,7 +199,7 @@ Write each trial (t{NN}) in two phases. **A stop point between Phase 1 and Phase
 - [ ] Write `### 관찰 (Observation)` (facts + hypothesis/prediction comparison table)
 - [ ] Embed the produced figure inline in `### 관찰 (Observation)` (`![alt](path)`; a path-only table entry is not an embed — `elf validate` detects it)
 - [ ] **Iterative-improvement decision (trigger)**: if you regenerate a working output with changed parameters/style → expand as the next trial (delta) (preserve script versions §3.3 + figure embed + delta/reason in `### 조건 (Conditions)`). **An appearance change (font, color, size, style) is a delta-trial even once**; only appearance-preserving fixes (typo, path) go in a `### 시행착오 (Trial-and-Error)` table.
-- [ ] Write `### 해석 (Interpretation)` (first line: state hypothesis hit + mechanism interpretation)
+- [ ] Write `### 해석 (Interpretation)` (first line: state the prediction match + mechanism interpretation)
 - [ ] Write `### 교훈 (Lessons)`
 - [ ] Write `### 생성 파일 (Files)`
 
@@ -208,7 +207,30 @@ Write each trial (t{NN}) in two phases. **A stop point between Phase 1 and Phase
 
 Just before switching Status to `Complete`:
 - [ ] **Run `elf validate` — resolve the warnings** (missing embeds, structure violations) or state intentional exceptions (`<!-- noembed: file.png -->`) before proceeding: once moved to Archive the log leaves the structure-check scope, so **before close is the last verification point**
-- [ ] Clean the Handoff: clear the pending part (done, or carried into the registry key finding / a `12_Planning/` document) — leftovers trigger an `elf session close` warning
+- [ ] Clean the Handoff: clear the pending part (done, or carried into the registry key finding / a `12_Planning/` document) — remaining pending items trigger an `elf session close` warning
 - [ ] Add a key-conclusion summary + Archive path link in `Wiki/`
 - [ ] Move `S{NNN}_log.md` → `Archive/` under the same file name
-- [ ] Update the status in `Session_Registry.tsv` + rewrite the key finding as the final conclusion (fold)
+- [ ] Update the status in `Session_Registry.tsv` + rewrite the key finding as the final conclusion
+
+---
+
+## 6. Deprecated
+
+Deprecated = a record that was tried but is no longer a basis for current decisions. It is
+not deleted; it is moved to `Deprecated/` in the same folder and stays readable. The user
+decides what to deprecate; the agent proposes candidates with reasons and runs
+`elf deprecate` only after an instruction or approval (usage: `elf deprecate --help`, the CLI reference).
+
+| Unit | What moves | `Deprecated/` side | Original position |
+|------|-------------|------------------|---------|
+| Whole session log | The whole file | `2_Log/Deprecated/S###_log.md` — YAML header at the top (`deprecated: date` · `source` · `replaced_by` · `reason` · `status_before`), header `Status: Deprecated` | No file. Registry row: Status `Deprecated`, path column `Deprecated/S###_log.md` |
+| Trial | The whole body under the heading | A block appended to `2_Log/Deprecated/S###_log.partial.md` | `## tNN:` heading + one move-marker line (number preserved) |
+| Section | Including the `### section` heading | The same partial file | One move-marker line (no heading) |
+| Marked block · line range | Between `<!-- deprecate:begin -->` … `<!-- deprecate:end -->` / the given lines | The same partial file | One move-marker line |
+| Planning document | Whole file / marked block / line range | `1_Concept/12_Planning/Deprecated/` | Same |
+
+- Partial file: YAML header `deprecated: partial` + `source` at the top; per block a copy of the `## tNN:` heading + the marker line `> **Deprecated**: date · ID · unit [· replaced_by: …] [· reason: …]` + the original text (between `<!-- deprecated:begin ID -->` … `<!-- deprecated:end ID -->`, relative links recomputed for the folder). ID = a per-document sequence such as `S###-D01`.
+- Move-marker line: `> **Deprecated** → [Deprecated/S###_log.partial.md](Deprecated/S###_log.partial.md) (ID · unit · date [· replaced_by: …])` — `elf session close` recomputes the link for the Archive location.
+- Outputs (scripts, data, figures) stay where they are. The Handoff, the registry key finding, and references in other documents are not edited by the tool; they are printed as `review:` lines for the agent to handle.
+- Restore: `elf deprecate --restore <ID>` (block) or `--restore S###` (whole). List and cross-check: `elf deprecate list`.
+- `elf validate` includes logs under `Deprecated/` in the numbering and registry checks and counts figure embeds in the partial file as that session's embeds. It does not run structure or link checks on them.

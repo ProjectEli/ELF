@@ -160,7 +160,7 @@ fn hook_body(subcmd: &str, background: bool) -> String {
         format!("{call} || true")
     };
     format!(
-        "#!/bin/sh\n{HOOK_MARKER} — managed by `elf tsa enable`; removed by `elf tsa disable`. Do not edit (replaced wholesale).\nELF=\"$HOME/.elf/bin/elf\"; {{ [ -x \"$ELF\" ] || [ -x \"$ELF.exe\" ]; }} || ELF=elf\n{call}\n"
+        "#!/bin/sh\n{HOOK_MARKER} — managed by `elf tsa enable`; removed by `elf tsa disable`. Do not edit (replaced in full on enable).\nELF=\"$HOME/.elf/bin/elf\"; {{ [ -x \"$ELF\" ] || [ -x \"$ELF.exe\" ]; }} || ELF=elf\n{call}\n"
     )
 }
 
@@ -235,7 +235,7 @@ pub fn run_enable(root: &Path) -> Result<TsaReport, TsaError> {
         r.say("gpg: commit signing off — optional authorship layer: `git config commit.gpgsign true` + `git config user.signingkey <KEY>`");
     }
 
-    // baseline seal — 도입 시점 스냅샷 1회
+    // baseline 기록 — 도입 시점 스냅샷 1회
     let rec = run_record(root, RecordScope::All)?;
     r.lines.extend(rec.lines);
     r.warnings += rec.warnings;
@@ -259,7 +259,7 @@ pub fn run_disable(root: &Path) -> Result<TsaReport, TsaError> {
         remove_hook(&hooks, "pre-commit", &mut r);
         remove_hook(&hooks, "post-commit", &mut r);
     }
-    r.say(format!("evidence kept: {TSA_DIR}/ untouched — re-enable resumes on top of it"));
+    r.say(format!("evidence kept: {TSA_DIR}/ untouched — re-enable appends to the existing evidence"));
     Ok(r)
 }
 
@@ -316,7 +316,7 @@ pub enum RecordScope {
 }
 
 /// 당일 manifest에 파일 해시 append (원시 바이트 sha256). (file, sha256) 중복은 skip(멱등).
-/// manifest 자신은 git add(커밋에 봉인 동승 — Mastication pre-commit 동작 승계).
+/// manifest 자신은 git add(같은 커밋에 포함 — Mastication pre-commit 동작 승계).
 pub fn run_record(root: &Path, scope: RecordScope) -> Result<TsaReport, TsaError> {
     let mut r = TsaReport::default();
     // -z: NUL 구분 출력 — 경로 인용(quotepath) 자체를 우회하고 공백·개행 포함 파일명도 견고.
@@ -346,7 +346,7 @@ pub fn run_record(root: &Path, scope: RecordScope) -> Result<TsaReport, TsaError
     let mut added = 0usize;
     for rel in files {
         if rel == self_rel {
-            continue; // 자기 참조 배제 — 기록하는 순간 자신이 변해 즉시 낡는 해시(전날 manifest는 체인이라 허용)
+            continue; // 자기 참조 배제 — 기록하는 순간 자신이 변해 기록 즉시 구버전이 되는 해시(전날 manifest는 체인이라 허용)
         }
         let p = root.join(rel);
         let Ok(bytes) = fs::read(&p) else { continue }; // 삭제 예정·비파일은 조용히 skip

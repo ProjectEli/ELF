@@ -3,8 +3,8 @@
 //! 문제(ELF_Proposal_ContextReanchor): compact 요약 = lossy 파생 digest — agent가 재구성 후
 //! 정본(AGENTS 상시 의무·활성 Handoff)에 재정렬하지 않고 요약 위에서 동작하는 drift 실증(S031 t03).
 //! 실패 축 분리(t04): 전달(내용이 컨텍스트에 있는가)과 발동(행동 개시점에서 실행하는가)은 별개 —
-//! 본 기능은 "감지 = 하네스 훅 / 판정·출력 = 본 바이너리"로 전달을 결정화한다(발동 강제는 비채택,
-//! t07: 차단은 목적[문서 재전달] 대비 과잉 — validate·close 게이트가 사후 안전망).
+//! 본 기능은 "감지 = 하네스 훅 / 판정·출력 = 본 바이너리"로 전달 방식을 확정한다(발동 강제는 비채택,
+//! t07: 차단은 목적[문서 재전달] 대비 과잉 — validate·close 게이트가 사후 검사 수단).
 //!
 //! 체인(t07 확정): ① SessionStart(compact|resume|clear) 훅 → 마커 기록(stdout 미사용 —
 //! Claude Code #15174[compact matcher stdout 미주입]와 무관한 부수효과 경로) ② 다음
@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 pub const RUNTIME_DIR: &str = ".elf/runtime/autoread";
 /// settings.json 내 elf 소유 훅 판별 문자열 (tsa HOOK_MARKER 동형 — 이 문자열을 품은 항목만 교체).
 const HOOK_CMD_MARKER: &str = "elf autoread hook";
-/// 마커 유효 시간 — 초과분은 각 훅 호출 시 부수 gc (죽은 세션 잔재 정리).
+/// 마커 유효 시간 — 초과분은 각 훅 호출 시 부수 gc (종료된 세션의 잔여 마커 정리).
 const MARKER_TTL_SECS: u64 = 24 * 3600;
 /// digest에 싣는 활성 세션 상한 (실측: Mastication 활성 27개 — 전수 주입은 토큰 과다. S031 t01)
 const ACTIVE_LIMIT: usize = 5;
@@ -384,7 +384,7 @@ fn clear_markers(root: &Path) -> usize {
     n
 }
 
-/// TTL 초과·판독 불가 마커 정리 — 각 훅 호출 시 부수 실행(죽은 세션 잔재).
+/// TTL 초과·판독 불가 마커 정리 — 각 훅 호출 시 부수 실행(종료된 세션의 잔여 마커).
 fn gc_markers(root: &Path) {
     let now = now_secs();
     for p in list_markers(root) {
@@ -454,7 +454,7 @@ pub fn pending_banner(cwd: &Path) -> Option<String> {
 pub fn build_digest(root: &Path, source: &str) -> String {
     let mut out = String::new();
     out.push_str(&format!(
-        "[elf autoread] context was reconstructed ({source}) — the summary you were given is a lossy digest, not the canonical rules. Re-align before substantive work.\n"
+        "[elf autoread] context was reconstructed ({source}) — the summary you were given is a lossy digest, not the canonical rules. Re-read the canonical rules before substantive work.\n"
     ));
 
     if let Some(duties) = agents_duties(root) {
@@ -492,14 +492,14 @@ pub fn build_digest(root: &Path, source: &str) -> String {
     // 정본만 전문 주입 — 라우팅 지식은 프로젝트 소유, core는 전달만. 미선언 = digest만(현행).
     let injected_fulltext = append_fulltext(root, &mut out);
 
-    // 말미 지시 — 명령형(산 증거: soft "re-align"만으로는 전문 재독 미달).
+    // 말미 지시 — 명령형(실측 결과: soft "re-align"만으로는 전문 재독 미달).
     if injected_fulltext {
         out.push_str(
             "\nnext: the full text of the declared canonical rules is included above — apply them; do not act on the compact summary alone. Before your first substantive action, also read the full header (Handoff) of the session log you are working in; keep Phase discipline (LogConvention §5.1) and embed figures immediately (§2).\n",
         );
     } else {
         out.push_str(
-            "\nnext: before your first substantive action (1) read the full header (Handoff) of the session log you are working in, and (2) Read in full the task-relevant canonical rule documents under `0_Meta/` (follow the project's routing rule if it defines one); keep Phase discipline (LogConvention §5.1) and embed figures immediately (§2).\n",
+            "\nnext: before your first substantive action (1) read the full header (Handoff) of the session log you are working in, and (2) Read in full the task-relevant canonical rule documents under `0_Meta/` (follow the project's rule on which documents to read, if it defines one); keep Phase discipline (LogConvention §5.1) and embed figures immediately (§2).\n",
         );
     }
     out

@@ -8,10 +8,10 @@ proposal, a focused learning project, building something, etc.) as base-delta se
 logs. A type separated from academic research (simulation, figures, papers).
 
 ## Structure
-- `.elf/` — ELF control plane (version, manifest) + managed rule payload `managed/` (`EliRule`, `LogConvention`, `AI_PARA_Framework`, `LLMcliche`, session/trial stubs `templates/`). Updated by `elf update` — do not edit directly.
+- `.elf/` — ELF control area (version, manifest) + managed rule payload `managed/` (`EliRule`, `LogConvention`, `AI_PARA_Framework`, `LLMcliche`, session/trial stubs `templates/`). Updated by `elf update` — do not edit directly.
 - `0_Meta/` — project governance (`ProjectRule`, data overlays `<name>.project.md`) — user space
 - `1_Concept/12_Planning/` — goals, roadmap, plans / `13_Ideas/` — small ideas
-- `2_Log/` — session logs (`S###_log.md`), `Wiki/` (summaries, Registry), `Archive/` (completed)
+- `2_Log/` — session logs (`S###_log.md`), `Wiki/` (summaries, Registry), `Archive/` (completed), `Deprecated/` (withdrawn — `elf deprecate`)
 - Domain work folders (`src/`, `docs/`, etc.) are added by the project itself.
 
 ## Use

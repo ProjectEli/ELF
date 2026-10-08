@@ -104,7 +104,7 @@ fn preset_mismatch_warns_but_diagnoses_by_stamp_readonly() {
     assert!(r.warnings >= 1);
     // stamp(qa) 기준 진단이므로 연구 파일 오진 없음 + findings 0(fresh)
     assert_eq!(r.findings(), 0, "{:?}", r.lines);
-    // 읽기전용: config self-heal 없음
+    // 읽기전용: config 자동 복구 없음
     assert_eq!(fs::read(&cfg_path).unwrap(), cfg_before);
 }
 

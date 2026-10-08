@@ -141,7 +141,7 @@ fn session_start_marks_and_prompt_injects_exactly_once() {
     let digest = autoread::run_hook(&root, "prompt", &prompt_stdin("sid-1")).expect("digest");
     assert!(digest.contains("context was reconstructed (compact)"));
     assert!(digest.contains("AGENTS.md standing duties")); // 절 구분자
-    assert!(digest.contains("컨텍스트 재구성 후 재정렬")); // AGENTS 정본 본문(L23) 실추출 검증
+    assert!(digest.contains("컨텍스트 재구성 후 상태 복원")); // AGENTS 정본 본문(L23) 실추출 검증
     assert!(digest.contains("S002")); // 활성 세션 Handoff
     assert!(digest.contains("validate:")); // 카운트
     // 두 번째 프롬프트 = 침묵 (마커 소모됨)

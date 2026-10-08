@@ -12,6 +12,8 @@ use std::path::{Path, PathBuf};
 use crate::embed;
 
 pub const REGISTRY_REL: &str = "2_Log/Wiki/Session_Registry.tsv";
+/// 세션 로그가 놓이는 위치(상태 폴더) — 루트(진행 중)·Archive(종료)·Deprecated(폐기). 번호 스캔·정합 검사가 공유.
+pub const LOG_DIRS: [&str; 3] = ["2_Log", "2_Log/Archive", "2_Log/Deprecated"];
 pub const REGISTRY_COLS: usize = 6;
 const ACTION_FIX_REGISTRY: &str =
     "표시된 행을 스키마에 맞게 수정 후 명령 재실행 (이 도구는 Registry를 자동 수정하지 않음)";
@@ -183,10 +185,10 @@ impl From<io::Error> for SessionError {
     }
 }
 
-/// 2_Log/ + 2_Log/Archive/ 의 S###_log.md 번호 수집.
+/// `LOG_DIRS`(루트·Archive·Deprecated)의 S###_log.md 번호 수집 — 부분 폐기 파일(`*.partial.md`)은 이름이 달라 제외.
 fn scan_log_numbers(root: &Path) -> Vec<u32> {
     let mut nums = Vec::new();
-    for dir in ["2_Log", "2_Log/Archive"] {
+    for dir in LOG_DIRS {
         if let Ok(entries) = fs::read_dir(root.join(dir)) {
             for e in entries.flatten() {
                 if let Some(n) = e.file_name().to_str().and_then(log_num) {
@@ -372,7 +374,7 @@ pub fn run_fix_headers(base: &Path, dry_run: bool) -> io::Result<Vec<FixedFile>>
 // ── session close (t02) + 공용 루트 탐지 ────────────────────────
 //
 // 루트 탐지 = `2_Log/` 기반(`.elf/` 불요). session new/close·fix-headers 공용 →
-// 생성 프로젝트뿐 아니라 프레임워크 `_dev/`도 자기사용 가능(S011 도그푸딩 발견 반영).
+// 생성 프로젝트뿐 아니라 프레임워크 `_dev/`도 자기사용 가능(S011 자기 사용 중 발견 반영).
 
 /// cwd에서 위로 올라가며 `2_Log/` 보유 디렉토리(세션 루트)를 찾음.
 pub fn find_log_root(start: &Path) -> Option<PathBuf> {
@@ -391,9 +393,9 @@ pub fn header_status(content: &str) -> Option<String> {
     })
 }
 
-/// Complete가 아니면 열린(닫을 수 있는) 세션. (trial.rs 활성 세션 탐지와 공용)
+/// Complete·Deprecated가 아니면 열린(닫을 수 있는) 세션. (trial.rs 활성 세션 탐지와 공용)
 pub(crate) fn is_open_status(s: &str) -> bool {
-    !s.starts_with("Complete")
+    !s.starts_with("Complete") && !s.starts_with("Deprecated")
 }
 
 /// 헤더 블록 `> **Handoff**:` 값 (트레일링 `\`·`\r` 제거).
@@ -523,14 +525,22 @@ pub fn deepen_relative_links(content: &str) -> Option<String> {
     }
 }
 
-/// `../`로 시작하는 상대 링크 대상에만 `../` prepend한 새 문자열, 아니면 None.
+/// `../`로 시작하는 상대 링크 대상에는 `../` prepend, 상태 폴더(`Wiki/`·`Archive/`·`Deprecated/`)로
+/// 시작하는 대상은 2_Log → 2_Log/Archive 기준으로 재계산(예: `Deprecated/x` → `../Deprecated/x`,
+/// `Archive/S001_log.md` → `S001_log.md`). 그 외(같은 폴더의 형제 로그 등)는 None.
 fn deepen_link_target(raw: &str) -> Option<String> {
     let token = raw.split_whitespace().next().unwrap_or("");
     if token.starts_with("../") {
-        Some(format!("../{raw}"))
-    } else {
-        None
+        return Some(format!("../{raw}"));
     }
+    let first = token.split('/').next().unwrap_or("");
+    if token.contains('/') && crate::deprecate::STATE_DIRS.contains(&first) {
+        let stripped = raw.trim_start();
+        let lead = &raw[..raw.len() - stripped.len()];
+        let rebased = crate::deprecate::rebase_token(token, "2_Log", "2_Log/Archive");
+        return Some(format!("{lead}{rebased}{}", &stripped[token.len()..]));
+    }
+    None
 }
 
 pub struct CloseOptions {
@@ -602,7 +612,7 @@ pub fn run_session_close(root: &Path, opts: &CloseOptions) -> Result<CloseResult
 
     // close 전 자동 validate — **닫는 세션 스코프**의 발견만 보고 (비차단, S027 #7).
     // Archive 이동 후에는 구조 검사 범위에서 빠지므로 close 직전이 마지막 검증 기회.
-    // 스코프 필터 = 전역·타 세션 경고(소급 면제분 포함)가 close 절차를 오염하지 않게 함.
+    // 스코프 필터 = 전역·타 세션 경고(소급 면제분 포함)가 close 절차에 섞이지 않게 함.
     // validate 자체가 실패(레지스트리 escalation 등)해도 close는 진행 — 그 문제는 별도 명령이 보고.
     if let Ok(v) = crate::validate::run_validate_opts(root, false) {
         // 라인 형식 2종 커버: 구조 경고 = "S###_log.md: …" / figure-embed 경고 = "S###: figure …"
@@ -698,7 +708,7 @@ mod tests {
         assert_eq!(handoff_pending("Handoff 미완료 소거 규약 반영 완료; -; 참조 t14"), None);
         // 미완료 파트 내용에 `;`가 없고 참조 라벨 경계로 정확 종료
         assert_eq!(
-            handoff_pending("fold 확정; 미완료 = 파서 강화·규약 복원; 참조 t17 관찰").as_deref(),
+            handoff_pending("결론 확정; 미완료 = 파서 강화·규약 복원; 참조 t17 관찰").as_deref(),
             Some("파서 강화·규약 복원")
         );
     }
@@ -731,6 +741,16 @@ mod tests {
         assert!(out.contains("[abs](/a.md)")); // 절대 불변
         assert!(out.contains("[a](#sec)")); // 앵커 불변
         assert!(out.contains("[sib](S011_log.md)")); // bare 형제 링크 불변(함께 이동)
+    }
+
+    #[test]
+    fn deepen_rebases_state_folder_links() {
+        let input = "[d](Deprecated/S012_log.partial.md) [a](Archive/S001_log.md) [w](Wiki/Notes.md \"t\") [sib](S011_log.md)";
+        let out = deepen_relative_links(input).unwrap();
+        assert!(out.contains("[d](../Deprecated/S012_log.partial.md)"), "{out}");
+        assert!(out.contains("[a](S001_log.md)"), "{out}"); // Archive 안에서는 같은 폴더
+        assert!(out.contains("[w](../Wiki/Notes.md \"t\")"), "{out}"); // 제목 보존
+        assert!(out.contains("[sib](S011_log.md)")); // 형제 로그 링크는 현행 유지
     }
 
     #[test]

@@ -7,7 +7,6 @@
 # (.claude/settings.json의 autoread 훅은 비추적 파생물 — clone 후 `elf update`가 재생성)
 .claude/
 .ecc/
-.claudeignore
 
 # === ELF runtime state (autoread 재구성 마커 등 — 세션 한정·비추적) ===
 .elf/runtime/

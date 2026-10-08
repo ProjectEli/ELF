@@ -3,7 +3,7 @@ date: [YYYY-MM-DD HH:mm:ss]
 category: [카테고리 — 폴더명과 정확히 일치]
 tags: [tag1, tag2, tag3]
 status: active
-# thread: [thread-slug]   ← 선택: 사고 chain의 일부일 때만 추가(CLAUDE.md §4). 아니면 이 줄 삭제.
+# thread: [thread-slug]   ← 선택: 사고 chain의 일부일 때만 추가(AGENTS.md §4). 아니면 이 줄 삭제.
 ---
 
 # 목표 (Objective)
@@ -19,7 +19,7 @@ status: active
 
 ---
 # 질문 원본
-(append-only 질문 대장 — CLAUDE.md §4. 최초 Q1, 후속 Q2·Q3…로 verbatim 누적)
+(append-only 질문 대장 — AGENTS.md §4. 최초 Q1, 후속 Q2·Q3…로 verbatim 누적)
 
 ## Q1 ([YYYY-MM-DD HH:mm])
 (사용자 최초 질문 — 원문 그대로)

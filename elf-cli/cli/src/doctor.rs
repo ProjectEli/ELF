@@ -71,6 +71,7 @@ pub fn run_doctor(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
         Some(root) => {
             r.add(Health::Ok, "ELF project", format!("root: {}", root.display()));
             check_elf(&root, env, &mut r);
+            check_claudeignore(&root, &mut r);
             check_status(&root, &mut r);
             check_i18n(&root, &mut r);
             check_overlay(&root, &mut r);
@@ -114,6 +115,17 @@ fn check_elf(root: &Path, env: &DoctorEnv, r: &mut DoctorReport) {
         r.add(Health::Ok, ".elf baseline", "present (hybrid block diffing enabled)");
     } else {
         r.add(Health::Info, ".elf baseline", "absent (no hybrid files or pre-baseline project)");
+    }
+}
+
+/// 루트 `.claudeignore` — Claude Code에서 효과가 없고 v2.24부터 ELF가 배포·관리하지 않음(S037). 있으면 안내만(자동 삭제 없음).
+fn check_claudeignore(root: &Path, r: &mut DoctorReport) {
+    if root.join(".claudeignore").is_file() {
+        r.add(
+            Health::Info,
+            ".claudeignore",
+            "present — it has no effect in Claude Code and is not ELF-managed since v2.24; safe to delete (use your harness's own access rules if you still need exclusions)",
+        );
     }
 }
 
@@ -202,7 +214,7 @@ fn check_l2(root: &Path, r: &mut DoctorReport) {
                     Health::Info,
                     "agent entry",
                     format!(
-                        "CLAUDE.md loads @AGENTS.md but carries {lines} lines of extra content — check for duplication with AGENTS.md"
+                        "CLAUDE.md loads @AGENTS.md but contains {lines} lines of extra content — check for duplication with AGENTS.md"
                     ),
                 );
             } else {

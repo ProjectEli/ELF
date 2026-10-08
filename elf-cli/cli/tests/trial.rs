@@ -187,7 +187,7 @@ fn close_warns_on_pending_handoff_nonblocking() {
     let p2 = root2.join("2_Log/S001_log.md");
     let c2 = fs::read_to_string(&p2)
         .unwrap()
-        .replace("> **Handoff**: -", "> **Handoff**: 완료 fold; -; 참조 t01");
+        .replace("> **Handoff**: -", "> **Handoff**: 완료; -; 참조 t01");
     fs::write(&p2, c2).unwrap();
     let r2 = run_session_close(&root2, &CloseOptions { id: None, force: true }).unwrap();
     assert!(r2.warnings.is_empty(), "{:?}", r2.warnings);

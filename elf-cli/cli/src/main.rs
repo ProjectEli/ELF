@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use elf_cli::{
-    autoread, doctor, embed, gallery, init, manifest, selfupdate, session, status, trial, tsa,
-    update, validate,
+    autoread, deprecate, doctor, embed, gallery, init, manifest, selfupdate, session, status, trial,
+    tsa, update, validate,
 };
 
 /// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드·갱신 CLI (research project scaffold & update CLI)
@@ -99,6 +99,47 @@ enum Commands {
         #[command(subcommand)]
         cmd: Option<AutoreadCmd>,
     },
+    /// 폐기 이동·복원·목록 · Deprecate, restore, or list deprecated content (session logs · planning docs → `Deprecated/`)
+    #[command(args_conflicts_with_subcommands = true)]
+    Deprecate {
+        #[command(subcommand)]
+        cmd: Option<DeprecateCmd>,
+        /// 대상 · target: S### | P### | project-relative path (omit with --restore)
+        target: Option<String>,
+        /// trial 단위 · move one trial (e.g. t03) — keeps the heading, leaves a move marker
+        #[arg(long, value_name = "tNN")]
+        trial: Option<String>,
+        /// 절 단위 · move one section of --trial (e.g. 해석) — heading moves with the body
+        #[arg(long, value_name = "NAME", requires = "trial")]
+        section: Option<String>,
+        /// 표시 블록 · move every block wrapped in <!-- deprecate:begin --> … <!-- deprecate:end -->
+        #[arg(long)]
+        marked: bool,
+        /// 줄 범위 · move lines A-B (1-based, inclusive); requires --expect
+        #[arg(long, value_name = "A-B")]
+        lines: Option<String>,
+        /// 줄 범위 확인 · exact text of line A (guards --lines against drift)
+        #[arg(long, value_name = "TEXT", requires = "lines")]
+        expect: Option<String>,
+        /// 대체 · what replaces the deprecated content (recorded in the marker)
+        #[arg(long = "replaced-by", value_name = "TEXT")]
+        replaced_by: Option<String>,
+        /// 사유 · reason (recorded in the marker)
+        #[arg(long, value_name = "TEXT")]
+        reason: Option<String>,
+        /// 변경 없이 출력만 · preview only, write nothing
+        #[arg(long = "dry-run")]
+        dry_run: bool,
+        /// 복원 · restore a block (S012-D01) or a whole document (S012 · P007 · path)
+        #[arg(long, value_name = "ID", conflicts_with_all = ["target", "trial", "marked", "lines"])]
+        restore: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum DeprecateCmd {
+    /// 목록 · List deprecated documents and blocks (walks `Deprecated/` folders; reports marker/block mismatches)
+    List,
 }
 
 #[derive(Subcommand)]
@@ -121,7 +162,7 @@ enum AutoreadCmd {
 
 #[derive(Subcommand)]
 enum TsaCmd {
-    /// 기능 도입 · Enable (config + hooks + baseline seal — 멱등/idempotent, 기존 훅 비파괴)
+    /// 기능 도입 · Enable (config + hooks + baseline record — 멱등/idempotent, 기존 훅 비파괴)
     Enable,
     /// 기능 해제 · Disable (config off + elf 훅만 제거 — 증거 `0_Meta/tsa/`는 보존/kept)
     Disable,
@@ -501,6 +542,60 @@ fn main() {
                 }
             }
         }
+        Commands::Deprecate { cmd, target, trial, section, marked, lines, expect, replaced_by, reason, dry_run, restore } => {
+            let root = log_root_or_exit();
+            let result = if matches!(cmd, Some(DeprecateCmd::List)) {
+                deprecate::run_list(&root)
+            } else if let Some(id) = restore {
+                deprecate::run_restore(&root, &id)
+            } else {
+                let Some(target) = target else {
+                    eprintln!("[elf] error: a target is required (S### | P### | path), or use --restore <ID> / `elf deprecate list`");
+                    std::process::exit(2);
+                };
+                let lines = match lines.as_deref() {
+                    None => None,
+                    Some(s) => match s.split_once('-').and_then(|(a, b)| Some((a.trim().parse::<usize>().ok()?, b.trim().parse::<usize>().ok()?))) {
+                        Some(r) => Some(r),
+                        None => {
+                            eprintln!("[elf] error: --lines expects A-B (1-based line numbers), got \"{s}\"");
+                            std::process::exit(2);
+                        }
+                    },
+                };
+                let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+                deprecate::run_deprecate(
+                    &root,
+                    &deprecate::DeprecateOptions { target, trial, section, marked, lines, expect, replaced_by, reason, dry_run, date },
+                )
+            };
+            match result {
+                Ok(rep) => {
+                    for l in &rep.lines {
+                        println!("[elf] {l}");
+                    }
+                    if dry_run && !rep.changed {
+                        println!("[elf] dry-run — nothing written");
+                    }
+                }
+                Err(deprecate::DeprecateError::Refuse(m)) => {
+                    eprintln!("[elf] refuse: {m}");
+                    std::process::exit(3);
+                }
+                Err(deprecate::DeprecateError::NotFound(m)) => {
+                    eprintln!("[elf] not found: {m}");
+                    std::process::exit(1);
+                }
+                Err(deprecate::DeprecateError::Escalation(e)) => {
+                    eprintln!("[elf] {e}");
+                    std::process::exit(5);
+                }
+                Err(deprecate::DeprecateError::Io(e)) => {
+                    eprintln!("[elf] io error: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
         Commands::Gallery => {
             let root = log_root_or_exit();
             let now = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
@@ -595,7 +690,7 @@ fn main() {
                             r.id, r.archived_to
                         );
                         println!(
-                            "[elf] note: rewrite the registry key finding as the session's final conclusion (fold — LogConvention §5.2)"
+                            "[elf] note: rewrite the registry key finding as the session's final conclusion, replacing the previous text (LogConvention §5.2)"
                         );
                     }
                     Err(session::SessionError::Escalation(e)) => {
@@ -668,7 +763,7 @@ fn main() {
                             "[elf] note: list expected figures in 예상, and embed each into `### 관찰` the moment it is created — a table path is not an embed; sub-agent outputs included (LogConvention §2)"
                         );
                         println!(
-                            "[elf] note: keep the header Handoff a replace-style fold (state; pending; refs) — do not append history"
+                            "[elf] note: keep the header Handoff a replace-style summary (state; pending; refs) — do not append history"
                         );
                     }
                     Err(session::SessionError::NoOpenSession) => {

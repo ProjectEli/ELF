@@ -8,14 +8,14 @@
 
 > **Status**: this document is a **non-exhaustive, non-binding reference** that helps
 > apply the *principle* of `EliRule.md §3 rule 11` (LLM Cliché Ban). **Not a fixed
-> whitelist/blacklist** — an unlisted word is still a target if it reads as cliché, and a
+> whitelist/blacklist** — an unlisted word is still excluded if it reads as cliché, and a
 > listed word is allowed when used with a precise technical meaning. The norm is EliRule's
 > principle; this list is only examples. Models update often and their outputs overlap
-> heavily, so do not use this as a forensic fingerprint.
+> heavily, so do not use this to attribute text to a specific model.
 
-Exclusion basis (summary): drop vague filler, overused register, and voiceless cliché
+Exclusion basis (summary): drop vague filler, overused register, and generic cliché
 phrasing, and replace with **concrete, active, direct** statements. English output only
-(Korean dry logs are unaffected; applies when English vocabulary/phrasing is mixed in).
+(Korean logs are unaffected; applies when English vocabulary/phrasing is mixed in).
 
 ---
 
@@ -35,7 +35,7 @@ phrasing, and replace with **concrete, active, direct** statements. English outp
 ## 2. Assistant register · conversational clichés (cross-model, non-exhaustive)
 
 Register clichés common to chat/coding assistants (ChatGPT, Claude, Gemini, etc.).
-Watch for them leaking into logs, documents, and commit messages.
+Check that they do not appear in logs, documents, and commit messages.
 
 | Type | Example |
 |---|---|
@@ -43,18 +43,18 @@ Watch for them leaking into logs, documents, and commit messages.
 | Self-reference | "I'd be happy to help" · "Let me explain" · "Let me break this down" · "I hope this helps" · "feel free to" |
 | Excess hedging/qualifiers | "It's worth noting that" · "It's important to note/remember" · "Generally speaking" · "In many cases" · "While this may vary" |
 | Formulaic constructions | "not only … but also" · "It's not X, it's Y" (repeated within one piece) · closing "In conclusion / In summary" |
-| Structural tic | compulsive rule-of-three lists · repeated "**Bold term**: explanation" one-line items · excessive bullets |
+| Structural habit | habitual rule-of-three lists · repeated "**Bold term**: explanation" one-line items · excessive bullets |
 | Punctuation | em-dash (—) overused multiple times per paragraph (where a comma or parenthesis suffices) |
 
-## 3. Model-leaning tendencies (non-deterministic, overlapping)
+## 3. Model-specific tendencies (non-deterministic, overlapping)
 
 > Caution: outputs overlap heavily and change with each model update — these are
 > *tendencies*, not an absolute classification.
 
 | Model | Reported tendency | Evidence tier |
 |---|---|---|
-| GPT / ChatGPT | surging excess vocabulary (delve · underscore · meticulous · boast · intricate · tapestry); formal/clinical tone | academic (Kobak · FSU) |
-| Claude / Claude Code | em-dash overuse; excess qualifiers/hedges; self-reference ("I'd be happy to help" · "Let me"); "**Bold**: explanation" lists; tangential ethics/generalization | community observation (non-academic) |
+| GPT / ChatGPT | sharply increased excess vocabulary (delve · underscore · meticulous · boast · intricate · tapestry); formal, detached tone | academic (Kobak · FSU) |
+| Claude / Claude Code | em-dash overuse; excess qualifiers/hedges; self-reference ("I'd be happy to help" · "Let me"); "**Bold**: explanation" lists; off-topic ethics/generalization | community observation (non-academic) |
 | Gemini | conversational/approachable plain style; excessive bullets; in long documents the requested voice drifts to an informational tone | reporting (Scientific American) |
 
 ## 4. Exceptions — precise technical use (allowed, non-exhaustive)
@@ -75,7 +75,7 @@ denotation**. Examples:
 | family | defined family terms such as a family of curves/distributions (math/statistics) or a protocol family (networking) — vague metaphorical groupings like "the X family of methods" are excluded |
 | intensify | quantitative increase of a physical intensity — vague escalation/worsening is excluded |
 
-- **Domain homonyms** (e.g., energy/fitness `landscape`, experimental-psychology `paradigm`, `realm`) differ per project → **declare a carve-out in `ProjectRule.md`**. This document and EliRule keep only the general principle (no accumulation of per-project whitelists).
+- **Domain homonyms** (e.g., energy/fitness `landscape`, experimental-psychology `paradigm`, `realm`) differ per project → **declare an exception in `ProjectRule.md`**. This document and EliRule keep only the general principle (no accumulation of per-project whitelists).
 
 ## 5. Before / After (pattern examples — domain-neutral)
 
@@ -102,4 +102,4 @@ denotation**. Examples:
 - Kobak et al., "Delving into LLM-assisted writing in biomedical publications through excess vocabulary," arXiv:2406.07016 (Science Advances, 2025) — 14M PubMed abstracts; excess words delve, underscore, meticulous, boast, etc.
 - FSU, "Why Does ChatGPT 'Delve' So Much?" (Proc. COLING 2025) — causes of over-representation.
 - Scientific American (2025), "ChatGPT and Gemini AI Have Uniquely Different Writing Styles."
-- Caution: some per-model tells are community observations (non-academic tier), and this list is register-based and non-exhaustive. It shifts with new models and updates.
+- Caution: some per-model markers are community observations (non-academic tier), and this list is register-based and non-exhaustive. It shifts with new models and updates.

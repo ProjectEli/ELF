@@ -280,3 +280,58 @@ fn e2e_validate_malformed_exits_5_with_marker() {
         .code(5)
         .stderr(predicates::str::contains("agent-action:"));
 }
+
+#[test]
+fn deprecated_whole_log_satisfies_registry_and_numbering() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    // S002: 전체 폐기 상태(Deprecated/에 로그, Registry Status Deprecated) — 번호는 보존, 구조 검사 대상 아님
+    fs::create_dir_all(root.join("2_Log/Deprecated")).unwrap();
+    fs::write(
+        root.join("2_Log/Deprecated/S002_log.md"),
+        "---\ndeprecated: 2026-10-08\nsource: 2_Log/S002_log.md\n---\n\n# S002: T\n\n> **Status**: Deprecated\n\n## t01: x\n\n### 결과 (bad)\n- 구조 검사 대상 아님\n",
+    )
+    .unwrap();
+    let mut reg = fs::read_to_string(root.join(REG)).unwrap();
+    reg.push_str("S002\t2026-06-13\tDep\tDeprecated\t-\tDeprecated/S002_log.md\n");
+    fs::write(root.join(REG), reg).unwrap();
+    let r = run_validate(&root).unwrap();
+    assert_eq!(r.issues, 0, "{:?}", r.lines);
+    assert!(!r.lines.iter().any(|l| l.contains("multiple active")), "{:?}", r.lines);
+    assert!(!r.lines.iter().any(|l| l.contains("non-canonical")), "{:?}", r.lines);
+    // 같은 번호가 루트에도 있으면 중복
+    fs::write(root.join("2_Log/S002_log.md"), "# S002: dup\n").unwrap();
+    let r = run_validate(&root).unwrap();
+    assert!(r.lines.iter().any(|l| l.contains("duplicate log number S002") && l.contains("Deprecated/")), "{:?}", r.lines);
+}
+
+#[test]
+fn partial_file_is_neither_duplicate_nor_unregistered() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    fs::create_dir_all(root.join("2_Log/Deprecated")).unwrap();
+    fs::write(root.join("2_Log/Deprecated/S001_log.partial.md"), "---\ndeprecated: partial\nsource: 2_Log/S001_log.md\n---\n").unwrap();
+    fs::write(root.join("2_Log/Deprecated/S201-a_log.md"), "# bad\n").unwrap(); // 비정격 이름은 Deprecated/에서도 검출
+    let r = run_validate(&root).unwrap();
+    assert!(!r.lines.iter().any(|l| l.contains("duplicate")), "{:?}", r.lines);
+    assert!(!r.lines.iter().any(|l| l.contains("not in the registry")), "{:?}", r.lines);
+    assert!(r.lines.iter().any(|l| l.contains("malformed session log name: 2_Log/Deprecated/S201-a_log.md")), "{:?}", r.lines);
+}
+
+#[test]
+fn figure_embedded_in_partial_file_counts_for_the_session() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    fs::create_dir_all(root.join("6_Exp/64_Viz/S001")).unwrap();
+    fs::write(root.join("6_Exp/64_Viz/S001/a.png"), "png").unwrap();
+    let r = run_validate(&root).unwrap();
+    assert!(r.lines.iter().any(|l| l.contains("figure 'a.png'")), "{:?}", r.lines);
+    fs::create_dir_all(root.join("2_Log/Deprecated")).unwrap();
+    fs::write(
+        root.join("2_Log/Deprecated/S001_log.partial.md"),
+        "---\ndeprecated: partial\nsource: 2_Log/S001_log.md\n---\n\n## t01: x\n> **Deprecated**: 2026-10-08 · S001-D01 · t01\n\n<!-- deprecated:begin S001-D01 -->\n![a](../../6_Exp/64_Viz/S001/a.png)\n<!-- deprecated:end S001-D01 -->\n",
+    )
+    .unwrap();
+    let r = run_validate(&root).unwrap();
+    assert!(!r.lines.iter().any(|l| l.contains("figure 'a.png'")), "{:?}", r.lines);
+}

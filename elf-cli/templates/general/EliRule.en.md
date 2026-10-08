@@ -9,7 +9,7 @@
 This document defines the folder structure and operating rules of an ELF `general`
 project (a goal-oriented, non-research project — building a tool, preparing a proposal,
 a focused learning project, building something, etc.). Where `README.md` covers
-philosophy and overview, this document is the practical specification.
+design principles and overview, this document is the practical specification.
 
 > `general` = a **multi-session project with a clear goal**, not academic research. It is
 > separated from the research preset (`6_Exp`, `7_Paper`, figures, simulation). Write
@@ -21,40 +21,41 @@ philosophy and overview, this document is the practical specification.
 
 ### Core (always included)
 
-#### `.elf/` — ELF control plane
+#### `.elf/` — ELF control area
 Where the `elf` CLI records project state (version, settings, list of managed files) and
 places the managed rule payload under `.elf/managed/`.
 **Do not edit directly** — managed by `elf init` / `elf update`.
 - `.elf/managed/EliRule.md`: this document (structure and operating guide)
 - `.elf/managed/LogConvention.md`: logging standard rules
-- `.elf/managed/AI_PARA_Framework.md`: state-based file-management and archiving rules. The most important reference document when the AI explores the project
+- `.elf/managed/AI_PARA_Framework.md`: the location-is-state file rules (in progress, Wiki, Archive, Deprecated) and the AI reading rules. The most important reference document when the AI reads project files
 - `.elf/managed/templates/`: markdown stubs (below)
 
 #### `0_Meta/` — project governance (user space)
-A meta area for project-specific rules and customization. `elf update` never touches it.
+A meta area for project-specific rules and customization. `elf update` never modifies it.
 - `ProjectRule.md`: project-specific rules and goals (**user-owned** — edit freely to fit the project)
 - `<name>.project.md`: data overlays (§2.4 — entry customization for LLMcliche)
 - anything else the project needs (scripts, config, etc.)
 
 #### `1_Concept/` — planning & ideas
-- **`12_Planning/`**: project goals, roadmaps, plans (`P###_title.md` numbering). `Wiki/`: planning-stage conclusion summaries.
-- **`13_Ideas/`**: snippets too small for a session, and early ideas. Flat (no Archive, never discarded). Promote to a Planning document or a session trial once mature.
+- **`12_Planning/`**: project goals, roadmaps, plans (`P###_title.md` numbering). `Wiki/`: planning-stage conclusion summaries. `Archive/`: closed planning documents · `Deprecated/`: withdrawn planning documents (`elf deprecate`, LogConvention §6).
+- **`13_Ideas/`**: snippets too small for a session, and early ideas. Flat (no Archive, never discarded). Move it to a Planning document or a session trial once it is concrete enough.
 
 #### `2_Log/` — session logs
 The top-level space for logging all work.
 - `S###_log.md`: session log (format: see `.elf/managed/LogConvention.md`)
 - `Wiki/`: key-finding summaries + the Session Registry
-- `Archive/`: completed session logs
+- `Archive/`: completed session logs (closed, still-valid records — reading allowed)
+- `Deprecated/`: withdrawn session logs and blocks (`elf deprecate` — may be read, not a basis for current decisions; LogConvention §6)
 
 #### `.elf/managed/templates/` — markdown stubs
 - `sessionTemplate.md`: copy to `2_Log/S###_log.md` when starting a new session
 - `trialTemplate.md`: paste into the body when adding a trial (t##) to an in-progress session
-- **Planning documents (`P###`) are intentionally template-free** — trials are disciplined by templates for reproducibility, but planning is the researcher's free exploration, so no format is imposed.
+- **Planning documents (`P###`) are intentionally template-free** — trials are constrained to a template for reproducibility, but planning documents are written freely by the researcher, so no format is imposed.
 - A root `templates/` folder, if any, is project-owned — ELF neither creates nor manages it.
 
 ### Domain folders (user-added)
 Work folders that fit the project (e.g., `src/`, `docs/`, `assets/`) are **added by the
-user**. ELF provides the spine (`.elf` control plane, session logs, conventions), and the
+user**. ELF provides the shared base structure (`.elf` control area, session logs, conventions), and the
 project defines the structure of domain outputs.
 
 ---
@@ -77,13 +78,13 @@ project defines the structure of domain outputs.
 
 ### 2.4 ELF-managed files and updates (`elf update`)
 
-Project files fall into three ownership classes, which `elf update` strictly respects:
+Project files fall into four ownership classes, which `elf update` strictly respects:
 
 | Class | Files | `elf update` behavior |
 |------|------|-------------------|
-| **ELF-managed** | `.elf/managed/` `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `LLMcliche.md`, `templates/*` (incl. companions); root `.claudeignore`, `AGENTS.md` | Replaced with the new version. **If you edited it, it is not overwritten**; the new version is written as `<file>.elf-new` (merging is up to you; `--force` replaces) |
-| **User-owned** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, all work data and logs | **Never touched** |
-| **Pointer (create-only)** | `CLAUDE.md` | Created if missing; if present it is **never modified** (regardless of content — existing-file ownership is respected). `elf doctor` checks whether it loads `@AGENTS.md` |
+| **ELF-managed** | `.elf/managed/` `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `LLMcliche.md`, `templates/*` (incl. companions); root `AGENTS.md` | Replaced with the new version. **If you edited it, it is not overwritten**; the new version is written as `<file>.elf-new` (merging is up to you; `--force` replaces) |
+| **User-owned** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, all work data and logs | **Never modified** |
+| **Pointer (create-only)** | `CLAUDE.md` | Created if missing; if present it is **never modified** (regardless of content — existing-file ownership is preserved). `elf doctor` checks whether it loads `@AGENTS.md` |
 | **Partially managed** | `.gitignore` | Only the marker block (`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) is replaced; user rules outside the block are preserved |
 
 - For project-rule customization, prefer **writing in `ProjectRule.md`** instead of editing ELF-managed files (no update conflicts).
@@ -93,7 +94,7 @@ Project files fall into three ownership classes, which `elf update` strictly res
 
 Data-type ELF-managed files (marked `overlayable` in the manifest — currently `LLMcliche.md`) are customized through a **project overlay** instead of direct edits. Prose-rule customization stays in `ProjectRule.md`; structural files (LogConvention, templates) are not overlayable.
 
-- **File**: `0_Meta/<name>.project.md` (e.g., `0_Meta/LLMcliche.project.md`) — **user-owned**; `elf update` never touches it (no update conflicts, no `.elf-new`).
+- **File**: `0_Meta/<name>.project.md` (e.g., `0_Meta/LLMcliche.project.md`) — **user-owned**; `elf update` never modifies it (no update conflicts, no `.elf-new`).
 - **Effective rules = base ⊕ overlay**: the AI agent loads the base (ELF-managed) file and the overlay together and applies the merge.
   - `## 추가 (add)`: add entries — effective list = base ∪ add.
   - `## 제외 (remove)`: remove base entries **per entry** — **each removal must state a reason**. Disabling whole sections or files is not allowed.
@@ -103,7 +104,7 @@ Data-type ELF-managed files (marked `overlayable` in the manifest — currently 
 
 ### 2.5 Session ownership — one writer per session (multi-agent)
 
-- **Every session log has exactly one writer** (an agent or a person). Never let multiple agents/terminals write to the same session log concurrently — a session log is the linear record of a single line of thought, and concurrent writes silently overwrite each other (lost updates) in trial insertion and header Handoff updates.
+- **Every session log has exactly one writer** (an agent or a person). Never let multiple agents/terminals write to the same session log concurrently — a session log is the sequential record of a single writer, and concurrent writes silently overwrite each other (lost updates) in trial insertion and header Handoff updates.
 - Parallel work means **one session per agent**: each runs `elf session new` for its own number. Relationships are carried not by the number but by the header `관련:` (related) field, with a one-phrase reason (e.g. `S200 (branch origin — owns approach A)`).
 - Other agents' session logs are **read-only** — never edit another session's log or Handoff.
 - Consolidating parallel sessions' conclusions happens in a separate session (or the origin session) with a **single writer**, listing the input sessions in `관련:`.
@@ -128,15 +129,15 @@ Data-type ELF-managed files (marked `overlayable` in the manifest — currently 
 
 Every AI agent in the project follows these principles when communicating with the user and writing documents:
 
-1. **Response language**: respond in both the language set in `PROJECT_LANG` and English. Use the `PROJECT_LANG` language for logs and documents as well. Technical terms may carry the English original alongside.
-2. **Objective, dry style**: no unnecessary greetings, excessive praise, subjective emotional expression, or exaggerated adjectives.
-3. **No metaphor**: avoid metaphor and simile; convey facts only in plain, objective academic/engineering terms. In particular, drop the LLM cliché metaphors that recast a viewpoint/approach as a "lens" or analysis/exploration as "navigate" / "deep dive" / "journey," and use direct terms (viewpoint, approach, analysis, process).
+1. **Response language**: respond in both the language set in `PROJECT_LANG` and English. Use the `PROJECT_LANG` language for logs and documents as well. Technical terms may be followed by the English original in parentheses.
+2. **Objective, unembellished style**: no unnecessary greetings, excessive praise, subjective emotional expression, or exaggerated adjectives.
+3. **No metaphor**: avoid metaphor and simile; convey facts only in plain, objective academic/engineering terms. In particular, drop the LLM cliché metaphors that substitute "lens" for a viewpoint/approach or analysis/exploration as "navigate" / "deep dive" / "journey," and use direct terms (viewpoint, approach, analysis, process).
 4. **Conclusion-first clarity**: present analysis results and action items concisely and clearly, covering only logical, precise facts.
 5. **Reproducibility**: preserve work outputs (code, documents, data) and important intermediate results **in an appropriate format/location so they are reproducible**. Do not lose previous versions by overwriting.
 6. **No embellishment**: fully avoid emotionally charged or extreme modifiers — "overwhelming," "weapon," "fatal," "impactful." Describe pros and cons only with quantitative figures and cause and effect.
 7. **No emojis**: do not use icons or emojis in any document or response.
-8. **Sentence-ending form**: in Korean writing, fully avoid "~입니다/습니다" and the 해요 style; even when prose is needed, end with a nominal ending ('-음', '-함', '-임') or a concise '-다'. This ending form does not apply to non-Korean (e.g., English) output; for that, apply the equivalent intent of §2 (dry style — concise, active, no filler).
+8. **Sentence-ending form**: in Korean writing, fully avoid "~입니다/습니다" and the 해요 style; even when prose is needed, end with a nominal ending ('-음', '-함', '-임') or a concise '-다'. This ending form does not apply to non-Korean (e.g., English) output; for that, apply the equivalent intent of §2 (unembellished style — concise, active, no filler).
 9. **Structured logging**: clearly separate observation (fact) from analysis (interpretation); compress file lists, conditions, etc. into Markdown tables rather than prose to maximize information density.
-10. **Abbreviations**: define an abbreviation in full on first use (`AR (asymmetry ratio)`). In trials/documents where an abbreviation recurs, list an abbreviation legend as a ul list under `### Conditions` (or at the top of the document), with **each abbreviation on its own row** — keeping a trial atom independently readable. If the same abbreviation spans multiple trials, **redefine it in each trial** (atom independence > DRY; a single session-wide definition is not enough). Exception: domain-standard units/symbols (µA, Hz, ms, SI) need no gloss.
-11. **LLM cliché ban**: when writing English documents/communication, drop LLM-characteristic cliché vocabulary/register (signature verbs, vague adjectives, cliché nouns, overused connectors, formulaic constructions) and replace with **concrete, active, direct** statements. Apply as a *principle*, not a fixed list — drop vague filler and overused register, but allow terms with a **precise technical meaning** (e.g., statistical significance, robustness). For connectors, drop only overuse and sentence-initial runs (a justified single use is fine); quotations, titles, and source wording are exempt; Korean dry logs are unaffected (the rule applies when English is mixed in). Declare project-specific technical homonym exceptions in `ProjectRule.md`, and add/remove/override vocabulary entries via the data overlay `0_Meta/LLMcliche.project.md` (base ⊕ overlay). Exclusions, exceptions, and before/after examples (non-exhaustive reference): `.elf/managed/LLMcliche.md`.
-12. **Source Reliability**: do not cite namu.wiki (나무위키) or other anonymous/collectively-edited wikis, or unattributed blogs/community posts, as the source of an answer or document. Even if they surface in search, do not trust them as-is — cross-check against **reliable sources** (authoritative institutions, academic societies, governments, scholarly/primary sources, official docs, primary reporting) and cite *that* source. Set `blocked_domains: ["namu.wiki"]` by default in WebSearch. Wikipedia is only a starting point — trace to the primary source. **For any web-grounded answer or document, list the verified reliable sources under `## 출처` (or `## Sources`).**
+10. **Abbreviations**: define an abbreviation in full on first use (`AR (asymmetry ratio)`). In trials/documents where an abbreviation recurs, list an abbreviation legend as a ul list under `### Conditions` (or at the top of the document), with **each abbreviation on its own row** — keeping each trial independently readable. If the same abbreviation spans multiple trials, **redefine it in each trial** (per-trial independence > DRY; a single session-wide definition is not enough). Exception: domain-standard units/symbols (µA, Hz, ms, SI) need no gloss.
+11. **LLM cliché ban**: when writing English documents/communication, drop LLM-characteristic cliché vocabulary/register (characteristic verbs, vague adjectives, cliché nouns, overused connectors, formulaic constructions) and replace with **concrete, active, direct** statements. Apply as a *principle*, not a fixed list — drop vague filler and overused register, but allow terms with a **precise technical meaning** (e.g., statistical significance, robustness). For connectors, drop only overuse and sentence-initial runs (a justified single use is fine); quotations, titles, and source wording are exempt; Korean logs are unaffected (the rule applies when English is mixed in). Declare project-specific technical homonym exceptions in `ProjectRule.md`, and add/remove/override vocabulary entries via the data overlay `0_Meta/LLMcliche.project.md` (base ⊕ overlay). Exclusions, exceptions, and before/after examples (non-exhaustive reference): `.elf/managed/LLMcliche.md`.
+12. **Source Reliability**: do not cite namu.wiki (나무위키) or other anonymous/collectively-edited wikis, or unattributed blogs/community posts, as the source of an answer or document. Even if they appear in search results, do not trust them as-is — cross-check against **reliable sources** (authoritative institutions, academic societies, governments, scholarly/primary sources, official docs, primary reporting) and cite *that* source. Set `blocked_domains: ["namu.wiki"]` by default in WebSearch. Wikipedia is not a primary source either — trace to the primary source. **For any web-grounded answer or document, list the verified reliable sources under `## 출처` (or `## Sources`).**

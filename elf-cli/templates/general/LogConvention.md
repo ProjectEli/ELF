@@ -8,13 +8,14 @@
 
 ## 1. 로그 파일 위치 및 명명 (PARA 워크플로우 적용)
 
-모든 작업·기획 진행은 PARA(Projects, Areas, Resources, Archives) 체계와 `.claudeignore` 룰을 따릅니다. 자세한 원칙은 `.elf/managed/AI_PARA_Framework.md`를 참조하십시오.
+모든 작업·기획 진행은 "위치가 곧 상태" 규칙을 따릅니다 — 폴더 루트 = 진행 중, `Wiki/` = 핵심 요약, `Archive/` = 종료 보관(읽기 허용), `Deprecated/` = 폐기(읽기 허용, 현재 근거 아님). 자세한 원칙은 `.elf/managed/AI_PARA_Framework.md`를 참조하십시오.
 
 | 항목 | 규칙 |
 |------|------|
-| **진행 중 (Active Sandbox)** | 새 세션(S{NNN}) 시작 시 **`2_Log/`의 최상단(Root)**에 `S{NNN}_log.md`를 생성하여 작성합니다. |
+| **진행 중 (폴더 루트)** | 새 세션(S{NNN}) 시작 시 **`2_Log/`의 최상단(Root)**에 `S{NNN}_log.md`를 생성하여 작성합니다. |
 | **결론 요약 (Wiki)** | 세션 완료 시 핵심 교훈·결과를 `Wiki/` 지식 문서에 한두 줄로 요약합니다. 반드시 원본 Archive 로그의 경로 링크를 포함합니다. |
-| **보관 (Archive)** | 세션 종료 시 원본 로그 파일을 **`Archive/` 폴더로 파일명 그대로** 이동시킵니다(접두 태그 불요, 폴더 위치가 곧 상태). |
+| **보관 (Archive)** | 세션 종료 시 원본 로그 파일을 **`Archive/` 폴더로 파일명 그대로** 이동시킵니다(접두 태그 불요, 폴더 위치가 곧 상태). 종료된 유효 기록이며 읽을 수 있습니다. |
+| **폐기 (Deprecated)** | 폐기된 세션 로그 전체·trial·절·블록은 `elf deprecate`로 `Deprecated/`에 옮기고 원 위치에 이동 표기 1줄을 남깁니다(§6). 읽을 수 있으나 현재 판단의 근거로 쓰지 않습니다. 폐기 여부는 사용자가 결정합니다. |
 | **금지 사항** | 아이디어·기획·방향성 논의는 `2_Log/`에 기록하지 말고 `1_Concept/`로 분리: 작은 snippet은 `13_Ideas/`, 다중 세션 계획은 `12_Planning/`. |
 
 ---
@@ -57,7 +58,7 @@
 - {가설/예상 대조 표 권장}
 
 ### 해석 (Interpretation)
-- 가설 적중 여부: {적중 / 탈락 / 부분 적중}
+- 예상 일치 정도: {일치 / 부분 일치 / 불일치}
 - {관찰된 팩트에 대한 해석}
 
 ### 교훈 (Lessons)
@@ -73,17 +74,17 @@
 ### 규칙
 - **작성 언어**: 로그는 `.elf/managed/EliRule.md`의 `PROJECT_LANG` 설정 언어로 작성하되, 명사형 종결어미('-음/함/임')를 사용(EliRule §3 문장 종결 방식). 기술 용어는 영어 병기 가능.
 - **Status**: `★ 활성`(현재 작업 중), `In Progress`(중간 단계), `Complete`(완료, 아카이빙 전).
-- **Handoff**: **교체식 상태 스냅샷** — 세미콜론(`;`) 3파트 `현재 유효한 결론·위치(누적의 fold, 예: "A 기각·B 채택"); 미완료; 참조(종합 trial 좌표)`. 갱신은 직전 문안에 추가가 아니라 **전체 재작성**. **경위·완료 타임라인 나열 금지** — 세션 개요는 Registry key finding, 상세는 trial 본문 소관. 1줄 유지. **`;`는 파트 경계 전용(예약)** — 파트 내 나열은 `·`/`,` 사용, 미완료·참조 파트는 라벨(`미완료`·`참조`)로 시작(도구는 `;` 직후 라벨 위치를 경계로 식별). 다음 세션·컨텍스트 재구성 시 `Read(offset=0, limit=9)`로 이 필드만 읽어 재정렬. 미완료를 남긴 채 종료하면 `elf session close`가 경고. 초기값 `-`.
-- **Registry key finding**: Handoff와 동일한 fold 원칙 — 경위 누적이 아니라 **현재 유효한 최종 결론값**으로 교체 갱신하고, 세션 종료 시 최종 fold로 재작성(§5.1).
+- **Handoff**: **교체식 상태 스냅샷** — 세미콜론(`;`) 3파트 `현재 유효한 결론·위치(누적 결과의 현재값, 예: "A 기각·B 채택"); 미완료; 참조(종합 trial 위치)`. 갱신은 직전 내용에 추가가 아니라 **전체 재작성**. **경위·완료 타임라인 나열 금지** — 세션 개요는 Registry key finding, 상세는 trial 본문 소관. 1줄 유지. **`;`는 파트 경계 전용(예약)** — 파트 내 나열은 `·`/`,` 사용, 미완료·참조 파트는 라벨(`미완료`·`참조`)로 시작(도구는 `;` 직후 라벨 위치를 경계로 식별). 다음 세션·컨텍스트 재구성 시 `Read(offset=0, limit=9)`로 이 필드만 읽어 작업 상태를 복원. 미완료를 남긴 채 종료하면 `elf session close`가 경고. 초기값 `-`.
+- **Registry key finding**: Handoff와 같은 교체 갱신 원칙 — 경위 누적이 아니라 **현재 유효한 최종 결론값**으로 교체 갱신하고, 세션 종료 시 최종 결론으로 재작성(§5.1).
 - **헤더 줄바꿈**: 인용구(`>`) 헤더 각 줄 끝의 `\`는 CommonMark **hard break** — strict 렌더러에서 줄 분리 보존. **삭제 금지**. 마지막 줄(Handoff)은 `\` 없음. 헤더 6줄 유지 → `limit=9` 빠른읽기 불변.
 - **trial 번호**: `t01`, `t02`, … 순서대로. 중복 금지.
 - **base-delta trial 전개**: 작동하는 산출물을 변경(파라미터·구성·내용·스타일)하여 재생성·개선할 때는 각 시도를 **독립 trial(`t{NN}`)**로 전개. 각 trial은 직전을 base로 `### 조건`에 **delta(변경점) + 이유**(직전 시도 문제)를 기재. **버전 보존**: 산출물·스크립트를 덮어쓰지 말고 버전 보존(중간본 유실 = 재현 불가). **생존 편향 차단**: "조용히 고치고 최종만 보고" 금지(AI 포함) — 각 버전을 그 turn에 trial로 기록(사후 회상 금지). 작동-전 디버그(산출물 생성 실패 → 성공)만 같은 trial `### 시행착오` 표.
-- **가설/예상 절 (Phase 1)**: trial 실행 **전** 작성. 명사형 list. 가설 5항 초과·사고 chain 5단계 초과 시 `1_Concept/12_Planning`으로 escape + cross-ref stub 1줄. 단락 서술 금지. 가능한 정량화.
+- **가설/예상 절 (Phase 1)**: trial 실행 **전** 작성. 명사형 list. 가설 5항 초과·사고 chain 5단계 초과 시 `1_Concept/12_Planning`으로 분리 이관 + cross-ref stub 1줄. 단락 서술 금지. 가능한 정량화.
 - **관찰 절 (Phase 2)**: trial 실행 **후** 작성. 가설/예상 대조 표 권장(2열: `예상` vs `관찰`).
-- **해석 절 1줄 규칙**: 첫 줄은 `가설 적중 여부: 적중 / 탈락 / 부분 적중` 중 택1. 둘째 줄부터 해석.
+- **해석 절 1줄 규칙**: 첫 줄은 `예상 일치 정도: 일치 / 부분 일치 / 불일치` 중 택1(v2.23 이전 로그의 `가설 적중 여부` 줄도 유효 — 소급 정책). 둘째 줄부터 해석.
 - **`## 다음 세션 후보` 절 — 비권장(off, v2.20~)**: 활용도가 낮아 작성 권장 중단. 후속 과제·가설은 세션 활성 중 **Handoff 미완료 파트** · close 시 **Registry key finding(fold)** · 다중 세션이면 `1_Concept/12_Planning/`에 기록. 하위호환: 기존 로그의 절은 유효(`elf trial new`는 절 앞에 삽입), `elf session close`는 절을 요구하지 않음. 구 템플릿 = `.elf/managed/templates/Archive/sessionTemplate_v1.md`.
-- **배경 절 (선택·조건부)**: `### 목표` 위 `### 배경 (Background)`은 **맥락이 목표를 초과할 때만** 분리(선행 세션 종합·다중 입력 등). 일반 trial은 목표가 흡수 — 상시 heading·빈 배경 금지. 경량(1-2줄).
-- **발의주체**: 작업·전환의 발의 주체를 배경(없으면 목표)에 1단어 명시(`사용자 제기` / `AI 발상`) — 사고흐름의 발의 출처 보존. 원본 쿼리 verbatim은 세션 JSONL이 보존하므로 로그엔 비병기(SSOT=trial 본문 흡수).
+- **배경 절 (선택·조건부)**: `### 목표` 위 `### 배경 (Background)`은 **맥락이 목표를 초과할 때만** 분리(선행 세션 종합·다중 입력 등). 일반 trial은 목표 절에 포함 — 상시 heading·빈 배경 금지. 경량(1-2줄).
+- **발의주체**: 작업·전환의 발의 주체를 배경(없으면 목표)에 1단어 명시(`사용자 제기` / `AI 발상`) — 작업 과정의 발의 출처 보존. 원본 쿼리 verbatim은 세션 JSONL이 보존하므로 로그엔 비병기(SSOT = trial 본문에 포함).
 - **버린 대안 위치(시점 기준)**: 진입 시 기각 경로 → `### 배경`(1줄, Phase1 사후편집 금지) / 범위 제외 → `### 조건` / 결과 기반 기각 → `### 해석`·`### 교훈`. 일괄 배경 삽입 금지(시점 역행).
 - **정본 우선(선례≠규범)**: 과거 세션/trial 로그는 참고 자료일 뿐 형식·규칙의 규범이 아님 — 규범 정본은 본 문서와 `.elf/managed/templates/`(sessionTemplate·trialTemplate). 선례가 정본과 다르면 정본을 따르고 그 일탈을 모방하지 말 것(발견 시 사용자에게 보고). trial 추가는 `elf trial new`(현행 정본 stub을 활성 로그에 append; CLI 미설치 시 trialTemplate 수동 복사) 권장.
 - **소급 정책**: 본 규칙 시행 시점 이전 trial/session은 backfill 강제 X. 현시점 이후 신규 작성분부터 적용.
@@ -113,7 +114,7 @@ Planning으로 분리된 내용은 원본 Log에 blockquote stub으로 표시:
 
 ## 5. 세션 생성 표준 절차 (Standard Operating Procedure — Phase 1 / Phase 2 분리)
 
-각 trial(t{NN}) 작성 시 두 단계로 분리하여 진행. **Phase 1과 Phase 2 사이에 멈춤점 필수** — 즉흥 실행 방지, 가설-관찰 사이클 closure 강제.
+각 trial(t{NN}) 작성 시 두 단계로 분리하여 진행. **Phase 1과 Phase 2 사이에 멈춤점 필수** — 즉흥 실행 방지, 가설-관찰 사이클 완결 강제.
 
 **Phase 1 — 실행 전 (pre-execution, 멈춤점)**
 - [ ] trial stub 생성: `elf trial new [제목]` 권장(현행 trialTemplate append; CLI 미설치 시 `.elf/managed/templates/trialTemplate.md` 수동 복사) → (선택) `### 배경 (Background)`(맥락>목표 시: 의도+발의주체) + `### 목표 (Goal)` + `### 조건 (Conditions)`(parameter·제약 확정)
@@ -125,7 +126,7 @@ Planning으로 분리된 내용은 원본 Log에 blockquote stub으로 표시:
 - [ ] trial 실행
 - [ ] `### 관찰 (Observation)` (팩트 + 가설/예상 대조 표)
 - [ ] **반복 개선 판정**: 작동하는 산출물을 변경하여 재생성하면 → 다음 trial(delta)로 전개(버전 보존 §3 + `### 조건`에 delta·이유). 외형/내용 변경은 delta-trial; 무변경 수정(오타·경로)만 `### 시행착오` 표.
-- [ ] `### 해석 (Interpretation)` (첫 줄: 가설 적중 여부) + `### 교훈 (Lessons)` + `### 생성 파일 (Files)`
+- [ ] `### 해석 (Interpretation)` (첫 줄: 예상 일치 정도) + `### 교훈 (Lessons)` + `### 생성 파일 (Files)`
 
 ### 5.1 Session 종료 표준 절차
 세션 Status를 `Complete`로 전환 직전:
@@ -133,4 +134,24 @@ Planning으로 분리된 내용은 원본 Log에 blockquote stub으로 표시:
 - [ ] Handoff 정리: 미완료 파트 소거(완료, 또는 Registry key finding·`12_Planning/` 문서로 이관) — 잔존 시 `elf session close`가 경고
 - [ ] `Wiki/`에 핵심 결론 요약 + Archive 경로 링크 추가
 - [ ] `S{NNN}_log.md` → `Archive/`로 파일명 그대로 이동
-- [ ] `Session_Registry.tsv` 상태 갱신 + key finding을 최종 결론(fold)으로 재작성
+- [ ] `Session_Registry.tsv` 상태 갱신 + key finding을 최종 결론으로 재작성
+
+---
+
+## 6. 폐기 (Deprecated)
+
+폐기 = 과거에 시도했으나 더 이상 현재 판단의 근거로 쓰지 않는 기록. 삭제하지 않고 같은 폴더의 `Deprecated/`로 옮겨 읽을 수 있게 둠. 폐기 여부는 사용자가 결정하고, 에이전트는 후보와 사유를 제시한 뒤 지시·승인이 있을 때 `elf deprecate`로 실행함(사용법: `elf deprecate --help`, CLI 문서).
+
+| 단위 | 옮기는 범위 | `Deprecated/` 쪽 | 원 위치 |
+|------|-------------|------------------|---------|
+| 세션 로그 전체 | 파일 전체 | `2_Log/Deprecated/S###_log.md` — 맨 앞 YAML header(`deprecated: 날짜` · `source` · `replaced_by` · `reason` · `status_before`), 헤더 `Status: Deprecated` | 파일 없음. Registry 행은 Status `Deprecated`·경로 열 `Deprecated/S###_log.md` |
+| trial | 헤딩 아래 본문 전체 | `2_Log/Deprecated/S###_log.partial.md`에 블록 추가 | `## tNN:` 헤딩 + 이동 표기 1줄(번호 보존) |
+| 절 | `### 절` 헤딩 포함 | 같은 부분 파일 | 이동 표기 1줄(헤딩 없음) |
+| 표시 블록 · 줄 범위 | `<!-- deprecate:begin -->` … `<!-- deprecate:end -->` 사이 / 지정한 줄 | 같은 부분 파일 | 이동 표기 1줄 |
+| 계획 문서 | 파일 전체 / 표시 블록 / 줄 범위 | `1_Concept/12_Planning/Deprecated/` | 같음 |
+
+- 부분 파일: 맨 앞 YAML header `deprecated: partial` + `source`, 블록마다 `## tNN:` 헤딩 사본 + 표기 줄 `> **Deprecated**: 날짜 · ID · 단위 [· replaced_by: …] [· reason: …]` + 원문(`<!-- deprecated:begin ID -->` … `<!-- deprecated:end ID -->` 사이, 상대 링크는 폴더 기준 재계산). ID = `S###-D01`처럼 문서별 일련번호.
+- 이동 표기 줄: `> **Deprecated** → [Deprecated/S###_log.partial.md](Deprecated/S###_log.partial.md) (ID · 단위 · 날짜 [· replaced_by: …])` — `elf session close`가 Archive 기준으로 링크를 재계산함.
+- 산출물(스크립트·데이터·figure)은 제자리. Handoff·Registry key finding·다른 문서의 참조는 도구가 고치지 않고 `review:` 줄로 출력함 — 에이전트가 처리.
+- 복원: `elf deprecate --restore <ID>`(블록) 또는 `--restore S###`(전체). 목록·대조: `elf deprecate list`.
+- `elf validate`는 `Deprecated/`의 로그를 번호·Registry 정합 검사에 포함함. 구조·링크 검사는 하지 않음.

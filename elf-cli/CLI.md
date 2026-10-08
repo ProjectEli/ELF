@@ -4,7 +4,7 @@
 
 `elf` is the command-line tool for ELF (Eli's Lab Framework): it scaffolds research projects, keeps framework files up to date, and diagnoses drift. It ships as a self-contained single binary — no Node or Python runtime required.
 
-> Framework philosophy and folder structure: [README.md](../README.md). This document is the command reference.
+> Framework design principles and folder structure: [README.md](../README.md). This document is the command reference.
 
 ## Install
 
@@ -34,6 +34,7 @@ Installs the binary to `~/.elf/bin` and adds it to PATH. Open a new shell and ve
 | `elf session close [S###]` | Close the active session → archive + update registry |
 | `elf session fix-headers` | Repair session-log header rendering |
 | `elf trial new [title]` | Append the canonical trial stub to the active session log |
+| `elf deprecate <target> …` | Move all or part of a session log or planning document to `Deprecated/` · `--restore` · `list` |
 | `elf gallery` | Generate the figure index `_gallery.md` from `6_Exp/64_Viz/` |
 | `elf autoread [sub]` | Governance digest after a context reconstruction — print it (any harness); Claude Code hooks inject it automatically (default-on) |
 | `elf tsa <sub>` | Research-record timestamping, **opt-in**: per-commit hash manifest + RFC 3161 token |
@@ -83,9 +84,9 @@ elf init my_questions --preset qa --categories Daily,ITGeneral   # pre-create ca
 > `elf doctor` reports i18n status. English (`en`) is provided today; other languages fall
 > back to Korean.
 
-> **`qa` preset (experimental).** Scaffolds a *question-archive* project type instead of the research hierarchy: a root `AGENTS.md` (operational rules) + `CLAUDE.md` (loader pointer), `templates/bundle_template.md`, and `.elf/`. **No categories are pre-created by default** — create them on demand per `CLAUDE.md`, or pre-create with `--categories a,b,c` (each gets an `archive/`). Q&A is captured as semantic **bundles** (not sessions/trials/figures). Shares the `.elf/` control plane with its own manifest (`manifest.qa.json`), so `elf update` propagates the convention. Isolated from the research preset; subject to change while it is polished.
+> **`qa` preset (experimental).** Scaffolds a *question-archive* project type instead of the research hierarchy: a root `AGENTS.md` (operational rules) + `CLAUDE.md` (loader pointer), `templates/bundle_template.md`, and `.elf/`. **No categories are pre-created by default** — create them on demand per `CLAUDE.md`, or pre-create with `--categories a,b,c` (each gets an `archive/`). Q&A is captured as semantic **bundles** (not sessions/trials/figures). Shares the `.elf/` control area with its own manifest (`manifest.qa.json`), so `elf update` propagates the convention. Separated from the research preset; subject to change while it is being refined.
 
-> **`general` preset (experimental).** Scaffolds a *goal-driven non-research* project (tool development, proposal, learning, build) — session/trial base-delta logging like the research preset, minus the academic layer (no `6_Exp`/`7_Paper`/figures/sim/literature). Shares the neutral managed files with the research preset and adds general-specific `EliRule`/`LogConvention` via its own manifest (`manifest.general.json`). Trial format defaults to the 5-section template; override per project in `ProjectRule.md`. Isolated from research; subject to change while polished.
+> **`general` preset (experimental).** Scaffolds a *goal-driven non-research* project (tool development, proposal, learning, build) — session/trial base-delta logging like the research preset, minus the academic layer (no `6_Exp`/`7_Paper`/figures/sim/literature). Shares the neutral managed files with the research preset and adds general-specific `EliRule`/`LogConvention` via its own manifest (`manifest.general.json`). Trial format defaults to the 5-section template; override per project in `ProjectRule.md`. Separated from research; subject to change while being refined.
 
 ### `elf update`
 
@@ -114,7 +115,7 @@ elf update            # apply (safe by default)
 ```
 
 > **Pre-2.15 projects**: `elf update` does not read or migrate the legacy layout (rules in
-> `0_Meta/`, stubs in a root `templates/`). When leftovers are detected it warns, names
+> `0_Meta/`, stubs in a root `templates/`). When legacy rule files remain it warns, names
 > them, and leaves them untouched. Upgrade path: install **v2.15.1** from the Releases
 > page → `elf update` → `elf migrate` there → then return to the latest CLI. Details:
 > the 2.16.0 entry in [CHANGELOG.md](../CHANGELOG.md).
@@ -127,12 +128,12 @@ Diagnose managed-file state (read-only). Reports each file as `ok` / `outdated` 
 
 ### `elf validate [--check] [--strict]`
 
-Check session bookkeeping consistency (read-only): registry ↔ log files (unregistered logs / phantom rows), session numbering (duplicates / gaps), multiple active sessions, broken relative `.md` cross-references inside logs, **figure-embed gaps** (a figure exists in `6_Exp/64_Viz/S###/` but is not inline-embedded in that session's log body — a table path is *not* an embed), and **trial structure** in active logs (non-canonical `###` headings, section order, the `가설 적중 여부` first line of `### 해석`, and Phase-1 sections missing while `### 관찰` exists). Structure checks skip `Archive/` (the convention applies to new writing, not backfill) and only cover the stable core of the format — content quality is not machine-checked.
+Check session-record consistency (read-only): registry ↔ log files (unregistered logs / registry rows with no log file — across `2_Log/`, `Archive/`, and `Deprecated/`), session numbering (duplicates / gaps), multiple active sessions, broken relative `.md` cross-references inside logs, **figure-embed gaps** (a figure exists in `6_Exp/64_Viz/S###/` but is not inline-embedded in that session's log body — a table path is *not* an embed; embeds in blocks moved to `Deprecated/S###_log.partial.md` count for that session), and **trial structure** in active logs (non-canonical `###` headings, section order, the `예상 일치 정도` (prediction match) first line of `### 해석` (the older `가설 적중 여부` line is still accepted), and Phase-1 sections missing while `### 관찰` exists). Structure checks skip `Archive/` (the convention applies to new writing, not backfill) and only cover the stable core of the format — content quality is not machine-checked.
 
 - **issues** (registry/log mismatch, duplicate number, broken cross-ref) vs **warnings** (numbering gap, multiple active, figure-embed gap, trial structure) — only issues are gated.
 - `--check`: exit **4** if there are any issues — pre-commit/CI gate.
 - `--strict`: promote figure-embed gaps and trial-structure findings from warnings to issues (so `--check` gates on them).
-- Exclude an intentional non-embed (SI/deprecated figure) with a `<!-- noembed: filename.png -->` comment in the log.
+- Exclude an intentional non-embed (SI, or a figure kept out of the body on purpose) with a `<!-- noembed: filename.png -->` comment in the log.
 - If the registry itself cannot be parsed, `elf` exits **5** (escalation) — it distinguishes "found problems" from "cannot check".
 
 ```bash
@@ -155,7 +156,7 @@ The title must not contain a tab character (it would break the TSV registry). If
 
 ### `elf session close [S###]`
 
-Close a session: set its header `Status` to `Complete`, move the log to `2_Log/Archive/` (filename unchanged — the folder *is* the status), and update its registry row. With no id, the single active session is chosen automatically; if several are open, `elf` lists them and asks you to name one.
+Close a session: set its header `Status` to `Complete`, move the log to `2_Log/Archive/` (filename unchanged — the folder *is* the status), update its registry row, and recompute relative links inside the log (links starting with `../` and links starting with `Wiki/`, `Archive/`, or `Deprecated/`). With no id, the single active session is chosen automatically; if several are open, `elf` lists them and asks you to name one.
 
 Before archiving, close also runs `elf validate` and reports the findings **scoped to the session being closed** (missing figure embeds, trial-structure warnings) — non-blocking, but this is the last check before the log leaves the active-structure scope by moving to `Archive/`.
 
@@ -168,7 +169,7 @@ elf session close             # close the one active session
 elf session close S007        # close a specific session
 ```
 
-The old `## 다음 세션 후보` (next-session) gate was removed in 2.20 — close no longer refuses on that section (`--force` is accepted as a no-op). If the header `Handoff` still lists pending items, a **non-blocking warning** is printed — resolve them or record them in the registry key finding / a planning document; a closing note also reminds you to rewrite the registry key finding as the session's final conclusion (fold). A parse-broken registry exits **5** (escalation).
+The old `## 다음 세션 후보` (next-session) gate was removed in 2.20 — close no longer refuses on that section (`--force` is accepted as a no-op). If the header `Handoff` still lists pending items, a **non-blocking warning** is printed — resolve them or record them in the registry key finding / a planning document; a closing note also reminds you to rewrite the registry key finding as the session's final conclusion. A parse-broken registry exits **5** (escalation).
 
 ### `elf session fix-headers [--dry-run]`
 
@@ -189,6 +190,39 @@ elf trial new --session S007          # several sessions open — name one
 
 Why a command: agents (and humans) imitate whatever the previous trial looked like. `elf trial new` keeps the imitation target canonical — the stub always comes from the *installed* template version, so a drifted precedent never propagates. Errors: no open session → exit 1 (start one with `elf session new`); several open without `--session` → exit 1 with the list.
 
+### `elf deprecate <target> [unit] [options]` · `--restore <ID>` · `list`
+
+Move all or part of a session log or planning document into the **deprecated** state — not deleted, but moved to `Deprecated/` in the same folder. Such records may be read but are not a basis for current decisions. The user decides what to deprecate; the agent runs the command after an instruction or approval (`AGENTS.md`). Outputs (scripts, data, figures) stay where they are; only the document moves.
+
+| Target · unit | Action |
+|---|---|
+| `<target>` = `S###` · `P###` · project-relative path | Without a unit option, the **whole file** → `<base folder>/Deprecated/<same file name>`. A YAML header is added at the top (`deprecated`, `source`, `replaced_by`, `reason`, `status_before`) and the header `Status` becomes `Deprecated`. For session logs the registry row's Status and path columns are updated too |
+| `--trial t03` | Moves the trial body as a block into `Deprecated/S###_log.partial.md`; the `## t03:` heading plus one move-marker line stay behind (number preserved) |
+| `--trial t03 --section 해석` | Moves the section including its heading; one move-marker line stays behind |
+| `--marked` | Every block wrapped in `<!-- deprecate:begin -->` … `<!-- deprecate:end -->` (the marker lines are removed) |
+| `--lines A-B --expect "<text of line A>"` | A line range (1-based). Refused if line A differs |
+| `--replaced-by <text>` · `--reason <text>` | Recorded in the marker line and the YAML header |
+| `--dry-run` | Print only, write nothing |
+| `--restore <ID>` | Return a block (`S012-D01`) or a document (`S012`, `P007`, a path) to its original position. After restoring, validate and link checks for that document are printed as warnings (never refused) |
+| `list` | Walks `2_Log/Deprecated/` and `1_Concept/12_Planning/Deprecated/`, lists documents and blocks, and reports marker/block mismatches |
+
+- Partial file: per block, a copy of the `## tNN:` heading + one `> **Deprecated**: date · ID · unit …` line + the original text (`<!-- deprecated:begin ID -->` … `<!-- deprecated:end ID -->`). Relative links in the moved content (figures included) are recomputed for the folder, so previews still render. ID = a per-document sequence such as `S012-D01`.
+- Move marker at the original position: `> **Deprecated** → [Deprecated/S012_log.partial.md](Deprecated/S012_log.partial.md) (S012-D01 · t03 · 2026-10-08 · replaced_by: S015 t02)`. `elf session close` recomputes this link for the Archive location.
+- Refused (exit 3, nothing written): a path outside the scope (session logs and planning documents only) · an already-deprecated document · a block containing a trial heading · unbalanced markers · an `--expect` mismatch · a move that would introduce new trial-structure findings in a session log (e.g., deprecating only the `가설` section while `관찰` remains). A missing target or ID exits 1, a usage error exits 2, an unparseable registry exits 5.
+- Output: items the command does not modify are printed as `review:` lines — mentions in the origin log's Handoff, the registry key finding, references such as `S012 t03` in other documents, figure embeds and output paths inside the moved content. A link in the moved content whose target does not exist prints a `warn:`.
+
+```bash
+elf deprecate S012 --trial t03 --replaced-by "S015 t02" --reason "wrong measurement condition"
+# → deprecated S012-D01 (t03) → 2_Log/Deprecated/S012_log.partial.md
+# → review: handoff: 2_Log/S012_log.md:8 mentions t03
+# → review: ref: 2_Log/Wiki/Filter_Notes.md:3 refers to S012 t03
+# → review: figure: ../6_Exp/64_Viz/S012/S012_fig2.png is embedded in the deprecated content (file left in place)
+elf deprecate S014 --reason "wrong setup"         # whole session → 2_Log/Deprecated/S014_log.md, registry Status Deprecated
+elf deprecate P007 --marked --reason "scope cut"  # marked block in a planning document
+elf deprecate --restore S012-D01                  # restore the block
+elf deprecate list
+```
+
 ### `elf gallery`
 
 Scan `6_Exp/64_Viz/` and regenerate `6_Exp/64_Viz/_gallery.md` — a figure index grouped by session subdirectory. Each `.png` / `.jpg` / `.svg` becomes an embedded image link. Sessions with no images are skipped. If `6_Exp/64_Viz/` does not exist, it prints a notice and exits **0** (nothing to do).
@@ -200,9 +234,9 @@ elf gallery
 
 ### `elf autoread [subcommand]`
 
-Governance re-injection after a context reconstruction. When an AI coding session's context is compacted, resumed, or cleared, the agent continues from a lossy summary and the project rules quietly drop out of view. `elf autoread` prints a **digest** that puts them back: the standing-duties section of `AGENTS.md`, the active session headers (Handoff, truncated), the current `elf validate` counts, and a closing instruction to act on the full rule texts rather than the summary. With no subcommand it prints the digest to stdout — usable from any agent harness (paste or pipe it into the next prompt).
+Governance re-injection after a context reconstruction. When an AI coding session's context is compacted, resumed, or cleared, the agent continues from a lossy summary and the project rules are no longer in the context. `elf autoread` prints a **digest** that puts them back: the standing-duties section of `AGENTS.md`, the active session headers (Handoff, truncated), the current `elf validate` counts, and a closing instruction to act on the full rule texts rather than the summary. With no subcommand it prints the digest to stdout — usable from any agent harness (paste or pipe it into the next prompt).
 
-**Claude Code integration (automatic).** `elf init` and `elf update` keep two thin hook entries in `.claude/settings.json` (the file is untracked; the merge preserves everything else in it): a `SessionStart` hook records a per-session marker under `.elf/runtime/` (nothing is injected at that point), and a `UserPromptSubmit` hook injects the digest on the next prompt. Until that prompt arrives, every `elf` command prints a one-line reminder banner as a fallback channel. Hook paths are strictly fail-open — any internal error exits 0 with no output and never blocks the session. The managed block of `.gitignore` excludes `.elf/runtime/`.
+**Claude Code integration (automatic).** `elf init` and `elf update` keep two minimal hook entries in `.claude/settings.json` (the file is untracked; the merge preserves everything else in it): a `SessionStart` hook records a per-session marker under `.elf/runtime/` (nothing is injected at that point), and a `UserPromptSubmit` hook injects the digest on the next prompt. Until that prompt arrives, every `elf` command prints a one-line reminder banner as a fallback channel. Hook paths are strictly fail-open — any internal error exits 0 with no output and never blocks the session. The managed block of `.gitignore` excludes `.elf/runtime/`.
 
 | Subcommand | Effect |
 |---|---|
@@ -230,11 +264,11 @@ Research-record timestamping — proves *what* existed *when*. Once enabled, eve
 
 | Subcommand | Effect |
 |---|---|
-| `enable` | Idempotent setup: `"tsa": true` in `.elf/config.json`, creates `0_Meta/tsa/`, installs both hooks **non-destructively** (a foreign hook is left untouched, with the exact line to add manually), prints GPG guidance, then takes a **baseline seal** (records all tracked files + stamps). Retroactive proof of the past is impossible by design — the baseline proves "this existed by the day I enabled" |
-| `disable` | Config off + removes only marker-owned hooks (a foreign hook survives). **Evidence under `0_Meta/tsa/` is never deleted** — re-enabling resumes on top of it |
+| `enable` | Idempotent setup: `"tsa": true` in `.elf/config.json`, creates `0_Meta/tsa/`, installs both hooks **non-destructively** (a foreign hook is left untouched, with the exact line to add manually), prints GPG guidance, then takes a **baseline record** (records all tracked files + stamps). Retroactive proof of the past is impossible by design — the baseline proves "this existed by the day I enabled" |
+| `disable` | Config off + removes only marker-owned hooks (a foreign hook survives). **Evidence under `0_Meta/tsa/` is never deleted** — re-enabling appends to the existing evidence |
 | `status` | Enabled state, hook ownership, evidence counts, unstamped manifests (read-only) |
-| `record --staged\|--all [--quiet]` | Hash staged files (hook path) or all tracked files (baseline) into today's manifest — raw-byte sha256, duplicates skipped; the manifest itself is auto-staged so it rides the commit |
-| `stamp [--backfill] [--quiet]` | Request tokens for unstamped manifests (default: today only; `--backfill` = all — catches up after offline commits). A non-granted response is discarded, never saved as evidence |
+| `record --staged\|--all [--quiet]` | Hash staged files (hook path) or all tracked files (baseline) into today's manifest — raw-byte sha256, duplicates skipped; the manifest itself is auto-staged so it is included in the same commit |
+| `stamp [--backfill] [--quiet]` | Request tokens for unstamped manifests (default: today only; `--backfill` = all — stamps manifests left unstamped by offline commits). A non-granted response is discarded, never saved as evidence |
 | `verify <file>` | Look up the file's current sha256 across all manifests — "when did this exact content exist?" |
 | `verify --date <D>` | Lightweight manifest↔token check (granted status, messageImprint match, genTime), then prints the `openssl ts -verify` command for full signature-chain verification (rare path — disputes/audits) |
 
@@ -259,8 +293,9 @@ Aggregate health check (read-only). Reports each item as `OK` / `WARN` / `INFO`:
 - **environment** — `elf` version, install receipt presence (self-update availability)
 - **project** (if inside one) — `.elf/` stamp parses, version matches the CLI, baseline present
 - **managed files** — a `elf status` summary (pending / conflicts)
+- **`.claudeignore`** — if present at the root, an Info line (it has no effect in Claude Code and is not ELF-managed since v2.24 — safe to delete)
 - **overlay** — active data overlays (`0_Meta/<name>.project.md`), removal entries missing a reason, overlays without an overlayable base
-- **agent entry** — `CLAUDE.md` loads `@AGENTS.md` (warns when the pointer line is missing — Claude Code would not load the rules), flags heavy extra content in the pointer and pending `AGENTS.md.elf-new`/`CLAUDE.md.elf-new` files
+- **agent entry** — `CLAUDE.md` loads `@AGENTS.md` (warns when the pointer line is missing — Claude Code would not load the rules), flags excess content in the pointer and pending `AGENTS.md.elf-new`/`CLAUDE.md.elf-new` files
 - **tsa** (only when enabled) — unstamped manifests, GPG signing state, `openssl` availability (needed only for full chain verification)
 - **git** — repository and `pre-commit` hook presence
 
@@ -283,7 +318,7 @@ elf doctor
 
 ## Escalation (exit 5)
 
-When a deterministic operation hits something it must not auto-repair (for example, a malformed `Session_Registry.tsv`), `elf` does **not** guess. It writes a structured report to stderr and exits 5:
+When a deterministic operation encounters something it must not auto-repair (for example, a malformed `Session_Registry.tsv`), `elf` does **not** guess. It writes a structured report to stderr and exits 5:
 
 ```
 [elf] escalation: 2_Log/Wiki/Session_Registry.tsv (line 7)
@@ -301,7 +336,7 @@ The `agent-action:` line is a stable marker. An LLM agent driving `elf` can dete
 
 | Tier | Files | On update |
 |------|-------|-----------|
-| **Managed** | `.elf/managed/` (`EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`, companions); root `.claudeignore`, `.editorconfig`, `AGENTS.md` | Replaced with the new version. If you edited one, it is **kept** and the new version is written as `<file>.elf-new` (use `--force` to overwrite) |
+| **Managed** | `.elf/managed/` (`EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`, companions); root `.editorconfig`, `AGENTS.md` | Replaced with the new version. If you edited one, it is **kept** and the new version is written as `<file>.elf-new` (use `--force` to overwrite) |
 | **Yours** | `0_Meta/` (`ProjectRule.md`, `<name>.project.md` overlays), `Session_Registry.tsv`, `README.md`, all research data and logs | **Never touched** |
 | **Hybrid** | `.gitignore` | Only the marker block (`# >>> ELF managed >>>` … `# <<< ELF managed <<<`) is replaced; your rules outside the block are preserved |
 | **Pointer** | `CLAUDE.md` | Created if missing; if present it is **never modified** (no `.elf-new` either) — an existing hand-written `CLAUDE.md` stays exactly yours. Add a `@AGENTS.md` line yourself to load the ELF rules; `elf doctor` checks the link |

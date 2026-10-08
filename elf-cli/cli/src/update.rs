@@ -46,7 +46,7 @@ impl std::fmt::Display for UpdateError {
             UpdateError::BadStamp(s) => write!(f, "stamp(.elf/manifest.json): {s}"),
             UpdateError::PresetMismatch { config, stamp } => write!(
                 f,
-                "preset mismatch: .elf/config.json says \"{config}\" but the stamp (.elf/manifest.json) is a {stamp} manifest — refusing to plan against the wrong template set. Fix \"preset\" in .elf/config.json (expected \"{stamp}\") and re-run"
+                "preset mismatch: .elf/config.json declares \"{config}\" but the stamp (.elf/manifest.json) is a {stamp} manifest — refusing to plan against the wrong template set. Fix \"preset\" in .elf/config.json (expected \"{stamp}\") and re-run"
             ),
             UpdateError::Internal(s) => write!(
                 f,
@@ -107,7 +107,7 @@ pub(crate) fn read_config_preset(root: &Path) -> Option<String> {
         .and_then(|v| v.get("preset").and_then(|p| p.as_str()).map(String::from))
 }
 
-/// 계보 해석의 출처 — 보고 문구·self-heal 여부 분기용.
+/// 계보 해석의 출처 — 보고 문구·자동 복구 여부 분기용.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum KindSource {
     /// config `preset` 명시 (시그니처 대조 통과)
@@ -118,7 +118,7 @@ pub(crate) enum KindSource {
 
 /// 프로젝트 계보 해석 (S026 t02) — 판정 전부 결정적(no-LLM: 문자열 매핑 + enum 비교):
 /// - config `preset` 있음 → `kind_from_preset` 매핑 후 stamp 시그니처와 대조. 모순 = `PresetMismatch`
-///   (오선언·config 오복사 상태에서 이종 manifest로 계획하는 사고를 입구에서 차단).
+///   (오선언·config 오복사 상태에서 이종 manifest로 계획하는 사고를 진입 시점에 거부).
 /// - 없음(pre-S026 init) → stamp `src_signature()` 추론 (기존 프로젝트 무마이그레이션 동작).
 pub(crate) fn resolve_kind(
     root: &Path,
@@ -137,9 +137,9 @@ pub(crate) fn resolve_kind(
     }
 }
 
-/// 추론된 preset을 config.json에 영속화(self-heal — 다음 실행부터 config 직독).
+/// 추론된 preset을 config.json에 영속화(자동 복구 — 다음 실행부터 config 직독).
 /// 실패는 무해(다음 실행이 재추론)라 조용히 무시. dry-run에서는 호출하지 않는다.
-fn heal_config_preset(root: &Path, kind: manifest::Kind) {
+fn repair_config_preset(root: &Path, kind: manifest::Kind) {
     let p = root.join(".elf").join("config.json");
     let Ok(text) = fs::read_to_string(&p) else { return };
     let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&text) else { return };
@@ -174,7 +174,7 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
                     "preset: {kind} (inferred from stamp — would record to .elf/config.json)"
                 ));
             } else {
-                heal_config_preset(root, kind);
+                repair_config_preset(root, kind);
                 report.note(format!(
                     "preset: {kind} (inferred from stamp — recorded to .elf/config.json)"
                 ));
@@ -449,7 +449,7 @@ pub(crate) fn read_baseline_block(root: &Path, dest: &str) -> Option<String> {
 
 /// pre-v2.15 legacy 잔재 감지 — **안내만**(비이전·비접촉, 차단하지 않음). (S024 t09)
 /// v2.16에서 legacy 레이아웃 지원이 제거되어, 미이전 프로젝트에 update를 실행하면
-/// `.elf/managed/`에 새 사본이 생기고 구 파일은 고아로 남는다. managed 규칙명이
+/// `.elf/managed/`에 새 사본이 생기고 구 파일은 참조 없는 파일로 남는다. managed 규칙명이
 /// `0_Meta/`에 남아 있으면 그 상태이므로 2단계 업그레이드 경로를 경고로 안내한다.
 /// (감지 대상 = 규칙 5종 고정명 — `0_Meta/`는 사용자 영역이라 동명 파일은 잔재 외 비개연.)
 fn warn_if_legacy_leftovers(root: &Path, report: &mut UpdateReport) {
@@ -467,7 +467,7 @@ fn warn_if_legacy_leftovers(root: &Path, report: &mut UpdateReport) {
         .collect();
     if !leftovers.is_empty() {
         report.warn(format!(
-            "pre-2.15 leftovers detected ({}) — this CLI no longer reads or migrates the legacy layout. Upgrade path: install v2.15.1 from the Releases page, run `elf update` then `elf migrate` there, then return to the latest CLI (see CHANGELOG 2.16.0). These files are left untouched.",
+            "pre-2.15 legacy rule files remain ({}) — this CLI no longer reads or migrates the legacy layout. Upgrade path: install v2.15.1 from the Releases page, run `elf update` then `elf migrate` there, then return to the latest CLI (see CHANGELOG 2.16.0). These files are left untouched.",
             leftovers.join(", ")
         ));
     }

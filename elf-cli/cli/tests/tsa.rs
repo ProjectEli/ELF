@@ -250,7 +250,7 @@ fn status_reports_tsa_line_only_when_enabled() {
 fn record_captures_non_ascii_filenames_despite_quotepath() {
     // S029 회귀: git 기본 core.quotepath=true는 non-ASCII 경로를 octal-escape+인용 출력 →
     // 구현이 인용 문자열을 그대로 join하면 fs::read 실패로 조용히 skip(무결성 gap).
-    // Mastication 산 증거: baseline record가 한글파일 32건 미기록.
+    // Mastication 실측: baseline record가 한글파일 32건 미기록.
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
     tsa::run_enable(&root).unwrap();

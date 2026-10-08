@@ -32,7 +32,8 @@ S012  목표: 파장별 SNR 비교
 | delta | 직전 trial에서 바꾼 것 + 바꾼 이유 |
 | Handoff | 세션 헤더의 현재 상태 1줄 — "유효 결론; 미완료; 참조"를 덮어쓰기로 갱신 |
 | Registry | `2_Log/Wiki/Session_Registry.tsv` — 세션마다 1행(상태·결론 1줄) |
-| Archive | 마감된 로그가 가는 곳(`2_Log/Archive/`). 에이전트의 자율 탐색에서 제외 |
+| Archive | 마감된 로그가 가는 곳(`2_Log/Archive/`). 종료된 유효 기록이며 에이전트도 읽을 수 있습니다 |
+| Deprecated | 폐기한 로그·블록이 가는 곳(`2_Log/Deprecated/`). 읽을 수 있지만 현재 판단의 근거로는 쓰지 않습니다. `elf deprecate`로 옮기고 되돌립니다 |
 | validate | `elf validate` — 로그·Registry·번호·cross-ref·figure embed·절 구조의 정합 검사 |
 
 ## 핵심 원칙
@@ -41,7 +42,7 @@ S012  목표: 파장별 SNR 비교
 |---|---|
 | **Base-Delta** | 기준선은 한 번, 이후엔 바뀐 것만 기록합니다. 변경 하나가 trial, 목표 하나가 session — trial이 session으로, session이 프로젝트의 기록으로 쌓입니다. |
 | **가설이 먼저** | 실행 전에 가설·예상을 적고 멈춥니다. 그래서 변경 하나가 실험 하나가 됩니다. |
-| **사람은 판단, 에이전트는 기록, 도구는 검증** | 같은 형식으로 쓰기 때문에 서로의 작업을 이어받고, `elf validate`가 빠진 것을 잡습니다. |
+| **사람은 판단, 에이전트는 기록, 도구는 검증** | 같은 형식으로 쓰기 때문에 서로의 작업을 이어받고, `elf validate`가 누락을 검출합니다. |
 | **전부 로컬에** | 마크다운과 폴더뿐입니다. 서버도 계정도 없이 git으로 관리하고, ELF 없이도 읽을 수 있습니다. 보안을 위해 에이전트의 공개 링크 게시는 원칙적으로 금지됩니다. |
 
 ## 실사용 장면
@@ -49,7 +50,7 @@ S012  목표: 파장별 SNR 비교
 | 장면 | 말하는 것 | 기록되는 것 |
 |---|---|---|
 | 시작 | "새 세션 생성. 목표는 파장별 SNR 비교." | `elf session new` → 헤더·Registry 행. t01 가설·예상 작성 후 **멈춤** — 사람이 확인하고 실행 |
-| 변경 | "광자 수 1e9로 올려서 다시." | t02: base = t01, delta + 이유 → 가설 → 실행 → figure가 관찰 절에 → 적중 판정 |
+| 변경 | "광자 수 1e9로 올려서 다시." | t02: base = t01, delta + 이유 → 가설 → 실행 → figure가 관찰 절에 → 예상 일치 판정 |
 | 재개 | (한 달 뒤, 또는 컨텍스트 초기화 뒤) "SNR 비교 어디까지 했지?" | Handoff와 Registry 결론에서 이어감 — 기억이 아니라 기록에서 |
 | 추적 | "Fig 3의 810 nm 결론, 근거가 뭐지?" | S012 t01→t03 연쇄 + 스크립트·데이터 경로 그대로 제시 |
 | 논문 | "지금까지 결론으로 원고 outline." | Registry 결론 → `7_Paper/72_Drafts` — 누적 → 논문 |
@@ -75,7 +76,7 @@ elf init MyProject --preset experimental   # 6_Exp + 7_Paper. 이름 없이 실�
 cd MyProject
 ```
 
-`[elf] created MyProject (ELF v2.23.0, preset: experimental, lang: ko-KR)` — 폴더 구조와 함께 `AGENTS.md`(에이전트 공통 진입 규칙 요약)·`2_Log/S001_log.md`(첫 세션 stub)가 생깁니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 별도 설정이 없습니다. Claude Code용 파일(`CLAUDE.md` 포인터·훅 설정)도 함께 생성되며, 다른 에이전트에서는 무시해도 됩니다. 프로젝트 고유 규칙은 `0_Meta/ProjectRule.md`에 적습니다. 영어 응답·영어 규칙 문서가 필요하면 `--lang en-US`(규칙 정본은 한국어, 영어본은 읽기용 companion).
+`[elf] created MyProject (ELF v2.24.0, preset: experimental, lang: ko-KR)` — 폴더 구조와 함께 `AGENTS.md`(에이전트 공통 진입 규칙 요약)·`2_Log/S001_log.md`(첫 세션 stub)가 생깁니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 별도 설정이 없습니다. Claude Code용 파일(`CLAUDE.md` 포인터·훅 설정)도 함께 생성되며, 다른 에이전트에서는 무시해도 됩니다. 프로젝트 고유 규칙은 `0_Meta/ProjectRule.md`에 적습니다. 영어 응답·영어 규칙 문서가 필요하면 `--lang en-US`(규칙 정본은 한국어, 영어본은 읽기용 companion).
 
 **2-A. 처음부터 — 아이디어 스케치부터 시작**
 
@@ -129,7 +130,7 @@ cd MyProject
 - ![S001_t02: 파장별 SNR, 1e9 광자](../6_Exp/64_Viz/S001/S001_t02_SNR_ci.png)
 
 ### 해석 (Interpretation)
-- 가설 적중 여부: 적중
+- 예상 일치 정도: 일치
 - 1e8에서의 겹침은 표본 잡음
 
 ### 교훈 (Lessons)
@@ -156,7 +157,7 @@ cd MyProject
 | `elf autoread` | `elf autoread`(인수 없이) = 규칙 요약·활성 세션 Handoff·validate 결과를 digest로 출력 — 컨텍스트가 재구성된 뒤 어느 에이전트에게든 다시 읽힙니다. Claude Code에서는 훅(`.claude/settings.json`)이 compaction·재시작 뒤 첫 프롬프트에 자동 주입합니다(기본 on, `autoread_fulltext`로 규칙 전문 포함 가능) |
 | Handoff · Registry | Handoff = "유효 결론; 미완료; 참조" 1줄을 덮어쓰기로 유지, Registry key finding = 세션 결론 1줄 — 재개할 때 읽는 곳 |
 | one writer | 세션 로그 1개의 작성자는 하나(에이전트 또는 사람). 병렬 작업은 에이전트마다 세션을 열고, 관계는 헤더 `관련:`에 적습니다 |
-| Archive 방화벽 | `Archive/`는 에이전트의 자율 탐색 대상에서 제외됩니다 — `AGENTS.md` 규칙(경로를 지목할 때만 열람). Claude Code에서는 `.claudeignore`가 검색에서도 차단합니다(AI_PARA_Framework) |
+| Archive · Deprecated | `Archive/`는 종료된 유효 기록(읽기 허용), `Deprecated/`는 폐기한 기록(읽기 허용, 현재 근거 아님) — `AGENTS.md` 규칙. 폐기 여부는 사람이 결정하고 에이전트는 `elf deprecate`로 실행합니다(AI_PARA_Framework) |
 | overlay | 어휘·검색 도메인 커스터마이즈는 `0_Meta/<이름>.project.md`(유효 규칙 = base ⊕ overlay). `elf update`가 건드리지 않습니다 |
 
 ## CLI
@@ -168,13 +169,14 @@ cd MyProject
 | `elf init [name] [--preset …] [--modules …] [--lang …]` | 프로젝트 생성. 이름 없으면 현재 폴더에 in-place. preset `full`/`experimental`/`software`/`minimal`(실험적: `general`·`qa`) |
 | `elf session new <title>` / `close [S###]` / `fix-headers` | 세션 생성·마감(validate → Archive 이동 → Registry·cross-ref 보정)·헤더 줄바꿈 수리 |
 | `elf trial new [title]` | 활성 로그에 정본 trial stub 추가(`t##` 자동 번호) |
+| `elf deprecate <대상> [--trial tNN [--section 절]] [--marked] [--lines A-B --expect …]` / `--restore <ID>` / `list` | 로그·계획 문서의 전체 또는 일부를 `Deprecated/`로 옮기고(원 위치에 이동 표기 1줄) 되돌리며 목록을 봅니다. 산출물은 제자리 |
 | `elf validate [--check] [--strict]` | 정합 검사(읽기 전용). `--check` = issue 시 exit 4, `--strict` = embed 누락·절 구조 경고도 issue로 |
 | `elf gallery` | `6_Exp/64_Viz/`의 figure 색인 `_gallery.md` 생성 |
 | `elf autoread [enable\|disable\|status]` | 컨텍스트 재구성 후 규칙 재주입. 인수 없이 실행하면 digest 출력(모든 에이전트 공통); 훅 자동 주입은 Claude Code(기본 on) |
 | `elf update [--dry-run] [--force]` | 관리 파일을 설치된 CLI 버전으로 갱신 — 연구 데이터·로그·설정은 건드리지 않음 |
 | `elf status [--check]` | 관리 파일 상태 진단(읽기 전용). `--check` = 발견 시 exit 4 |
 | `elf doctor` | 환경·프로젝트 종합 점검(읽기 전용) |
-| `elf tsa <sub>` | 선택: 커밋마다 파일 해시 manifest + RFC 3161 타임스탬프로 존재 시점을 증명. 기본 off, 외부로 나가는 것은 manifest digest 32바이트뿐 |
+| `elf tsa <sub>` | 선택: 커밋마다 파일 해시 manifest + RFC 3161 타임스탬프로 존재 시점을 증명. 기본 off, 외부로 전송되는 것은 manifest digest 32바이트뿐 |
 | `elf self-update` | `elf` 바이너리 갱신 |
 
 운영 시나리오:
@@ -201,7 +203,7 @@ elf status --check       # 팀/CI 게이트 — 발견 시 exit 4 (elf validate 
 Project_Root/
 │
 ├── AGENTS.md                        # 에이전트 진입 규칙 요약 (모든 에이전트 공통, ELF 관리)
-├── CLAUDE.md · .claude/settings.json · .claudeignore   # Claude Code 전용 (포인터·autoread 훅·Archive 제외) — 다른 에이전트는 무시
+├── CLAUDE.md · .claude/settings.json   # Claude Code 전용 (포인터·autoread 훅) — 다른 에이전트는 무시
 ├── README.md · LICENSE · .gitignore · .editorconfig · .gitattributes
 │
 │  ─── Core ───────────────────────────────
@@ -217,12 +219,15 @@ Project_Root/
 ├── 1_Concept/                       # 연구 기획, 문헌, 아이디어
 │   ├── 11_Literature/               # 논문 PDF, 서지 정보, 기반 공식
 │   ├── 12_Planning/                 # 연구 기획, 로드맵 (다중 세션)
-│   │   └── Wiki/                    # 기획 단계 결론 및 핵심 규칙 요약
+│   │   ├── Wiki/                    # 기획 단계 결론 및 핵심 규칙 요약
+│   │   ├── Archive/                 # 종료된 계획 문서
+│   │   └── Deprecated/              # 폐기한 계획 문서 (elf deprecate)
 │   └── 13_Ideas/                    # 작은 snippet / 초기 naive 아이디어 (flat)
 │
 ├── 2_Log/                           # 세션 로그 (S###_log.md)
 │   ├── Wiki/                      # 핵심 발견 요약 및 세션 레지스트리
-│   └── Archive/                   # 완료된 세션 로그
+│   ├── Archive/                   # 완료된 세션 로그 (읽기 허용)
+│   └── Deprecated/                # 폐기한 세션 로그·블록 (elf deprecate)
 │
 │  ─── Modules (Optional) ────────────────
 │
@@ -245,14 +250,14 @@ Project_Root/
 ├── 6_Exp/                           # 실험: 시뮬레이션 + 실측 + 분석
 │   ├── 61_Sim/                      # 시뮬레이션
 │   │   ├── Scripts/                 # 시뮬레이션 코드 (S###_sim.m)
-│   │   │   └── Archive/          # 폐기 스크립트
+│   │   │   └── Archive/          # 일회용 스크립트 보관
 │   │   └── Data/                    # 시뮬레이션 결과 (Data/S###/)
 │   ├── 62_Empirical/                # 실측 데이터
 │   │   ├── Raw/                     # 원본 센서 데이터 (Read-Only, Git 제외)
 │   │   └── Processed/               # 1차 가공 데이터
 │   ├── 63_Analysis/                 # 통합 분석
 │   │   └── Scripts/                 # 비교/검증 포스트프로세싱 코드
-│   │       └── Archive/           # 폐기 스크립트
+│   │       └── Archive/           # 일회용 스크립트 보관
 │   └── 64_Viz/                      # 시각화 추출물 (자동 생성 Figure)
 │
 ├── 7_Paper/                         # 논문 & 발표

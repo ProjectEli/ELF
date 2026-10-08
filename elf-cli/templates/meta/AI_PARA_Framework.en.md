@@ -5,70 +5,72 @@
 > Korean original, not this file; this English version is for human reading only.
 > To customize project rules, edit `ProjectRule.md` (not this file). See §1.1 below.
 
-This document defines the **AI-tailored PARA (Projects, Areas, Resources, Archives)
-file-management rules** that prevent a project's large body of experiment logs and
-planning documents from contaminating an AI agent's context window (hallucination), and
-that maximize human-AI collaboration efficiency.
+This document defines the rule by which the folder a document (session log, planning
+document) sits in states its status, and how an AI agent reads and writes documents in each
+location. The rule keeps withdrawn or outdated records from being used as current fact and
+gives people and the AI one shared basis for managing documents. The name comes from the
+Archive concept of PARA (Projects, Areas, Resources, Archives); the rule itself is defined so
+that folder names alone are enough to understand it.
 
-## 1. The Firewall Principle
+## 1. Location = State
 
-The project's top folder contains a `.claudeignore` file.
-When the AI autonomously searches or reads the file system, this file **firewalls**
-specific folder names so the AI treats them as invisible and cannot perceive them.
+No file-name prefixes, tags, or separate ledger: the folder a document sits in states its
+status. Under the folder a document belongs to (e.g., `2_Log/`, `1_Concept/12_Planning/`),
+three state folders sit at the same level.
 
-*   **Blocked targets**: `Archive/`, `*Archive*`, and other discarded or closed past records.
-*   **Effect**: ensures the AI answers based only on "the project's currently valid state," and fully prevents mistaking old failed settings (e.g., a wrong parameter map, a discarded paper direction) for current fact.
+| Location | State | Content | AI reading |
+|------|------|------|--------|
+| Folder root | In progress | Documents being written or edited now (e.g., `2_Log/S014_log.md`) | Basis for current work |
+| `Wiki/` | Key summaries | One- or two-line summaries of the confirmed conclusions, parameters, and rules left after work finishes; the Session Registry | Summary of current facts — the first place a person reads |
+| `Archive/` | Closed records | Original session logs and planning documents of closed work (moved under the same file name). Still-valid records, referred to when tracing past conclusions and paths | Reading allowed |
+| `Deprecated/` | Withdrawn | Documents and blocks that were tried and then withdrawn (moved by `elf deprecate`). Kept, not deleted | Reading allowed — to see what was tried and withdrawn. Not a basis for current decisions |
 
-### 1.1 Informative Companion isolation
+- No separate `1_Active` folder. Documents in progress stay at the root of their parent folder.
+- State folders are flat (no subfolders). File names do not change when a file moves.
+- The user decides what to deprecate. The agent proposes candidates with reasons and runs `elf deprecate` only after the user's instruction or approval. Format and procedure: `.elf/managed/LogConvention.md` §6.
+
+### 1.1 Informative Companion
 
 A file of the form `*.en.md` (general: `*.<lang>.md`) is an **informative translation
 (read-only human companion)** of a governance document — for international users to
 *read*, and **not an operative source**. The operative authority is always the
 same-named `*.md` (the PROJECT_LANG original, Korean by default).
 
-*   **AI behavior rule**: the AI takes rules, structure, and instructions **only from the `*.md` original**. It does not treat `*.en.md` as a basis (even if read, it is not a rule source). On a conflict between the original and the companion, **the `*.md` original wins**.
-*   **Customization path**: write project-rule changes in **`ProjectRule.md` (user-owned, operative, project language)** — do not edit the managed original or the companion (the managed file is replaced by `elf update`, and a companion edit has no effect).
+*   **AI behavior rule**: the AI takes rules, structure, and instructions **only from the `*.md` original**. It does not treat `*.en.md` as a basis (even if read, it is not a rule source). On a conflict between the original and the companion, **the `*.md` original takes precedence**.
+*   **Customization method**: write project-rule changes in **`ProjectRule.md` (user-owned, operative, project language)** — do not edit the managed original or the companion (the managed file is replaced by `elf update`, and a companion edit has no effect).
 *   **Effect**: fixing the operative version to a single original keeps a translation difference from changing AI behavior. Every language project runs under the same governance; international users still override in their own language via ProjectRule.
 
 ---
 
-## 2. Hybrid PARA Structure (Focus-and-Filter)
+## 2. Moving session logs and planning documents
 
-To achieve both "cognitive-load reduction (grouping)" for humans and "path flattening"
-for the AI, the project runs on a **hybrid structure**.
+| When | Action | Tool |
+|------|------|------|
+| Session start | Create `2_Log/S###_log.md` (root = in progress) | `elf session new` |
+| Session close | Header `Status: Complete`, move to `2_Log/Archive/` under the same file name, update the registry, recompute relative links inside the log | `elf session close` |
+| Deprecate | Move a whole document, a trial, a section, a marked block, or a line range to `Deprecated/` (a one-line move marker stays at the original position) | `elf deprecate` |
+| Restore | Return a deprecated document or block to its original position | `elf deprecate --restore` |
 
-### Workbench (Default Root / Active Sandbox)
-*   **Purpose**: where content that is "in progress" right now, or valid this week, lives.
-*   **Example files**: `Current_Analysis_Task.md`, `S014_log.md`
-*   **Operating rule**: instead of making a separate `1_Active` folder, use the **top (root) of the working parent folder (e.g., `12_Planning/` or `2_Log/`)** as the workbench. Write freely here until the work is done and becomes a past record.
-
-### `Wiki/` (Human Sanctuary)
-*   **Purpose**: a place that gathers only the **"unchanging facts, conclusions, and key rules"** obtained after a workbench task finishes, summarized in one or two lines.
-*   **Operating rule**: a human researcher comes here when they want to read only "the currently most important facts/rules." It also serves as a fact sheet that provides the AI a concise summary context.
-
-### `Archive/` (The Firewall Bin)
-*   **Purpose**: holds original log records that are fully complete or deprecated and no longer "the current concern," but may be referenced later.
-*   **Operating rule**: when a folder's top gets cluttered, move old files **under the same name** to this folder (no prefix tag — **the folder location is the state**). The moment a file enters here, `.claudeignore` makes it disappear completely from the AI's autonomous search.
+- Summary documents in `Wiki/` include path links to the original logs (`Archive/...`) — when past data is needed, the original is read through that link.
+- Planning documents (`1_Concept/12_Planning/`) follow the same rule: root = in progress, `Wiki/` = conclusion summaries, `Archive/` = closed, `Deprecated/` = withdrawn (whole file, marked block, or line range — planning documents have no trial or section units).
 
 ---
 
-## 3. Scripts Folder Management (code archiving)
+## 3. Scripts folder management
 
-To keep scripts from piling up indiscriminately inside `61_Sim/Scripts` or
-`63_Analysis/Scripts`, apply the same PARA logic to scripts.
+The same rule applies to scripts inside `61_Sim/Scripts` and `63_Analysis/Scripts`.
 
 1.  **Active Scripts**: keep the latest scripts under active development or general use at the root of the Scripts folder.
-2.  **Archived Scripts**: move scripts used one-off for a specific past session under `Scripts/Archive/`.
-3.  **Wiki Tracking (Registry)**: when moving a script to Archive, record in a `Wiki/` document — **with the path** — which session used it and for what.
+2.  **Archived Scripts**: move scripts used one-off for a specific past session under `Scripts/Archive/` (not deleted — needed to reproduce the session).
+3.  **Wiki Tracking**: when moving a script to Archive, record in a `Wiki/` document — **with the path** — which session used it and for what.
 
-## 4. How to bypass the firewall
+## 4. Reading rules in short
 
-The AI cannot rummage through `Archive` on its own, but when a human developer requests
-restoring/analyzing a specific past record, it can read it via an **explicit instruction**.
+| Document location | Used as a basis for current decisions | Note |
+|----------|----------------------|------|
+| Root, `Wiki/` | Yes | Current state, confirmed conclusions |
+| `Archive/` | Yes (closed, still-valid records) | Tracing conclusions and paths, checking past parameters |
+| `Deprecated/` | No | Read to learn what was tried and withdrawn. Restoring is the user's decision |
 
-### Method: force an absolute/relative path
-When the user gives an exact path snippet in the prompt — "open past file A" — the AI can
-read that file normally and load it into context.
-
-*   *(example user prompt)*: "Open `2_Log/Archive/S005_log.md` and summarize the parameter trend at the time."
-*   To support this, `Wiki` knowledge documents should always include **explicit file-path links** toward `Archive/...` in case past data is needed.
+- When the user names a path — "open this file and summarize it" — the AI reads that file regardless of its location.
+- To use withdrawn content again, restore it with `elf deprecate --restore` first (do not copy blocks out of the deprecated state).

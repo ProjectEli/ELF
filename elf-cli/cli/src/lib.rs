@@ -2,6 +2,7 @@
 //! 순수 로직(manifest·hash·plan)은 FS 무부작용 — 통합 테스트(tests/)에서 직접 검증 가능.
 
 pub mod autoread;
+pub mod deprecate;
 pub mod doctor;
 pub mod embed;
 pub mod gallery;

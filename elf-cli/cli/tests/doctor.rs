@@ -192,3 +192,22 @@ fn e2e_doctor_in_project_reports_elf() {
         .success()
         .stdout(predicates::str::contains(".elf stamp"));
 }
+
+#[test]
+fn claudeignore_info_only_when_present() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    // ≤ v2.23 템플릿은 init이 `.claudeignore`를 만들고(managed), v2.24부터는 만들지 않음 — 없을 때만 사용자 파일로 생성
+    let ci = root.join(".claudeignore");
+    if !ci.exists() {
+        fs::write(&ci, "Archive/\n").unwrap();
+    }
+    let r = run_doctor(&root, &env(true));
+    let c = check(&r, ".claudeignore");
+    assert!(matches!(c.health, Health::Info));
+    assert!(c.detail.contains("no effect in Claude Code"), "{}", c.detail);
+    assert_eq!(r.warnings(), 0, "{:?}", r.checks);
+    fs::remove_file(root.join(".claudeignore")).unwrap();
+    let r = run_doctor(&root, &env(true));
+    assert!(!r.checks.iter().any(|c| c.label == ".claudeignore"));
+}

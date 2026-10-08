@@ -57,7 +57,7 @@ fn fresh_project_update_is_idempotent() {
     assert_eq!(report.conflicts, 0);
     assert_eq!(fs::read(root.join(".elf/managed/EliRule.md")).unwrap(), before);
     assert!(
-        !report.lines.iter().any(|l| l.contains("pre-2.15 leftovers")),
+        !report.lines.iter().any(|l| l.contains("pre-2.15 legacy rule files remain")),
         "clean 프로젝트는 잔재 안내 없음: {:?}",
         report.lines
     );
@@ -137,7 +137,7 @@ fn general_project_update_keeps_general_identity() {
 
 #[test]
 fn legacy_config_without_preset_is_inferred_and_healed() {
-    // pre-S026 init 재현: config에 preset 키 없음 → stamp src 시그니처로 추론 + self-heal
+    // pre-S026 init 재현: config에 preset 키 없음 → stamp src 시그니처로 추론 + 자동 복구
     let tmp = tempdir().unwrap();
     let root = new_project_preset(tmp.path(), "Q", "qa");
     set_config_preset(&root, None);
@@ -150,13 +150,13 @@ fn legacy_config_without_preset_is_inferred_and_healed() {
         serde_json::from_str(&fs::read_to_string(root.join(".elf/config.json")).unwrap()).unwrap();
     assert!(cfg.get("preset").is_none(), "dry-run must not heal config");
 
-    // 본실행: 추론 + self-heal + qa 정체성 유지
+    // 본실행: 추론 + 자동 복구 + qa 정체성 유지
     let report = run_update(&root, &plain()).unwrap();
     assert!(report.lines.iter().any(|l| l.contains("inferred") && l.contains("recorded")), "{:?}", report.lines);
     assert_eq!(report.changed, 0);
     let cfg: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(root.join(".elf/config.json")).unwrap()).unwrap();
-    assert_eq!(cfg["preset"], "qa", "self-heal records the inferred kind");
+    assert_eq!(cfg["preset"], "qa", "automatic repair records the inferred kind");
     assert_eq!(cfg["lang"], "ko-KR", "existing config fields preserved");
     assert_eq!(fs::read(root.join("AGENTS.md")).unwrap(), agents_before);
     assert_eq!(
@@ -167,7 +167,7 @@ fn legacy_config_without_preset_is_inferred_and_healed() {
 
 #[test]
 fn preset_mismatch_refuses_update_untouched() {
-    // config 오선언(연구 preset)인데 stamp는 qa — 이종 manifest 계획을 입구에서 거부, 트리 무변경
+    // config 오선언(연구 preset)인데 stamp는 qa — 이종 manifest 계획을 진입 시점에 거부, 트리 무변경
     let tmp = tempdir().unwrap();
     let root = new_project_preset(tmp.path(), "Q", "qa");
     set_config_preset(&root, Some("full"));
@@ -201,7 +201,7 @@ fn pre215_leftovers_warn_but_are_left_untouched() {
     let warn = report
         .lines
         .iter()
-        .find(|l| l.contains("pre-2.15 leftovers"))
+        .find(|l| l.contains("pre-2.15 legacy rule files remain"))
         .expect("잔재 경고 출력");
     assert!(warn.contains("0_Meta/EliRule.md") && warn.contains("0_Meta/LLMcliche.md"));
     assert!(warn.contains("v2.15.1") && warn.contains("elf migrate"), "2단계 경로 안내: {warn}");
@@ -212,7 +212,7 @@ fn pre215_leftovers_warn_but_are_left_untouched() {
     assert_eq!(report.conflicts, 0, "{:?}", report.lines);
     // dry-run에도 동일 안내
     let dry = run_update(&root, &UpdateOptions { dry_run: true, force: false }).unwrap();
-    assert!(dry.lines.iter().any(|l| l.contains("pre-2.15 leftovers")));
+    assert!(dry.lines.iter().any(|l| l.contains("pre-2.15 legacy rule files remain")));
 }
 
 #[test]
@@ -222,7 +222,7 @@ fn project_rule_in_0meta_is_not_flagged_as_leftover() {
     let root = new_project(tmp.path(), "P");
     assert!(root.join("0_Meta/ProjectRule.md").is_file(), "seed 전제");
     let report = run_update(&root, &plain()).unwrap();
-    assert!(!report.lines.iter().any(|l| l.contains("pre-2.15 leftovers")), "{:?}", report.lines);
+    assert!(!report.lines.iter().any(|l| l.contains("pre-2.15 legacy rule files remain")), "{:?}", report.lines);
 }
 
 #[test]

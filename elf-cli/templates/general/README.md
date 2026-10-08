@@ -5,10 +5,10 @@ ELF **general preset (experimental)** 로 생성된 목표지향 비연구 프�
 명확한 목표를 가진 다세션 프로젝트(도구 개발·제안서 준비·학습·구축 등)를 base-delta 세션 로그로 누적합니다. 학술연구(시뮬·figure·논문)와 분리된 유형입니다.
 
 ## 구조
-- `.elf/` — ELF 제어판(버전·manifest) + 관리 규칙 payload `managed/`(`EliRule`·`LogConvention`·`AI_PARA_Framework`·`LLMcliche`·세션/trial 스텁 `templates/`). `elf update`로 갱신 — 직접 수정 금지.
+- `.elf/` — ELF 제어 영역(버전·manifest) + 관리 규칙 payload `managed/`(`EliRule`·`LogConvention`·`AI_PARA_Framework`·`LLMcliche`·세션/trial 스텁 `templates/`). `elf update`로 갱신 — 직접 수정 금지.
 - `0_Meta/` — 프로젝트 거버넌스(`ProjectRule`·data overlay `<이름>.project.md`) — 사용자 영역
 - `1_Concept/12_Planning/` — 목표·로드맵·계획 / `13_Ideas/` — 작은 아이디어
-- `2_Log/` — 세션 로그(`S###_log.md`), `Wiki/`(요약·Registry), `Archive/`(완료)
+- `2_Log/` — 세션 로그(`S###_log.md`), `Wiki/`(요약·Registry), `Archive/`(완료), `Deprecated/`(폐기 — `elf deprecate`)
 - 도메인 작업 폴더(`src/`·`docs/` 등)는 프로젝트가 직접 추가.
 
 ## 사용

@@ -1,7 +1,7 @@
 # EliRule: Project Structure & Operational Guide
 
 본 문서는 ELF(Eli's Lab Framework) 프로젝트의 폴더 구조와 운영 규칙을 정의합니다.
-README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의 상세 규격입니다.
+README.md가 설계 원칙과 개요를 기술한다면, 이 문서는 실무 레벨의 상세 규격입니다.
 
 ---
 
@@ -13,7 +13,7 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 `elf` CLI가 프로젝트 상태(버전·설정·관리 파일 목록)를 기록하고, ELF 관리 규칙 정본 payload를 `.elf/managed/`에 배치하는 영역입니다. **직접 수정 금지** — `elf init`/`elf update`가 관리합니다.
 - `.elf/managed/EliRule.md`: 이 문서 (폴더 구조 및 운영 가이드)
 - `.elf/managed/LogConvention.md`: 로깅 표준 규칙
-- `.elf/managed/AI_PARA_Framework.md`: AI의 환각을 방지하기 위한 상태 기반 파일 관리 및 아카이빙 규칙. AI가 프로젝트를 탐색할 때 가장 중요한 기준 문서
+- `.elf/managed/AI_PARA_Framework.md`: 위치가 곧 상태인 파일 관리 규칙(진행 중·Wiki·Archive·Deprecated)과 AI 읽기 규칙. AI가 프로젝트 파일을 읽을 때 가장 중요한 기준 문서
 - `.elf/managed/highIFjournals.md`: 외부 문헌 검색용 high-IF 저널 화이트리스트 (§4 참조)
 - `.elf/managed/templates/`: 마크다운 스텁 (아래)
 
@@ -29,18 +29,20 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 - **`12_Planning/`**: 연구 기획, 로드맵, Figure 구성 스토리보드 (다중 세션·roadmap 단위)
   - Planning 문서는 `P###_제목.md` 형식으로 넘버링 (예: `P001_wavelength_optimization.md`)
   - `Wiki/`: 기획 단계 결론 및 핵심 규칙 요약
-- **`13_Ideas/`**: 세션화하기엔 작은 snippet·초기 naive 아이디어. flat(Archive 없음, 폐기하지 않음). 성숙 시 Planning 문서나 세션 trial로 승격.
+  - `Archive/`: 종료된 계획 문서 보관 · `Deprecated/`: 폐기한 계획 문서(`elf deprecate`, LogConvention §6)
+- **`13_Ideas/`**: 세션화하기엔 작은 snippet·초기 naive 아이디어. flat(Archive 없음, 폐기하지 않음). 구체화되면 Planning 문서나 세션 trial로 옮김.
 
 #### `2_Log/` — 세션 로그
 모든 종류의 작업(실험, 기획, SW 개발 등)을 기록하는 세션 로그의 최상위 공간입니다.
 - `S###_log.md`: 세션 로그 파일 (포맷: `.elf/managed/LogConvention.md` 참조)
 - `Wiki/`: 핵심 발견 요약 및 Session Registry
-- `Archive/`: 완료된 세션 로그 보관
+- `Archive/`: 완료된 세션 로그 보관(종료된 유효 기록 — 읽기 허용)
+- `Deprecated/`: 폐기한 세션 로그·블록(`elf deprecate` — 읽을 수 있으나 현재 판단의 근거로 쓰지 않음, LogConvention §6)
 
 #### `.elf/managed/templates/` — 마크다운 스텁
 - `sessionTemplate.md`: 새 세션 시작 시 `2_Log/S###_log.md`로 복사
 - `trialTemplate.md`: 진행 중 세션에 trial(t##) 추가 시 본문에 붙여넣기
-- **Planning 문서(`P###`)는 의도적 무템플릿** — trial은 재현성 위해 템플릿으로 규율하나, planning은 연구자 자유 탐색이라 형식을 강제하지 않음.
+- **Planning 문서(`P###`)는 의도적 무템플릿** — trial은 재현성을 위해 템플릿 형식을 강제하나, planning은 연구자가 자유롭게 작성하는 문서라 형식을 강제하지 않음.
 - 루트 `templates/`는 ELF가 생성·관리하지 않는 프로젝트 재량 폴더입니다.
 
 ### Modules (선택적 포함)
@@ -116,17 +118,17 @@ README.md가 철학과 개요를 담당한다면, 이 문서는 실무 레벨의
 - 로그에서 분석 스크립트 참조: `→ see 6_Exp/63_Analysis/Scripts/S###_analysis.m`
 
 ### 2.6 Data Reusability (데이터 영구 보존 원칙)
-- 단순 Illustration(시각적 도해)을 제외한 모든 Plot/Graph 생성 시, 그래프에 표면적으로 드러나지 않는 메트릭이나 중간 연산 결과일지라도 **향후 재사용이 가능하도록 반드시 `.mat` 파일(또는 `.csv`) 형태로 원본 Data Array를 함께 저장(Export)**하는 것을 원칙으로 합니다.
+- 단순 Illustration(시각적 도해)을 제외한 모든 Plot/Graph 생성 시, 그래프에 직접 표시되지 않는 메트릭이나 중간 연산 결과일지라도 **향후 재사용이 가능하도록 반드시 `.mat` 파일(또는 `.csv`) 형태로 원본 Data Array를 함께 저장(Export)**하는 것을 원칙으로 합니다.
 
 ### 2.7 ELF 관리 파일과 갱신 (`elf update`)
 
-프로젝트 파일은 소유권에 따라 세 가지로 나뉘며, `elf update`는 이 구분을 엄격히 지킵니다:
+프로젝트 파일은 소유권에 따라 네 가지로 나뉘며, `elf update`는 이 구분을 엄격히 지킵니다:
 
 | 구분 | 파일 | `elf update` 동작 |
 |------|------|-------------------|
-| **ELF 관리** | `.elf/managed/`의 `EliRule.md`·`LogConvention.md`·`AI_PARA_Framework.md`·`highIFjournals.md`·`LLMcliche.md`·`templates/*`(companion 포함), 루트 `.claudeignore`·`AGENTS.md` | 새 버전으로 교체. **직접 수정한 경우 덮어쓰지 않고** 새 버전을 `<파일>.elf-new`로 생성(병합은 사용자 몫, `--force`로 강제 교체 가능) |
+| **ELF 관리** | `.elf/managed/`의 `EliRule.md`·`LogConvention.md`·`AI_PARA_Framework.md`·`highIFjournals.md`·`LLMcliche.md`·`templates/*`(companion 포함), 루트 `AGENTS.md` | 새 버전으로 교체. **직접 수정한 경우 덮어쓰지 않고** 새 버전을 `<파일>.elf-new`로 생성(병합은 사용자 몫, `--force`로 강제 교체 가능) |
 | **사용자 소유** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, 모든 연구 데이터·로그 | **절대 미접근** |
-| **포인터(생성만)** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(내용 무관 — 기존 파일 소유권 존중). `@AGENTS.md` 로드 여부는 `elf doctor`가 점검 |
+| **포인터(생성만)** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(내용 무관 — 기존 파일 소유권 보존). `@AGENTS.md` 로드 여부는 `elf doctor`가 점검 |
 | **부분 관리** | `.gitignore` | 마커블록(`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) 안쪽만 교체, 블록 밖 사용자 규칙 보존 |
 
 - 프로젝트 규칙 커스터마이즈는 ELF 관리 파일을 고치는 대신 **`ProjectRule.md`에 작성**하는 것을 권장합니다(갱신 충돌 없음).
@@ -146,8 +148,8 @@ data 성격의 ELF 관리 파일(manifest에 `overlayable`로 명시 — 현행:
 
 ### 2.8 세션 소유권 — 1세션 1작성자 (멀티에이전트)
 
-- **세션 로그 1개의 작성자는 항상 1명**(에이전트 또는 사람). 같은 세션 로그를 복수 에이전트·터미널이 동시에 작성하지 않습니다 — 세션 로그는 단일 사고흐름의 선형 기록이며, 동시 작성은 trial 추가·헤더 Handoff 갱신에서 조용한 상호 덮어쓰기(lost update)를 일으킵니다.
-- 병렬 작업은 **에이전트별 세션 분리**: 각자 `elf session new`로 번호를 받습니다. 관계는 번호가 아니라 헤더 `관련:` 필드가 담당합니다(참조 사유 1구 병기, 예: `S200(분기 원본 — 접근 A 담당)`).
+- **세션 로그 1개의 작성자는 항상 1명**(에이전트 또는 사람). 같은 세션 로그를 복수 에이전트·터미널이 동시에 작성하지 않습니다 — 세션 로그는 작성자 1명의 순차 기록이며, 동시 작성은 trial 추가·헤더 Handoff 갱신에서 조용한 상호 덮어쓰기(lost update)를 일으킵니다.
+- 병렬 작업은 **에이전트별 세션 분리**: 각자 `elf session new`로 번호를 받습니다. 관계는 번호가 아니라 헤더 `관련:` 필드에 기록합니다(참조 사유 1구 병기, 예: `S200(분기 원본 — 접근 A 담당)`).
 - 타 에이전트의 세션 로그는 **읽기 전용** 참조 — 남의 로그·Handoff를 수정하지 않습니다.
 - 병렬 세션들의 결론 통합은 별도 세션(또는 원본 세션)에서 **단일 작성자**로 수행하고, 입력이 된 세션들을 `관련:`에 명시합니다.
 
@@ -173,17 +175,17 @@ data 성격의 ELF 관리 파일(manifest에 `overlayable`로 명시 — 현행:
 프로젝트 내 모든 AI Agent는 사용자와 소통하고 문서를 작성할 때 다음 원칙을 준수합니다:
 
 1. **응답 언어 (Response Language)**: AI 에이전트는 `PROJECT_LANG`에 지정된 언어와 English 두 가지로 응답합니다. 로그, 문서 작성 시에도 동일하게 `PROJECT_LANG` 언어를 사용합니다. 기술 용어는 English 원문을 병기할 수 있습니다.
-2. **객관적이고 드라이한 문체 유지**: 불필요한 인삿말, 과도한 칭찬, 주관적 감정 표현, 과장된 형용사 사용을 금지합니다.
+2. **객관적이고 무수식 문체 유지**: 불필요한 인삿말, 과도한 칭찬, 주관적 감정 표현, 과장된 형용사 사용을 금지합니다.
 3. **비유 금지**: 비유나 은유를 금지하고, 직관적이고 객관적인 학술/엔지니어링 용어로만 사실을 전달합니다. 특히 관점·접근을 '렌즈(lens)'로, 분석·탐색을 '항해(navigate)'·'깊이 파다(deep dive)'·'여정(journey)'으로 치환하는 LLM 상투 은유를 배제하고 직접 용어(관점·접근·분석·과정)를 사용합니다.
 4. **결론 중심의 명확한 전달**: 분석 결과와 Action Item을 간결하고 명확하게 제시하며, 논리적이고 정교한 엔지니어링 팩트만을 다룹니다.
 5. **Data Reusability**: 위 2.6 항목을 엄격히 준수합니다.
 6. **과장 및 감정적 수식어 금지 (No Embellishment)**: '압도적(Overwhelming)', '무기(Weapon)', '치명적', '파급력' 등 감정을 자극하거나 극단적인 수식어의 사용을 전면 배제합니다. 오직 정량적 수치와 물리적 인과관계로만 장단점을 서술합니다.
 7. **이모지 사용 금지 (No Emojis)**: 아이콘이나 이모지(Emoji)를 어떠한 문서나 응답에도 사용하지 않습니다.
-8. **문장 종결 방식 (Formatting)**: 한글 기록 시 '~입니다/습니다'나 해요체 등은 일절 배제하며, 서술이 필요한 경우에도 반드시 명사형 종결어미('-음', '-함', '-임')나 간결한 '-다'로 끝을 맺습니다. 비한글(예: 영어) 출력에는 본 종결 형식이 적용되지 않으며, 2항의 드라이 원칙(간결·능동·filler 없는 문체)을 등가 의도로 적용합니다.
+8. **문장 종결 방식 (Formatting)**: 한글 기록 시 '~입니다/습니다'나 해요체 등은 일절 배제하며, 서술이 필요한 경우에도 반드시 명사형 종결어미('-음', '-함', '-임')나 간결한 '-다'로 끝을 맺습니다. 비한글(예: 영어) 출력에는 본 종결 형식이 적용되지 않으며, 2항의 무수식 원칙(간결·능동·군더더기 없는 문체)을 등가 의도로 적용합니다.
 9. **구조화된 로깅 (Structured Logging)**: 실험 관찰(관찰)과 물리적 분석(해석)을 명확히 분리하여 서술하며, 생성된 파일 목록이나 파라미터 조건 등은 나열식 서술 대신 반드시 마크다운 표(Table) 형식으로 압축하여 정보 밀도를 극대화합니다.
-10. **약어 표기 (Abbreviations)**: 약어는 **첫 사용 시 full name 병기**(`AR (asymmetry ratio)`). 약어가 반복되는 trial·문서는 `### 조건`(또는 문서 상단)에 **약어 legend를 ul list**로 명시하되 **각 약어를 별도 row**로 — trial atom 단독 열람성 확보. 동일 약어가 여러 trial에 걸치면 **각 trial에서 재정의**(atom 독립성 > DRY; 세션 1회 정의로 갈음 금지). 예외: 도메인 표준 단위·기호(µA·Hz·ms·SI)는 병기 불요.
-11. **LLM 상투 표현 배제 (LLM Cliché Ban)**: 영어 문서·communication 작성 시 LLM 특유의 상투 어휘·register(특징적 동사·막연 형용사·상투 명사·과용 연결어·정형 구문)를 배제하고 **구체·능동·직접 서술**로 대체합니다. 고정 목록이 아닌 *원칙* 적용 — 막연한 filler·과용 register는 배제하되 **정확한 기술적 의미**의 용어는 허용합니다(예: 통계 significance, robustness). 연결어는 과용·문두 연속만 배제(정당한 단일 사용 허용), 인용·제목·원문 표현은 면제하며, 한국어 dry 로그는 무관합니다(영어 혼용 시 적용). 프로젝트별 기술 동음어 예외는 `ProjectRule.md`에, 어휘 항목의 추가·제외·재정의는 data overlay `0_Meta/LLMcliche.project.md`(base ⊕ overlay)에 선언합니다. 배제·예외·전후 예시(비망라 참고): `.elf/managed/LLMcliche.md`.
-12. **출처 신뢰성 (Source Reliability)**: 나무위키(namu.wiki) 등 익명·집단 편집 위키 및 출처 불명 블로그·커뮤니티를 답변·문서의 출처로 인용 금지. 검색 결과에 떠도 그대로 신뢰하지 말고 **신뢰 출처**(공신력 기관·학회·정부, 학술/1차 자료, 공식 문서, 1차 보도)로 교차검증 후 *그 신뢰 출처*를 인용. WebSearch 시 `blocked_domains: ["namu.wiki"]` 기본 배제. 위키백과도 출발점일 뿐 1차 출처로 추적·확인. **웹을 근거로 한 답변·문서에는 검증한 신뢰 출처를 `## 출처`(또는 `## Sources`)로 명시.**
+10. **약어 표기 (Abbreviations)**: 약어는 **첫 사용 시 full name 병기**(`AR (asymmetry ratio)`). 약어가 반복되는 trial·문서는 `### 조건`(또는 문서 상단)에 **약어 legend를 ul list**로 명시하되 **각 약어를 별도 row**로 — trial 단독 열람성 확보. 동일 약어가 여러 trial에 걸치면 **각 trial에서 재정의**(trial 독립성 > DRY; 세션 1회 정의로 갈음 금지). 예외: 도메인 표준 단위·기호(µA·Hz·ms·SI)는 병기 불요.
+11. **LLM 상투 표현 배제 (LLM Cliché Ban)**: 영어 문서·communication 작성 시 LLM 특유의 상투 어휘·register(특징적 동사·막연 형용사·상투 명사·과용 연결어·정형 구문)를 배제하고 **구체·능동·직접 서술**로 대체합니다. 고정 목록이 아닌 *원칙* 적용 — 막연한 filler·과용 register는 배제하되 **정확한 기술적 의미**의 용어는 허용합니다(예: 통계 significance, robustness). 연결어는 과용·문두 연속만 배제(정당한 단일 사용 허용), 인용·제목·원문 표현은 면제하며, 한국어 로그는 무관합니다(영어 혼용 시 적용). 프로젝트별 기술 동음어 예외는 `ProjectRule.md`에, 어휘 항목의 추가·제외·재정의는 data overlay `0_Meta/LLMcliche.project.md`(base ⊕ overlay)에 선언합니다. 배제·예외·전후 예시(비망라 참고): `.elf/managed/LLMcliche.md`.
+12. **출처 신뢰성 (Source Reliability)**: 나무위키(namu.wiki) 등 익명·집단 편집 위키 및 출처 불명 블로그·커뮤니티를 답변·문서의 출처로 인용 금지. 검색 결과에 나타나도 그대로 신뢰하지 말고 **신뢰 출처**(공신력 기관·학회·정부, 학술/1차 자료, 공식 문서, 1차 보도)로 교차검증 후 *그 신뢰 출처*를 인용. WebSearch 시 `blocked_domains: ["namu.wiki"]` 기본 배제. 위키백과도 1차 출처가 아니므로 1차 출처로 추적·확인. **웹을 근거로 한 답변·문서에는 검증한 신뢰 출처를 `## 출처`(또는 `## Sources`)로 명시.**
 
 ---
 
@@ -191,7 +193,7 @@ data 성격의 ELF 관리 파일(manifest에 `overlayable`로 명시 — 현행:
 
 웹 검색 도구로 학술 문헌 조사 시 적용. high-tier(고-IF) 저널 우선 확보 목표.
 
-- **배경**: 웹 검색 도구는 일반 검색 엔진 기반 (JCR/Scopus/WoS 아님) → Impact Factor 정렬·필터 미지원. OA 대량 발행 저널(MDPI·Frontiers·Hindawi 등)이 SEO·발행량으로 검색 listing 점령. high-IF flagship(Nature·Science·Cell·구독형 Elsevier/Wiley)은 paywall+anti-bot로 본문 fetch 차단(403). → high-tier 조사 의도 시 결과가 저-IF OA로 쏠림. 원인은 "엔진이 high-IF를 못 봄"이 아니라 "IF 기준 정렬 부재 + OA 색인 편향"이며 access 차단은 부분 요인.
+- **배경**: 웹 검색 도구는 일반 검색 엔진 기반 (JCR/Scopus/WoS 아님) → Impact Factor 정렬·필터 미지원. OA 대량 발행 저널(MDPI·Frontiers·Hindawi 등)이 SEO·발행량으로 검색 결과 상위를 다수 차지. high-IF 대표 저널(Nature·Science·Cell·구독형 Elsevier/Wiley)은 paywall+anti-bot로 본문 fetch 차단(403). → high-tier 조사 의도 시 결과가 저-IF OA로 쏠림. 원인은 "검색 엔진이 high-IF를 색인하지 못함"이 아니라 "IF 기준 정렬 부재 + OA 색인 편향"이며 access 차단은 부분 요인.
 - **규칙**:
   1. 도메인 화이트리스트: 검색 시 `.elf/managed/highIFjournals.md` 의 도메인 목록을 `allowed_domains` 에 지정. 프로젝트별 우선 target subset은 `ProjectRule.md` 정의.
   2. OA full-text 경유: target 저널이 OA면 출판사 도메인 403 시 PMC·Europe PMC URL로 본문 확보.

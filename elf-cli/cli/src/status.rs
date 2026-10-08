@@ -44,7 +44,7 @@ pub fn run_status(root: &Path) -> Result<StatusReport, UpdateError> {
 
     let mut report = StatusReport::default();
 
-    // 계보 해석 (S026) — update와 동일 규칙. 단 status는 읽기전용: self-heal 없음,
+    // 계보 해석 (S026) — update와 동일 규칙. 단 status는 읽기전용: 자동 복구 없음,
     // 모순도 중단 대신 경고 + stamp 시그니처(실물과 정합한 쪽) 기준으로 진단 계속.
     let kind = match update::resolve_kind(root, &stamp_full) {
         Ok((kind, update::KindSource::Config)) => {
@@ -59,7 +59,7 @@ pub fn run_status(root: &Path) -> Result<StatusReport, UpdateError> {
         }
         Err(UpdateError::PresetMismatch { config, stamp: sig }) => {
             report.warn(format!(
-                "preset mismatch: .elf/config.json says \"{config}\" but the stamp is a {sig} manifest — diagnosing as {sig}; fix \"preset\" in .elf/config.json (`elf update` refuses until then)"
+                "preset mismatch: .elf/config.json declares \"{config}\" but the stamp is a {sig} manifest — diagnosing as {sig}; fix \"preset\" in .elf/config.json (`elf update` refuses until then)"
             ));
             sig
         }

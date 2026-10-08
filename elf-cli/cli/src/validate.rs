@@ -8,12 +8,12 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::session::{Escalation, RegistryRow, log_num, parse_registry, session_num};
+use crate::session::{Escalation, LOG_DIRS, RegistryRow, log_num, parse_registry, session_num};
 
 #[derive(Debug, Default)]
 pub struct ValidateReport {
     pub lines: Vec<String>,
-    /// CI 게이트 대상 (정합 위반: 미등록 로그 / 유령 행 / 중복 번호 / 깨진 cross-ref)
+    /// CI 게이트 대상 (정합 위반: 미등록 로그 / 로그 없는 행 / 중복 번호 / 깨진 cross-ref)
     pub issues: usize,
     /// 비차단 경고 (번호 gap / 활성 세션 복수)
     pub warnings: usize,
@@ -74,10 +74,10 @@ pub fn numbering_gaps(known: &BTreeSet<u32>) -> Vec<u32> {
     gaps
 }
 
-/// 활성(Complete 아님) 세션 ID 목록 (Registry status 기준).
+/// 활성(Complete·Deprecated 아님) 세션 ID 목록 (Registry status 기준 — session.rs의 종료 판정과 공용).
 pub fn active_sessions(reg: &[RegistryRow]) -> Vec<String> {
     reg.iter()
-        .filter(|r| !r.status.starts_with("Complete"))
+        .filter(|r| crate::session::is_open_status(&r.status))
         .map(|r| r.session.clone())
         .collect()
 }
@@ -166,7 +166,7 @@ fn embedded_basename(targets: &[String], fname: &str) -> bool {
         .any(|t| Path::new(t).file_name().and_then(|n| n.to_str()) == Some(fname))
 }
 
-/// `<!-- noembed: a.png, b.svg -->` 주석에서 의도적 제외 파일명 집합(순수). SI/폐기 figure 용.
+/// `<!-- noembed: a.png, b.svg -->` 주석에서 의도적 제외 파일명 집합(순수). SI·본문 미삽입 figure 용.
 pub fn noembed_filenames(content: &str) -> BTreeSet<String> {
     let mut set = BTreeSet::new();
     for (idx, _) in content.match_indices("noembed:") {
@@ -187,6 +187,11 @@ pub fn noembed_filenames(content: &str) -> BTreeSet<String> {
 // ① 비정본 `###` 헤딩 ② 코어 절 순서 ③ 해석 첫 줄 규칙 ④ Phase 절 존재(관찰 있는데 가설/예상 없음).
 // 문체·내용 수준 규칙은 검사하지 않음(기계 판정 불가·정본↔검사기 동기 부채 방지).
 // 활성 로그 전용 — Archive 제외(소급 정책 §2: 신규 작성분부터 적용).
+
+/// 해석 절 첫 줄 라벨(v2.24) — `예상 일치 정도: 일치 / 부분 일치 / 불일치`.
+pub const INTERP_LABEL: &str = "예상 일치 정도";
+/// 이전 라벨(≤ v2.23) — 기존 로그는 계속 유효(소급 정책).
+pub const INTERP_LABEL_LEGACY: &str = "가설 적중 여부";
 
 /// 코어 절의 정본 순서 (배경=0 … 생성 파일=8). `시행착오`는 위치 자유(순서 검사 제외).
 const TRIAL_SECTIONS: [&str; 9] =
@@ -262,11 +267,11 @@ pub fn trial_structure_findings(content: &str) -> Vec<String> {
             keys.push(key.to_string());
             continue;
         }
-        // ③ 해석 첫 내용 줄 = `가설 적중 여부: …`
+        // ③ 해석 첫 내용 줄 = `예상 일치 정도: …` (v2.24 — 이전 라벨 `가설 적중 여부`도 인식: 기존 로그 유효)
         if interp_pending && !l.trim().is_empty() {
-            if !l.contains("가설 적중 여부") {
+            if !l.contains(INTERP_LABEL) && !l.contains(INTERP_LABEL_LEGACY) {
                 out.push(format!(
-                    "{trial}: '### 해석' must start with '가설 적중 여부: 적중/탈락/부분 적중' (LogConvention §2)"
+                    "{trial}: '### 해석' must start with '{INTERP_LABEL}: 일치/부분 일치/불일치' (LogConvention §2; the older '{INTERP_LABEL_LEGACY}' line is still accepted)"
                 ));
             }
             interp_pending = false;
@@ -338,10 +343,12 @@ pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, Va
     let reg_text = fs::read_to_string(root.join(crate::session::REGISTRY_REL)).unwrap_or_default();
     let rows = parse_registry(&reg_text).map_err(ValidateError::Escalation)?;
 
-    let live = scan_logs(&root.join("2_Log"));
-    let archive = scan_logs(&root.join("2_Log/Archive"));
+    // 로그 위치 = session::LOG_DIRS(루트·Archive·Deprecated) — 번호 정합·중복·비정격 이름은 세 위치,
+    // 링크 검사는 루트·Archive, 구조 검사는 루트(Deprecated/는 두 검사의 대상이 아님).
+    let [live, archive, deprecated] = LOG_DIRS.map(|d| scan_logs(&root.join(d)));
 
-    let log_set: BTreeSet<u32> = live.iter().chain(archive.iter()).map(|(n, _)| *n).collect();
+    let log_set: BTreeSet<u32> =
+        live.iter().chain(archive.iter()).chain(deprecated.iter()).map(|(n, _)| *n).collect();
     let reg_set: BTreeSet<u32> = rows.iter().filter_map(|r| session_num(&r.session)).collect();
 
     let mut report = ValidateReport::default();
@@ -352,16 +359,18 @@ pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, Va
     }
     for n in reg_set.difference(&log_set) {
         report.issue(format!(
-            "S{n:03} is in the registry but has no log file (2_Log/ or Archive/)"
+            "S{n:03} is in the registry but has no log file (2_Log/, Archive/ or Deprecated/)"
         ));
     }
 
-    // ② 번호 중복 + gap + 비정격 파일명
-    let all_log_nums: Vec<u32> = live.iter().chain(archive.iter()).map(|(n, _)| *n).collect();
+    // ② 번호 중복 + gap + 비정격 파일명 (세 위치 — 부분 폐기 파일 `*.partial.md`는 이름이 달라 대상 아님)
+    let all_log_nums: Vec<u32> =
+        live.iter().chain(archive.iter()).chain(deprecated.iter()).map(|(n, _)| *n).collect();
     for n in duplicate_nums(&all_log_nums) {
-        report.issue(format!("duplicate log number S{n:03} across 2_Log/ and Archive/"));
+        report.issue(format!("duplicate log number S{n:03} across 2_Log/, Archive/ and Deprecated/"));
     }
-    for (dir, label) in [("2_Log", "2_Log/"), ("2_Log/Archive", "2_Log/Archive/")] {
+    for dir in LOG_DIRS {
+        let label = format!("{dir}/");
         for name in scan_malformed_log_names(&root.join(dir)) {
             report.issue(format!(
                 "malformed session log name: {label}{name} — session ids are plain S### (no suffix/variant); give each parallel session its own number and record relations in the 관련: header field"
@@ -392,11 +401,16 @@ pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, Va
                 report.issue(format!("{fname}: broken cross-ref → {target}"));
             }
         }
-        // 동일 세션 64_Viz의 그림이 로그 본문에 인라인 임베딩되지 않으면 보고(strict 시 issue).
+        // 동일 세션 64_Viz의 그림이 세션 문서(로그 + 부분 폐기 파일 `Deprecated/S###_log.partial.md`)에
+        // 인라인 임베딩되지 않으면 보고(strict 시 issue). 폐기된 블록의 embed도 그 세션의 embed로 센다.
         let images = scan_viz_images(&root.join(format!("6_Exp/64_Viz/S{n:03}")));
         if !images.is_empty() {
-            let targets = extract_image_targets(&content);
-            let skip = noembed_filenames(&content);
+            let partial = fs::read_to_string(root.join(format!("2_Log/Deprecated/S{n:03}_log.partial.md")))
+                .unwrap_or_default();
+            let mut targets = extract_image_targets(&content);
+            targets.extend(extract_image_targets(&partial));
+            let mut skip = noembed_filenames(&content);
+            skip.extend(noembed_filenames(&partial));
             for img in images {
                 if skip.contains(&img) || embedded_basename(&targets, &img) {
                     continue;
@@ -561,7 +575,16 @@ mod tests {
         let log = "## t03: 작업\n\n### 목표 (Goal)\n- x\n\n### 관찰 (Observation)\n- o\n\n### 해석 (Interpretation)\n- 그냥 해석\n";
         let f = trial_structure_findings(log);
         assert!(f.iter().any(|m| m.contains("missing '### 가설'/'### 예상'")), "{f:?}");
-        assert!(f.iter().any(|m| m.contains("가설 적중 여부")), "{f:?}");
+        assert!(f.iter().any(|m| m.contains("예상 일치 정도")), "{f:?}");
+    }
+
+    #[test]
+    fn interpretation_accepts_current_and_legacy_labels() {
+        let base = "## t01: 작업\n\n### 목표 (Goal)\n- x\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n\n### 관찰 (Observation)\n- o\n\n### 해석 (Interpretation)\n";
+        assert!(trial_structure_findings(&format!("{base}- 예상 일치 정도: 부분 일치\n")).is_empty());
+        assert!(trial_structure_findings(&format!("{base}- 가설 적중 여부: 적중\n")).is_empty()); // 이전 라벨 유효
+        let f = trial_structure_findings(&format!("{base}- 해석만\n"));
+        assert!(f.iter().any(|m| m.contains("예상 일치 정도") && m.contains("가설 적중 여부")), "{f:?}");
     }
 
     #[test]

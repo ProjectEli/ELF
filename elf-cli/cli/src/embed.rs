@@ -69,7 +69,6 @@ mod tests {
             "meta/LogConvention.md",
             "log/sessionTemplate.md",
             "root/README.md",
-            "root/.claudeignore",
             "root/.gitignore",
         ] {
             assert!(TEMPLATES.get_file(path).is_some(), "missing embed: {path}");
@@ -82,7 +81,7 @@ mod tests {
         assert!(!MANIFEST_JSON.contains('\r'), "CRLF in embedded manifest");
     }
 
-    /// CRLF embed 오염 가드 (Git_Hook_Governance §5 교훈의 embed 버전).
+    /// CRLF embed 혼입 방지 (Git_Hook_Governance §5 교훈의 embed 버전).
     /// working tree가 CRLF로 checkout되면 여기서 실패 → .gitattributes eol=lf 복구 신호.
     #[test]
     fn embedded_templates_have_no_crlf() {

@@ -4,6 +4,52 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.24.0] - 2026-10-08
+
+### Added
+- **`elf deprecate`** — move all or part of a session log or planning document into
+  `Deprecated/` (whole file: same name plus a YAML header, header `Status: Deprecated`,
+  registry row updated; trial / section / marked block / line range: a block in
+  `<name>.partial.md` plus a one-line move marker at the original position, IDs like
+  `S012-D01`). `--restore` puts it back; `list` walks the `Deprecated/` folders and reports
+  marker/block mismatches; `--dry-run` previews. Relative links in moved content are
+  recomputed for the folder, so figures still render. A move that would introduce new
+  trial-structure findings is refused; after a restore, validate and link checks for that
+  document are printed as warnings. Items the command does not modify (Handoff, registry
+  key finding, references in other documents, figures and output paths in the moved
+  content) are printed as `review:` lines.
+- **Deprecated convention** — `Deprecated/` sits next to `Wiki/` and `Archive/` in `2_Log/`
+  and `1_Concept/12_Planning/`. Documents there may be read but are not a basis for current
+  decisions; the user decides what to deprecate. Spec: LogConvention §6; one standing-duty
+  line in AGENTS.md; README and CLI reference updated.
+- **`elf validate`** — numbering and registry checks cover `2_Log/`, `Archive/`, and
+  `Deprecated/`; registry Status `Deprecated` is a closed state; figure embeds in
+  `Deprecated/S###_log.partial.md` count for that session.
+- **Interpretation first line `예상 일치 정도: 일치 / 부분 일치 / 불일치` (prediction
+  match)** in the trial template and LogConvention. `elf validate` still accepts the older
+  `가설 적중 여부` line in existing logs.
+- **`elf doctor`** — reports a root `.claudeignore` as Info: it has no effect in Claude Code,
+  is no longer ELF-managed, and is safe to delete.
+- `elf session close` also recomputes links that start with `Wiki/`, `Archive/`, or
+  `Deprecated/` when the log moves to `Archive/`.
+
+### Changed
+- **Archive redefined** — `Archive/` holds closed, still-valid records and may be read by the
+  agent. The "autonomous exploration ban / firewall" wording is removed from
+  AI_PARA_Framework, AGENTS.md, LogConvention, EliRule, and the README. AI_PARA_Framework
+  §1, §2, and §4 are rewritten around four locations: folder root (in progress), `Wiki/`,
+  `Archive/`, `Deprecated/`.
+- **Wording** — metaphors in the distributed documents (KO and EN), the README, the CLI
+  reference, CLI messages, and code comments are replaced with direct terms (for example
+  "fold" → "replace-style summary", "baseline seal" → "baseline record").
+  `control plane` / `제어판` → `control area` / `제어 영역`; `건강검진` → `종합 점검`. The qa
+  preset drops its warning icons, and `bundle_template.md` now points to `AGENTS.md §4`.
+
+### Removed
+- **`.claudeignore` is no longer distributed** — the template, the manifest entries, and the
+  `.gitignore` managed-block line are removed (Claude Code does not read the file). Existing
+  projects keep their copy; `elf doctor` reports it.
+
 ## [2.23.0] - 2026-10-03
 
 ### Added
