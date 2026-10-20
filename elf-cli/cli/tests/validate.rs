@@ -1,4 +1,4 @@
-//! t04: `elf validate` — Registry↔로그 정합·번호·cross-ref 검사, escalation·`--check` 게이트.
+//! t04: `elf validate` — Registry↔로그 정합, 번호, cross-ref 검사, escalation, `--check` 게이트.
 
 use assert_cmd::Command;
 use elf_cli::init::{InitOptions, run_init};
@@ -329,7 +329,7 @@ fn figure_embedded_in_partial_file_counts_for_the_session() {
     fs::create_dir_all(root.join("2_Log/Deprecated")).unwrap();
     fs::write(
         root.join("2_Log/Deprecated/S001_log.partial.md"),
-        "---\ndeprecated: partial\nsource: 2_Log/S001_log.md\n---\n\n## t01: x\n> **Deprecated**: 2026-10-08 · S001-D01 · t01\n\n<!-- deprecated:begin S001-D01 -->\n![a](../../6_Exp/64_Viz/S001/a.png)\n<!-- deprecated:end S001-D01 -->\n",
+        "---\ndeprecated: partial\nsource: 2_Log/S001_log.md\n---\n\n## t01: x\n> **Deprecated**: 2026-10-08, S001-D01, t01\n\n<!-- deprecated:begin S001-D01 -->\n![a](../../6_Exp/64_Viz/S001/a.png)\n<!-- deprecated:end S001-D01 -->\n",
     )
     .unwrap();
     let r = run_validate(&root).unwrap();

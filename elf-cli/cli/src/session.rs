@@ -1,8 +1,8 @@
-//! `elf session new` / (t02) `session close` — 세션 수명주기 (P012 t01·t02).
+//! `elf session new` / (t02) `session close` — 세션 수명주기 (P012 t01, t02).
 //!
 //! Registry TSV 파서는 t04 validate와 공용 — **위치 기반(6열) 결정론 파싱**.
-//! 파싱 불가(열수·세션ID 형식)는 **자동 수정하지 않고 escalation**(exit 5)으로 상위 LLM 에이전트에 위임
-//! (P012 §0.1: 결정론 도구=게이트, 판단·수리=에이전트. 무손실 원칙).
+//! 파싱 불가(열수, 세션ID 형식)는 **자동 수정하지 않고 escalation**(exit 5)으로 상위 LLM 에이전트에 위임
+//! (P012 §0.1: 결정론 도구=게이트, 판단, 수리=에이전트. 무손실 원칙).
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -12,14 +12,14 @@ use std::path::{Path, PathBuf};
 use crate::embed;
 
 pub const REGISTRY_REL: &str = "2_Log/Wiki/Session_Registry.tsv";
-/// 세션 로그가 놓이는 위치(상태 폴더) — 루트(진행 중)·Archive(종료)·Deprecated(폐기). 번호 스캔·정합 검사가 공유.
+/// 세션 로그가 놓이는 위치(상태 폴더) — 루트(진행 중), Archive(종료), Deprecated(폐기). 번호 스캔, 정합 검사가 공유.
 pub const LOG_DIRS: [&str; 3] = ["2_Log", "2_Log/Archive", "2_Log/Deprecated"];
 pub const REGISTRY_COLS: usize = 6;
 const ACTION_FIX_REGISTRY: &str =
     "표시된 행을 스키마에 맞게 수정 후 명령 재실행 (이 도구는 Registry를 자동 수정하지 않음)";
 
 /// 판단 개입 필요 — 상위 LLM 에이전트 위임 신호 (P012 §0.1, exit 5).
-/// stderr에 자가완결 보고 + `agent-action:` 고정 마커 출력(에이전트가 패턴 인식해 수리·재실행).
+/// stderr에 자가완결 보고 + `agent-action:` 고정 마커 출력(에이전트가 패턴 인식해 수리, 재실행).
 #[derive(Debug, PartialEq, Eq)]
 pub struct Escalation {
     pub file: String,
@@ -58,7 +58,7 @@ pub struct RegistryRow {
     pub archive_path: String,
 }
 
-/// Registry TSV → 행 목록. 헤더(`Session\t…`)·빈 줄 skip. 6열 아니거나 세션ID가 S### 아니면 escalation.
+/// Registry TSV → 행 목록. 헤더(`Session\t…`), 빈 줄 skip. 6열 아니거나 세션ID가 S### 아니면 escalation.
 /// (Err은 박싱 — Escalation 구조가 커 result_large_err 회피)
 pub fn parse_registry(text: &str) -> Result<Vec<RegistryRow>, Box<Escalation>> {
     let mut rows = Vec::new();
@@ -125,7 +125,7 @@ pub fn next_number(nums: &[u32]) -> u32 {
     nums.iter().copied().max().map_or(1, |m| m + 1)
 }
 
-/// gap·중복·로그↔Registry 불일치 경고 (순수, 비차단). 상세 진단은 `elf validate`.
+/// gap, 중복, 로그↔Registry 불일치 경고 (순수, 비차단). 상세 진단은 `elf validate`.
 pub fn number_warnings(log_nums: &[u32], reg_nums: &[u32]) -> Vec<String> {
     let mut w = Vec::new();
     let logs: BTreeSet<u32> = log_nums.iter().copied().collect();
@@ -185,7 +185,7 @@ impl From<io::Error> for SessionError {
     }
 }
 
-/// `LOG_DIRS`(루트·Archive·Deprecated)의 S###_log.md 번호 수집 — 부분 폐기 파일(`*.partial.md`)은 이름이 달라 제외.
+/// `LOG_DIRS`(루트, Archive, Deprecated)의 S###_log.md 번호 수집 — 부분 폐기 파일(`*.partial.md`)은 이름이 달라 제외.
 fn scan_log_numbers(root: &Path) -> Vec<u32> {
     let mut nums = Vec::new();
     for dir in LOG_DIRS {
@@ -222,7 +222,7 @@ pub fn run_session_new(root: &Path, opts: &SessionNewOptions) -> Result<SessionN
     // 세션 번호의 정본 = 로그 파일 index(2_Log/ + Archive/의 S###_log.md). Registry는 부차.
     // Registry 파싱은 번호 할당의 전제조건이 아니다 — 파싱 실패(merge 충돌 마커 등)해도
     // 파일 index로 번호를 낸다(멀티에이전트 Registry 손상 내성, S030). 실패는 경고로 노출하고
-    // 새 행은 raw append(손상부 보존·데이터 무손실) → `elf validate`로 복구.
+    // 새 행은 raw append(손상부 보존, 데이터 무손실) → `elf validate`로 복구.
     let log_nums = scan_log_numbers(root);
     let mut warnings = Vec::new();
     let reg_nums: Vec<u32> = match parse_registry(&reg_text) {
@@ -246,7 +246,7 @@ pub fn run_session_new(root: &Path, opts: &SessionNewOptions) -> Result<SessionN
 
     // 원자적 번호 할당 (§12.13 ①-a): `create_new`(O_EXCL/CREATE_NEW) 성공 = 그 번호의 유일
     // 소유 확정 — "체크 후 쓰기"의 TOCTOU를 "쓰기가 곧 체크"로 소거. AlreadyExists = 다른
-    // 프로세스 선점 → 재스캔·재시도(선점 파일이 스캔에 잡혀 다음 번호로 전진). 파일 존재 =
+    // 프로세스 선점 → 재스캔, 재시도(선점 파일이 스캔에 잡혀 다음 번호로 전진). 파일 존재 =
     // 번호 예약(파일 index 정본 원리의 쓰기 측). 상한은 병렬 현실 규모를 크게 넘는 여유값.
     let mut nums = [log_nums.as_slice(), reg_nums.as_slice()].concat();
     let (mut file, id, log_rel) = 'alloc: {
@@ -276,9 +276,9 @@ pub fn run_session_new(root: &Path, opts: &SessionNewOptions) -> Result<SessionN
     drop(file);
 
     // Registry 행 append (§12.13 ①-b): 전체 rewrite 폐지 — 신규 행 추가는 본질이 append라
-    // O_APPEND(원자적 tail 쓰기·단일 write 행은 로컬 FS에서 인터리브 없음)로 동시 lost update
+    // O_APPEND(원자적 tail 쓰기, 단일 write 행은 로컬 FS에서 인터리브 없음)로 동시 lost update
     // 소거. 극초기 동시 생성의 헤더 중복은 파서가 헤더 행을 무조건 skip하므로 무해. 행 순서는
-    // 완료순(번호순과 다를 수 있음) — 파서·validate는 행 단위라 무관(Registry = flat 인덱스).
+    // 완료순(번호순과 다를 수 있음) — 파서, validate는 행 단위라 무관(Registry = flat 인덱스).
     let mut row = String::new();
     if reg_text.is_empty() {
         row.push_str(registry_header());
@@ -297,7 +297,7 @@ pub fn run_session_new(root: &Path, opts: &SessionNewOptions) -> Result<SessionN
 //
 // 세션 로그 헤더(첫 h1 뒤 첫 `>` 블록)의 각 줄(마지막 제외) 끝에 CommonMark hard break(`\`).
 // Discord 미리보기 등 strict 렌더러에서 6개 메타 항목이 한 줄로 합쳐지는 것 방지(LogConvention §2).
-// 멱등 — 이미 `\`면 건드리지 않음. 다른 `>` 블록·본문 불변.
+// 멱등 — 이미 `\`면 건드리지 않음. 다른 `>` 블록, 본문 불변.
 
 /// 변경 시 보정된 전체 문자열, 변경 없으면 None.
 pub fn fix_session_header(content: &str) -> Option<String> {
@@ -373,7 +373,7 @@ pub fn run_fix_headers(base: &Path, dry_run: bool) -> io::Result<Vec<FixedFile>>
 
 // ── session close (t02) + 공용 루트 탐지 ────────────────────────
 //
-// 루트 탐지 = `2_Log/` 기반(`.elf/` 불요). session new/close·fix-headers 공용 →
+// 루트 탐지 = `2_Log/` 기반(`.elf/` 불요). session new/close, fix-headers 공용 →
 // 생성 프로젝트뿐 아니라 프레임워크 `_dev/`도 자기사용 가능(S011 자기 사용 중 발견 반영).
 
 /// cwd에서 위로 올라가며 `2_Log/` 보유 디렉토리(세션 루트)를 찾음.
@@ -384,7 +384,7 @@ pub fn find_log_root(start: &Path) -> Option<PathBuf> {
         .map(Path::to_path_buf)
 }
 
-/// 헤더 블록 `> **Status**:` 값 (트레일링 `\`·`\r` 제거).
+/// 헤더 블록 `> **Status**:` 값 (트레일링 `\`, `\r` 제거).
 pub fn header_status(content: &str) -> Option<String> {
     content.lines().find_map(|line| {
         line.trim_end_matches('\r')
@@ -393,12 +393,12 @@ pub fn header_status(content: &str) -> Option<String> {
     })
 }
 
-/// Complete·Deprecated가 아니면 열린(닫을 수 있는) 세션. (trial.rs 활성 세션 탐지와 공용)
+/// Complete, Deprecated가 아니면 열린(닫을 수 있는) 세션. (trial.rs 활성 세션 탐지와 공용)
 pub(crate) fn is_open_status(s: &str) -> bool {
-    !s.starts_with("Complete") && !s.starts_with("Deprecated")
+    !s.starts_with("Complete") && !s.starts_with("Deprecated") && !s.starts_with("Purged")
 }
 
-/// 헤더 블록 `> **Handoff**:` 값 (트레일링 `\`·`\r` 제거).
+/// 헤더 블록 `> **Handoff**:` 값 (트레일링 `\`, `\r` 제거).
 pub fn header_handoff(content: &str) -> Option<String> {
     content.lines().find_map(|line| {
         line.trim_end_matches('\r')
@@ -407,8 +407,8 @@ pub fn header_handoff(content: &str) -> Option<String> {
     })
 }
 
-/// Handoff 3파트 중 미완료 파트의 잔존 내용 (S021 t13 #3 · t17 경계 강화).
-/// 파트 경계 = **`;` 직후(공백 허용) 라벨**(`미완료`/`pending`·`참조`/`refs`)이 오는 위치만 —
+/// Handoff 3파트 중 미완료 파트의 잔존 내용 (S021 t13 #3, t17 경계 강화).
+/// 파트 경계 = **`;` 직후(공백 허용) 라벨**(`미완료`/`pending`, `참조`/`refs`)이 오는 위치만 —
 /// 위치 기반 split이 아니라서 파트 내용 속 `;`(라벨 비동반)와 본문 속 라벨 단어(`;` 비동반)가
 /// 모두 무해(v2.3 원설계 "`;`=파트 경계 전용" 복원과 쌍). 라벨 경계 부재 = 판정 보류(None).
 pub fn handoff_pending(handoff: &str) -> Option<String> {
@@ -441,7 +441,7 @@ pub fn handoff_pending(handoff: &str) -> Option<String> {
     }
 }
 
-/// 헤더 Status를 Complete로 (트레일링 `\`·`\r` 보존). 변경 없으면 None.
+/// 헤더 Status를 Complete로 (트레일링 `\`, `\r` 보존). 변경 없으면 None.
 pub fn mark_status_complete(content: &str) -> Option<String> {
     let mut out: Vec<String> = content.split('\n').map(str::to_string).collect();
     let mut changed = false;
@@ -466,7 +466,7 @@ pub fn mark_status_complete(content: &str) -> Option<String> {
     if changed { Some(out.join("\n")) } else { None }
 }
 
-/// close 시 Registry 행 갱신: status→Complete, archive_path→Archive/<id>_log.md. 타 행·EOL 보존.
+/// close 시 Registry 행 갱신: status→Complete, archive_path→Archive/<id>_log.md. 타 행, EOL 보존.
 fn registry_mark_closed(reg_text: &str, target: &str) -> String {
     let archive = format!("Archive/{target}_log.md");
     let mut out = String::new();
@@ -492,7 +492,7 @@ fn registry_mark_closed(reg_text: &str, target: &str) -> String {
 
 /// 로그가 `2_Log/` → `2_Log/Archive/`로 **한 단계 깊어질** 때, **`../`로 시작하는**(= 2_Log 밖
 /// 고정 대상을 가리키는) 상대 링크에만 `../`를 1개 prepend해 동일 대상을 유지. 변경 없으면 None.
-/// bare same-dir 링크(`](S###_log.md)` 형제 로그 — 함께 이동)·산문 속 `](...)` 오탐은 자동 회피.
+/// bare same-dir 링크(`](S###_log.md)` 형제 로그 — 함께 이동), 산문 속 `](...)` 오탐은 자동 회피.
 /// (prefix폐지 "단순 이동"이 누락한 상대링크 깊이 보정 — close 전용.)
 pub fn deepen_relative_links(content: &str) -> Option<String> {
     let b = content.as_bytes();
@@ -525,7 +525,7 @@ pub fn deepen_relative_links(content: &str) -> Option<String> {
     }
 }
 
-/// `../`로 시작하는 상대 링크 대상에는 `../` prepend, 상태 폴더(`Wiki/`·`Archive/`·`Deprecated/`)로
+/// `../`로 시작하는 상대 링크 대상에는 `../` prepend, 상태 폴더(`Wiki/`, `Archive/`, `Deprecated/`)로
 /// 시작하는 대상은 2_Log → 2_Log/Archive 기준으로 재계산(예: `Deprecated/x` → `../Deprecated/x`,
 /// `Archive/S001_log.md` → `S001_log.md`). 그 외(같은 폴더의 형제 로그 등)는 None.
 fn deepen_link_target(raw: &str) -> Option<String> {
@@ -601,8 +601,8 @@ pub fn run_session_close(root: &Path, opts: &CloseOptions) -> Result<CloseResult
     }
     let content = fs::read_to_string(&log_path)?;
 
-    // Handoff 미완료 잔존 경고 (비차단 — LogConvention §5.2: 소거 또는 Registry key finding·Planning 문서로 이관).
-    // 구 `## 다음 세션 후보` 게이트(≤ v2.19·MissingNextSection refuse)는 v2.20에서 제거 — 절은 비권장(off)·기존 로그의 절은 유효.
+    // Handoff 미완료 잔존 경고 (비차단 — LogConvention §5.2: 소거 또는 Registry key finding, Planning 문서로 이관).
+    // 구 `## 다음 세션 후보` 게이트(≤ v2.19, MissingNextSection refuse)는 v2.20에서 제거 — 절은 비권장(off), 기존 로그의 절은 유효.
     let mut warnings = Vec::new();
     if let Some(pending) = header_handoff(&content).as_deref().and_then(handoff_pending) {
         warnings.push(format!(
@@ -612,7 +612,7 @@ pub fn run_session_close(root: &Path, opts: &CloseOptions) -> Result<CloseResult
 
     // close 전 자동 validate — **닫는 세션 스코프**의 발견만 보고 (비차단, S027 #7).
     // Archive 이동 후에는 구조 검사 범위에서 빠지므로 close 직전이 마지막 검증 기회.
-    // 스코프 필터 = 전역·타 세션 경고(소급 면제분 포함)가 close 절차에 섞이지 않게 함.
+    // 스코프 필터 = 전역, 타 세션 경고(소급 면제분 포함)가 close 절차에 섞이지 않게 함.
     // validate 자체가 실패(레지스트리 escalation 등)해도 close는 진행 — 그 문제는 별도 명령이 보고.
     if let Ok(v) = crate::validate::run_validate_opts(root, false) {
         // 라인 형식 2종 커버: 구조 경고 = "S###_log.md: …" / figure-embed 경고 = "S###: figure …"
@@ -669,8 +669,8 @@ mod tests {
 
     #[test]
     fn header_handoff_extracts_value() {
-        let c = "# T\n\n> **Status**: ★ 활성\\\n> **Handoff**: A 기각·B 채택; 미완료 = X; 참조 t07\n";
-        assert_eq!(header_handoff(c).as_deref(), Some("A 기각·B 채택; 미완료 = X; 참조 t07"));
+        let c = "# T\n\n> **Status**: ★ 활성\\\n> **Handoff**: A 기각, B 채택; 미완료 = X; 참조 t07\n";
+        assert_eq!(header_handoff(c).as_deref(), Some("A 기각, B 채택; 미완료 = X; 참조 t07"));
         assert_eq!(header_handoff("no handoff\n"), None);
     }
 
@@ -678,8 +678,8 @@ mod tests {
     fn handoff_pending_detection() {
         // 잔존 내용 → Some
         assert_eq!(
-            handoff_pending("A 기각·B 채택; 미완료 = X·Y 반영; 참조 t07").as_deref(),
-            Some("X·Y 반영")
+            handoff_pending("A 기각, B 채택; 미완료 = X, Y 반영; 참조 t07").as_deref(),
+            Some("X, Y 반영")
         );
         assert_eq!(
             handoff_pending("state; pending: fix docs; refs t02").as_deref(),
@@ -691,7 +691,7 @@ mod tests {
         assert_eq!(handoff_pending("상태; 미완료 -; 참조 t01"), None);
         assert_eq!(handoff_pending("상태; 미완료 없음; 참조"), None);
         assert_eq!(handoff_pending("state; pending: none; refs"), None);
-        // 라벨 경계 부재(구형식·비정형) → 판정 보류(None)
+        // 라벨 경계 부재(구형식, 비정형) → 판정 보류(None)
         assert_eq!(handoff_pending("-"), None);
         assert_eq!(handoff_pending("상태 한 덩어리 서술"), None);
         assert_eq!(handoff_pending("상태; 미착수 작업들; 파일"), None); // 미라벨 3파트
@@ -708,8 +708,8 @@ mod tests {
         assert_eq!(handoff_pending("Handoff 미완료 소거 규약 반영 완료; -; 참조 t14"), None);
         // 미완료 파트 내용에 `;`가 없고 참조 라벨 경계로 정확 종료
         assert_eq!(
-            handoff_pending("결론 확정; 미완료 = 파서 강화·규약 복원; 참조 t17 관찰").as_deref(),
-            Some("파서 강화·규약 복원")
+            handoff_pending("결론 확정; 미완료 = 파서 강화, 규약 복원; 참조 t17 관찰").as_deref(),
+            Some("파서 강화, 규약 복원")
         );
     }
 
@@ -755,7 +755,7 @@ mod tests {
 
     #[test]
     fn deepen_noop_without_updir_links() {
-        // bare same-dir 링크·산문 속 `](...)`·URL·앵커는 보정 안 함
+        // bare same-dir 링크, 산문 속 `](...)`, URL, 앵커는 보정 안 함
         assert!(deepen_relative_links("`](` 없는 비링크 설명(AC) [sib](S005_log.md) [x](https://a.b)\n").is_none());
     }
 

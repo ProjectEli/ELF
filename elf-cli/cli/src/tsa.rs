@@ -3,14 +3,14 @@
 //! 실소유 = manifest(무결성 기록) + RFC 3161 TSA 시점인증. GPG 커밋 서명은 git↔gpg-agent
 //! 소유라 여기서 다루지 않음(enable 안내 + doctor 진단만) — 명령 이름(tsa)은 실소유 범위와 일치.
 //!
-//! 불변식(S022 t03): 기능 상태(config `tsa`·git hooks)는 가역 on/off — 증거(`0_Meta/tsa/`)는
+//! 불변식(S022 t03): 기능 상태(config `tsa`, git hooks)는 가역 on/off — 증거(`0_Meta/tsa/`)는
 //! 불가역 누적, disable도 데이터를 삭제하지 않는다. enable은 멱등.
 //!
 //! 해시 = 원시 바이트 sha256(정규화 없음) — 디스크 실물 그대로의 존재 증명.
 //! (`hash::sha256_lf`의 CRLF 정규화는 mirror drift 판정용 — 목적 상이라 혼용 금지.)
-//! 외부 전송 = manifest 파일의 sha256 해시 1건뿐(TSQ 59바이트) — 파일 내용·이름 비전송.
-//! manifest 스키마·TSQ 파라미터(sha256·no-nonce·certReq)는 Mastication 실물과 동일 → 기존
-//! `0_Meta/manifests/`·`timestamps/` 증거와 상호 검증 호환.
+//! 외부 전송 = manifest 파일의 sha256 해시 1건뿐(TSQ 59바이트) — 파일 내용, 이름 비전송.
+//! manifest 스키마, TSQ 파라미터(sha256, no-nonce, certReq)는 Mastication 실물과 동일 → 기존
+//! `0_Meta/manifests/`, `timestamps/` 증거와 상호 검증 호환.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -23,7 +23,7 @@ use sha2::{Digest, Sha256};
 pub const TSA_DIR: &str = "0_Meta/tsa";
 /// 기본 TSA(무인증 공개 엔드포인트). `.elf/config.json` `tsaUrl`로 교체 가능 — 코드에 크리덴셜 금지.
 pub const DEFAULT_TSA_URL: &str = "http://timestamp.digicert.com";
-/// 훅 소유 판별 마커 — 이 마커가 있는 훅 파일만 elf가 교체·삭제한다(비파괴 원칙).
+/// 훅 소유 판별 마커 — 이 마커가 있는 훅 파일만 elf가 교체, 삭제한다(비파괴 원칙).
 const HOOK_MARKER: &str = "# elf-tsa hook";
 
 #[derive(Debug)]
@@ -67,7 +67,7 @@ impl TsaReport {
     }
 }
 
-// ── manifest 스키마 (Mastication 호환 — 필드명·구조 동일) ──────────────────────────
+// ── manifest 스키마 (Mastication 호환 — 필드명, 구조 동일) ──────────────────────────
 
 #[derive(Serialize, Deserialize)]
 struct TsaManifest {
@@ -84,7 +84,7 @@ struct TsaEntry {
 
 // ── config (`.elf/config.json`) — preset(v2.16.2)과 동형 패턴 ─────────────────────
 
-/// config `tsa` bool. 부재·파싱 실패 = false (opt-in 기본 off).
+/// config `tsa` bool. 부재, 파싱 실패 = false (opt-in 기본 off).
 pub fn is_enabled(root: &Path) -> bool {
     fs::read_to_string(root.join(".elf").join("config.json"))
         .ok()
@@ -122,8 +122,8 @@ fn write_config_flag(root: &Path, on: bool) -> Result<(), TsaError> {
 
 fn git(root: &Path, args: &[&str]) -> Result<String, TsaError> {
     // core.quotepath=false: git 기본값(true)은 non-ASCII 경로를 octal-escape + 큰따옴표로
-    // 인용 출력 → 파싱된 경로가 실물과 불일치. 전역 주입으로 rev-parse(경로 반환)·ls-files·diff
-    // 전부 커버(S029 — record는 추가로 -z 사용). config·add 등 비경로 호출엔 무해.
+    // 인용 출력 → 파싱된 경로가 실물과 불일치. 전역 주입으로 rev-parse(경로 반환), ls-files, diff
+    // 전부 커버(S029 — record는 추가로 -z 사용). config, add 등 비경로 호출엔 무해.
     let out = Command::new("git")
         .arg("-c")
         .arg("core.quotepath=false")
@@ -225,7 +225,7 @@ pub fn run_enable(root: &Path) -> Result<TsaReport, TsaError> {
     install_hook(&hooks, "pre-commit", &hook_body("record --staged", false), &mut r)?;
     install_hook(&hooks, "post-commit", &hook_body("stamp", true), &mut r)?;
 
-    // GPG는 git 소유 — 진단·안내만 (차단 없음: manifest+TSA만으로도 무결성+시점은 성립)
+    // GPG는 git 소유 — 진단, 안내만 (차단 없음: manifest+TSA만으로도 무결성+시점은 성립)
     let gpg_on = git(root, &["config", "--get", "commit.gpgsign"])
         .map(|v| v.trim() == "true")
         .unwrap_or(false);
@@ -263,7 +263,7 @@ pub fn run_disable(root: &Path) -> Result<TsaReport, TsaError> {
     Ok(r)
 }
 
-/// `elf tsa status` — enabled·훅·증거 카운트·미제출. 읽기전용.
+/// `elf tsa status` — enabled, 훅, 증거 카운트, 미제출. 읽기전용.
 pub fn run_status(root: &Path) -> Result<TsaReport, TsaError> {
     let mut r = TsaReport::default();
     let enabled = is_enabled(root);
@@ -286,7 +286,7 @@ pub fn run_status(root: &Path) -> Result<TsaReport, TsaError> {
     Ok(r)
 }
 
-/// (manifest 수, tsr 짝 있는 수, 없는 수) — status·doctor 공용.
+/// (manifest 수, tsr 짝 있는 수, 없는 수) — status, doctor 공용.
 pub fn evidence_counts(root: &Path) -> (usize, usize, usize) {
     let dir = root.join(TSA_DIR);
     let mut manifests = 0usize;
@@ -319,7 +319,7 @@ pub enum RecordScope {
 /// manifest 자신은 git add(같은 커밋에 포함 — Mastication pre-commit 동작 승계).
 pub fn run_record(root: &Path, scope: RecordScope) -> Result<TsaReport, TsaError> {
     let mut r = TsaReport::default();
-    // -z: NUL 구분 출력 — 경로 인용(quotepath) 자체를 우회하고 공백·개행 포함 파일명도 견고.
+    // -z: NUL 구분 출력 — 경로 인용(quotepath) 자체를 우회하고 공백, 개행 포함 파일명도 견고.
     // trim 금지(공백 파일명 보존), 빈 요소만 제외(trailing NUL). (S029 — non-ASCII 조용한 skip 수정)
     let listing = match scope {
         RecordScope::Staged => git(root, &["diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR"])?,
@@ -349,7 +349,7 @@ pub fn run_record(root: &Path, scope: RecordScope) -> Result<TsaReport, TsaError
             continue; // 자기 참조 배제 — 기록하는 순간 자신이 변해 기록 즉시 구버전이 되는 해시(전날 manifest는 체인이라 허용)
         }
         let p = root.join(rel);
-        let Ok(bytes) = fs::read(&p) else { continue }; // 삭제 예정·비파일은 조용히 skip
+        let Ok(bytes) = fs::read(&p) else { continue }; // 삭제 예정, 비파일은 조용히 skip
         let mut h = Sha256::new();
         h.update(&bytes);
         let sha = format!("{:x}", h.finalize());
@@ -375,7 +375,7 @@ pub fn run_record(root: &Path, scope: RecordScope) -> Result<TsaReport, TsaError
 
 // ── stamp (RFC 3161) ──────────────────────────────────────────────────────────
 
-/// TimeStampReq DER — 고정 59바이트(sha256·no-nonce·certReq TRUE). openssl
+/// TimeStampReq DER — 고정 59바이트(sha256, no-nonce, certReq TRUE). openssl
 /// `ts -query -sha256 -no_nonce -cert`와 동일 구조(Mastication 파라미터 승계 — 증거 동질).
 pub fn build_tsq(hash: &[u8; 32]) -> Vec<u8> {
     let mut v = Vec::with_capacity(59);
@@ -437,7 +437,7 @@ fn sha256_file(p: &Path) -> Result<[u8; 32], TsaError> {
     Ok(h.finalize().into())
 }
 
-/// `elf tsa stamp [--backfill]` — .tsr 없는 manifest에 TSA 시점토큰 요청·저장.
+/// `elf tsa stamp [--backfill]` — .tsr 없는 manifest에 TSA 시점토큰 요청, 저장.
 /// 기본 = 당일 manifest만(훅 경로), backfill = 전체(오프라인 누락 소급 — Mastication 알려진 제약 해소).
 /// 저장 전 granted 판독 — 깨진 응답을 증거로 남기지 않음.
 pub fn run_stamp(root: &Path, backfill: bool) -> Result<TsaReport, TsaError> {
@@ -503,7 +503,7 @@ fn post_tsq(url: &str, tsq: &[u8]) -> Result<Vec<u8>, TsaError> {
 // ── verify ────────────────────────────────────────────────────────────────────
 
 /// `elf tsa verify <file>` — 파일 원시 sha256을 전체 manifest에서 탐색(존재 이력 출력).
-/// `elf tsa verify --date <D>` — manifest↔tsr 경량 검증(granted·messageImprint 대조·genTime)
+/// `elf tsa verify --date <D>` — manifest↔tsr 경량 검증(granted, messageImprint 대조, genTime)
 /// + 엄밀 서명 체인 검증은 openssl 위임 안내(드문 경로 — S022 t04 단계 구성).
 pub fn run_verify(root: &Path, file: Option<&str>, date: Option<&str>) -> Result<TsaReport, TsaError> {
     let mut r = TsaReport::default();

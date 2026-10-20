@@ -49,7 +49,7 @@ impl From<io::Error> for ValidateError {
 
 // ── 순수 검사 (FS 무부작용) ─────────────────────────────────────
 
-/// 중복 번호(정렬·중복제거).
+/// 중복 번호(정렬, 중복제거).
 pub fn duplicate_nums(nums: &[u32]) -> Vec<u32> {
     let mut seen = BTreeSet::new();
     let mut dups = BTreeSet::new();
@@ -61,7 +61,7 @@ pub fn duplicate_nums(nums: &[u32]) -> Vec<u32> {
     dups.into_iter().collect()
 }
 
-/// 1..max 사이 누락 번호 (로그·Registry 합집합 기준).
+/// 1..max 사이 누락 번호 (로그, Registry 합집합 기준).
 pub fn numbering_gaps(known: &BTreeSet<u32>) -> Vec<u32> {
     let mut gaps = Vec::new();
     if let Some(&mx) = known.iter().max() {
@@ -74,7 +74,7 @@ pub fn numbering_gaps(known: &BTreeSet<u32>) -> Vec<u32> {
     gaps
 }
 
-/// 활성(Complete·Deprecated 아님) 세션 ID 목록 (Registry status 기준 — session.rs의 종료 판정과 공용).
+/// 활성(Complete, Deprecated 아님) 세션 ID 목록 (Registry status 기준 — session.rs의 종료 판정과 공용).
 pub fn active_sessions(reg: &[RegistryRow]) -> Vec<String> {
     reg.iter()
         .filter(|r| crate::session::is_open_status(&r.status))
@@ -83,7 +83,7 @@ pub fn active_sessions(reg: &[RegistryRow]) -> Vec<String> {
 }
 
 /// 마크다운 인라인 링크 `](target)`에서 **상대 .md 링크 대상** 추출(순수).
-/// `#fragment` 제거, URL(`scheme://`·`mailto:`)·절대경로(`/`)·비 .md 제외, 제목(`"..."`)·`<...>` 처리.
+/// `#fragment` 제거, URL(`scheme://`, `mailto:`), 절대경로(`/`), 비 .md 제외, 제목(`"..."`), `<...>` 처리.
 pub fn extract_md_links(content: &str) -> Vec<String> {
     let mut out = Vec::new();
     let b = content.as_bytes();
@@ -166,7 +166,7 @@ fn embedded_basename(targets: &[String], fname: &str) -> bool {
         .any(|t| Path::new(t).file_name().and_then(|n| n.to_str()) == Some(fname))
 }
 
-/// `<!-- noembed: a.png, b.svg -->` 주석에서 의도적 제외 파일명 집합(순수). SI·본문 미삽입 figure 용.
+/// `<!-- noembed: a.png, b.svg -->` 주석에서 의도적 제외 파일명 집합(순수). SI, 본문 미삽입 figure 용.
 pub fn noembed_filenames(content: &str) -> BTreeSet<String> {
     let mut set = BTreeSet::new();
     for (idx, _) in content.match_indices("noembed:") {
@@ -183,9 +183,9 @@ pub fn noembed_filenames(content: &str) -> BTreeSet<String> {
 
 // ── trial 구조 검사 (안정 코어 — S021 t05/t07) ─────────────────
 //
-// 검사 대상 = LogConvention §2의 **기계 판정 가능·개정 빈도 낮은 코어**만:
+// 검사 대상 = LogConvention §2의 **기계 판정 가능, 개정 빈도 낮은 코어**만:
 // ① 비정본 `###` 헤딩 ② 코어 절 순서 ③ 해석 첫 줄 규칙 ④ Phase 절 존재(관찰 있는데 가설/예상 없음).
-// 문체·내용 수준 규칙은 검사하지 않음(기계 판정 불가·정본↔검사기 동기 부채 방지).
+// 문체, 내용 수준 규칙은 검사하지 않음(기계 판정 불가, 정본↔검사기 동기 부채 방지).
 // 활성 로그 전용 — Archive 제외(소급 정책 §2: 신규 작성분부터 적용).
 
 /// 해석 절 첫 줄 라벨(v2.24) — `예상 일치 정도: 일치 / 부분 일치 / 불일치`.
@@ -333,7 +333,7 @@ fn scan_viz_images(viz: &Path) -> Vec<String> {
     v
 }
 
-/// `elf validate`: Registry↔로그 정합 · 번호 중복/gap · 활성 복수 · cross-ref · figure-embed 검사. 읽기전용.
+/// `elf validate`: Registry↔로그 정합, 번호 중복/gap, 활성 복수, cross-ref, figure-embed 검사. 읽기전용.
 pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
     run_validate_opts(root, false)
 }
@@ -343,13 +343,16 @@ pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, Va
     let reg_text = fs::read_to_string(root.join(crate::session::REGISTRY_REL)).unwrap_or_default();
     let rows = parse_registry(&reg_text).map_err(ValidateError::Escalation)?;
 
-    // 로그 위치 = session::LOG_DIRS(루트·Archive·Deprecated) — 번호 정합·중복·비정격 이름은 세 위치,
-    // 링크 검사는 루트·Archive, 구조 검사는 루트(Deprecated/는 두 검사의 대상이 아님).
+    // 로그 위치 = session::LOG_DIRS(루트, Archive, Deprecated) — 번호 정합, 중복, 비정격 이름은 세 위치,
+    // 링크 검사는 루트, Archive, 구조 검사는 루트(Deprecated/는 두 검사의 대상이 아님).
     let [live, archive, deprecated] = LOG_DIRS.map(|d| scan_logs(&root.join(d)));
 
     let log_set: BTreeSet<u32> =
         live.iter().chain(archive.iter()).chain(deprecated.iter()).map(|(n, _)| *n).collect();
     let reg_set: BTreeSet<u32> = rows.iter().filter_map(|r| session_num(&r.session)).collect();
+    // Status `Purged`(elf deprecate purge) = 로그 파일이 없는 것이 정의 — 정합 검사에서 파일을 요구하지 않음.
+    let purged: BTreeSet<u32> =
+        rows.iter().filter(|r| r.status.starts_with("Purged")).filter_map(|r| session_num(&r.session)).collect();
 
     let mut report = ValidateReport::default();
 
@@ -358,6 +361,9 @@ pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, Va
         report.issue(format!("S{n:03} log exists but is not in the registry"));
     }
     for n in reg_set.difference(&log_set) {
+        if purged.contains(n) {
+            continue;
+        }
         report.issue(format!(
             "S{n:03} is in the registry but has no log file (2_Log/, Archive/ or Deprecated/)"
         ));
@@ -428,7 +434,7 @@ pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, Va
         }
     }
 
-    // ⑥ trial 구조 (활성 로그만 — Archive 제외 = 소급 정책; 정본 헤딩·순서·해석 1줄·Phase 절)
+    // ⑥ trial 구조 (활성 로그만 — Archive 제외 = 소급 정책; 정본 헤딩, 순서, 해석 1줄, Phase 절)
     let mut structure_hit = false;
     for (_n, path) in &live {
         let content = fs::read_to_string(path)?;
@@ -595,7 +601,7 @@ mod tests {
 
     #[test]
     fn non_trial_sections_are_ignored() {
-        // trial 밖(세션 헤더·다음 세션 후보)의 `###`는 검사 대상 아님
+        // trial 밖(세션 헤더, 다음 세션 후보)의 `###`는 검사 대상 아님
         let log = "# S001: T\n\n### 임의 절\n\n## 다음 세션 후보\n\n### 가설 후보\n- x\n";
         assert!(trial_structure_findings(log).is_empty());
     }

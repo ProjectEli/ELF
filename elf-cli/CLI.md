@@ -34,7 +34,7 @@ Installs the binary to `~/.elf/bin` and adds it to PATH. Open a new shell and ve
 | `elf session close [S###]` | Close the active session → archive + update registry |
 | `elf session fix-headers` | Repair session-log header rendering |
 | `elf trial new [title]` | Append the canonical trial stub to the active session log |
-| `elf deprecate <target> …` | Move all or part of a session log or planning document to `Deprecated/` · `--restore` · `list` |
+| `elf deprecate <target> …` | Move all or part of a session log or planning document to `Deprecated/`, `--restore`, `list` |
 | `elf gallery` | Generate the figure index `_gallery.md` from `6_Exp/64_Viz/` |
 | `elf autoread [sub]` | Governance digest after a context reconstruction — print it (any harness); Claude Code hooks inject it automatically (default-on) |
 | `elf tsa <sub>` | Research-record timestamping, **opt-in**: per-commit hash manifest + RFC 3161 token |
@@ -190,25 +190,26 @@ elf trial new --session S007          # several sessions open — name one
 
 Why a command: agents (and humans) imitate whatever the previous trial looked like. `elf trial new` keeps the imitation target canonical — the stub always comes from the *installed* template version, so a drifted precedent never propagates. Errors: no open session → exit 1 (start one with `elf session new`); several open without `--session` → exit 1 with the list.
 
-### `elf deprecate <target> [unit] [options]` · `--restore <ID>` · `list`
+### `elf deprecate <target> [unit] [options]`, `--restore <ID>`, `list`, `purge <ID>`
 
-Move all or part of a session log or planning document into the **deprecated** state — not deleted, but moved to `Deprecated/` in the same folder. Such records may be read but are not a basis for current decisions. The user decides what to deprecate; the agent runs the command after an instruction or approval (`AGENTS.md`). Outputs (scripts, data, figures) stay where they are; only the document moves.
+Move all or part of a session log or planning document into the **deprecated** state — not deleted, but moved to `Deprecated/` in the same folder (a waiting area). Such records may be read but are not a basis for current decisions. The user decides what to deprecate; the agent runs the command after an instruction or approval (`AGENTS.md`). Outputs (scripts, data, figures) stay where they are; only the document moves. Permanent removal is a later user decision made with `purge` (experimental, off by default).
 
-| Target · unit | Action |
+| Target, unit | Action |
 |---|---|
-| `<target>` = `S###` · `P###` · project-relative path | Without a unit option, the **whole file** → `<base folder>/Deprecated/<same file name>`. A YAML header is added at the top (`deprecated`, `source`, `replaced_by`, `reason`, `status_before`) and the header `Status` becomes `Deprecated`. For session logs the registry row's Status and path columns are updated too |
+| `<target>` = `S###`, `P###`, project-relative path | Without a unit option, the **whole file** → `<base folder>/Deprecated/<same file name>`. A YAML header is added at the top (`deprecated`, `source`, `replaced_by`, `reason`, `status_before`) and the header `Status` becomes `Deprecated`. For session logs the registry row's Status and path columns are updated too |
 | `--trial t03` | Moves the trial body as a block into `Deprecated/S###_log.partial.md`; the `## t03:` heading plus one move-marker line stay behind (number preserved) |
 | `--trial t03 --section 해석` | Moves the section including its heading; one move-marker line stays behind |
 | `--marked` | Every block wrapped in `<!-- deprecate:begin -->` … `<!-- deprecate:end -->` (the marker lines are removed) |
 | `--lines A-B --expect "<text of line A>"` | A line range (1-based). Refused if line A differs |
-| `--replaced-by <text>` · `--reason <text>` | Recorded in the marker line and the YAML header |
+| `--replaced-by <text>`, `--reason <text>` | Recorded in the marker line and the YAML header |
 | `--dry-run` | Print only, write nothing |
 | `--restore <ID>` | Return a block (`S012-D01`) or a document (`S012`, `P007`, a path) to its original position. After restoring, validate and link checks for that document are printed as warnings (never refused) |
 | `list` | Walks `2_Log/Deprecated/` and `1_Concept/12_Planning/Deprecated/`, lists documents and blocks, and reports marker/block mismatches |
+| `purge <ID> [--dry-run]` | **Experimental, off by default**: permanently remove a block (`S012-D01`) or document (`S012`, `P007`) under `Deprecated/`. A block is deleted from the partial file and its move marker becomes `> **Deprecated** → purged (ID · unit · date · purged: date)` (number kept, id never reused); a document is deleted and its registry Status becomes `Purged`. `--restore` refuses purged items; recovery is git history. Enable by adding `"experimental": ["deprecate_purge"]` to `.elf/config.json` (edited by the user; `elf doctor` shows it as Info) |
 
 - Partial file: per block, a copy of the `## tNN:` heading + one `> **Deprecated**: date · ID · unit …` line + the original text (`<!-- deprecated:begin ID -->` … `<!-- deprecated:end ID -->`). Relative links in the moved content (figures included) are recomputed for the folder, so previews still render. ID = a per-document sequence such as `S012-D01`.
 - Move marker at the original position: `> **Deprecated** → [Deprecated/S012_log.partial.md](Deprecated/S012_log.partial.md) (S012-D01 · t03 · 2026-10-08 · replaced_by: S015 t02)`. `elf session close` recomputes this link for the Archive location.
-- Refused (exit 3, nothing written): a path outside the scope (session logs and planning documents only) · an already-deprecated document · a block containing a trial heading · unbalanced markers · an `--expect` mismatch · a move that would introduce new trial-structure findings in a session log (e.g., deprecating only the `가설` section while `관찰` remains). A missing target or ID exits 1, a usage error exits 2, an unparseable registry exits 5.
+- Refused (exit 3, nothing written): a path outside the scope (session logs and planning documents only), an already-deprecated document, a block containing a trial heading, unbalanced markers, an `--expect` mismatch, a move that would introduce new trial-structure findings in a session log (e.g., deprecating only the `가설` section while `관찰` remains). A missing target or ID exits 1, a usage error exits 2, an unparseable registry exits 5.
 - Output: items the command does not modify are printed as `review:` lines — mentions in the origin log's Handoff, the registry key finding, references such as `S012 t03` in other documents, figure embeds and output paths inside the moved content. A link in the moved content whose target does not exist prints a `warn:`.
 
 ```bash
@@ -221,6 +222,7 @@ elf deprecate S014 --reason "wrong setup"         # whole session → 2_Log/Depr
 elf deprecate P007 --marked --reason "scope cut"  # marked block in a planning document
 elf deprecate --restore S012-D01                  # restore the block
 elf deprecate list
+elf deprecate purge S012-D01                      # experimental, off by default — only when deprecate_purge is in the config's experimental array
 ```
 
 ### `elf gallery`
@@ -250,7 +252,7 @@ Governance re-injection after a context reconstruction. When an AI coding sessio
 
 ```bash
 elf autoread              # print the digest now
-elf autoread status       # config · hooks · fulltext declarations · pending markers
+elf autoread status       # config, hooks, fulltext declarations, pending markers
 elf autoread disable      # per-project off (hooks remain as no-ops)
 ```
 

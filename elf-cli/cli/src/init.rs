@@ -179,7 +179,7 @@ pub fn run_init_ex(
         place_empty(&target, "LICENSE", force, dry_run, &mut report)?;
     }
 
-    // 3. manifest 파일 배치 — 하이브리드 충돌(seed skip / managed·hybrid `.elf-new`)
+    // 3. manifest 파일 배치 — 하이브리드 충돌(seed skip / managed, hybrid `.elf-new`)
     for a in plan::plan_init(&m) {
         let rel = a
             .src
@@ -192,7 +192,7 @@ pub fn run_init_ex(
 
         if dest.exists() && !force {
             match a.tier {
-                // seed·pointer: 기존 파일 유지(불변경). pointer는 `.elf-new` 병기도 없음 (t06)
+                // seed, pointer: 기존 파일 유지(불변경). pointer는 `.elf-new` 병기도 없음 (t06)
                 Tier::Seed | Tier::Pointer => report.skipped.push(a.dest.clone()),
                 Tier::Managed | Tier::Hybrid => {
                     if !dry_run {
@@ -325,7 +325,7 @@ fn elf_new_path(dest: &Path) -> PathBuf {
 }
 
 /// seed 전용 placeholder 치환 (dest 기준 — 토큰이 파일별 역사적 상이).
-/// 토큰 통일·데이터화는 manifest schema 확장 시 재검토 (S007 §5).
+/// 토큰 통일, 데이터화는 manifest schema 확장 시 재검토 (S007 §5).
 fn substitute_seed(dest: &str, text: &str, o: &InitOptions) -> String {
     match dest {
         "0_Meta/ProjectRule.md" => text

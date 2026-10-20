@@ -1,10 +1,12 @@
-//! `elf deprecate` — 세션 로그·계획 문서의 폐기 이동·복원·목록 (S038 t02 규격 B).
+//! `elf deprecate` — 세션 로그, 계획 문서의 폐기 이동, 복원, 목록 (S038 t02 규격 B).
 //!
 //! 위치가 곧 상태: 폐기 문서는 기준 폴더의 `Deprecated/`로 옮긴다 — 전체는 같은 파일명,
-//! 부분(trial·절·표시 블록·줄 범위)은 `<이름>.partial.md`에 블록으로 쌓고 원 위치에는 이동 표기
+//! 부분(trial, 절, 표시 블록, 줄 범위)은 `<이름>.partial.md`에 블록으로 쌓고 원 위치에는 이동 표기
 //! 1줄만 남긴다. 옮긴 내용의 상대 링크는 폴더 기준으로 다시 계산한다(복원 시 역방향).
 //! 세션 로그의 부분 폐기는 조작 전후 구조 검사(validate)로 새 위반이 생기면 거부한다(파일 무변경).
-//! 복원은 거부하지 않고 복원 뒤 문서 범위 validate·링크 확인 결과를 경고로 돌려준다.
+//! 복원은 거부하지 않고 복원 뒤 문서 범위 validate, 링크 확인 결과를 경고로 돌려준다.
+//! `Deprecated/`는 대기 영역이다: 영구 삭제는 사용자 결정으로 `purge`(experimental, 기본 비활성)가 수행하고,
+//! purge된 블록은 원 위치에 purged 표기 줄만 남긴다(번호 보존, ID 비재사용). 복구는 git 이력(S039 t03).
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -22,12 +24,16 @@ const MARK_BEGIN: &str = "<!-- deprecate:begin -->";
 const MARK_END: &str = "<!-- deprecate:end -->";
 const ORIGIN_PREFIX: &str = "> **Deprecated** → ";
 const BLOCK_PREFIX: &str = "> **Deprecated**: ";
+/// purge된 블록의 원 위치 표기: `> **Deprecated** → purged (ID · 단위 · 폐기 날짜 [· …] · purged: 날짜)`
+const PURGED_HEAD: &str = "purged (";
+/// `.elf/config.json` `experimental` 배열의 기능 이름 — purge 게이트(기본 비활성).
+pub const EXPERIMENTAL_PURGE: &str = "deprecate_purge";
 
 #[derive(Debug)]
 pub enum DeprecateError {
     /// 거부 — 파일 무변경 (exit 3)
     Refuse(String),
-    /// 대상·ID 없음 (exit 1)
+    /// 대상, ID 없음 (exit 1)
     NotFound(String),
     /// Registry 파싱 불가 (exit 5)
     Escalation(Box<Escalation>),
@@ -67,7 +73,7 @@ pub struct Report {
 
 #[derive(Debug, Default, Clone)]
 pub struct DeprecateOptions {
-    /// `S###` · `P###` · 프로젝트 기준 경로
+    /// `S###`, `P###`, 프로젝트 기준 경로
     pub target: String,
     pub trial: Option<String>,
     pub section: Option<String>,
@@ -118,7 +124,7 @@ pub fn rel_path(target_rel: &str, from_dir: &str) -> String {
     if r.is_empty() { ".".into() } else { r.join("/") }
 }
 
-/// `from_dir` 기준 상대 링크 대상 `tok`을 `to_dir` 기준으로 재계산(`#fragment`·끝 `/` 보존).
+/// `from_dir` 기준 상대 링크 대상 `tok`을 `to_dir` 기준으로 재계산(`#fragment`, 끝 `/` 보존).
 pub fn rebase_token(tok: &str, from_dir: &str, to_dir: &str) -> String {
     let (path, frag) = match tok.find('#') {
         Some(i) => (&tok[..i], &tok[i..]),
@@ -137,7 +143,7 @@ pub fn rebase_token(tok: &str, from_dir: &str, to_dir: &str) -> String {
     new + frag
 }
 
-/// 재계산 대상인 상대 링크 토큰인지(URL·절대경로·앵커·`<…>`·비경로 산문 제외).
+/// 재계산 대상인 상대 링크 토큰인지(URL, 절대경로, 앵커, `<…>`, 비경로 산문 제외).
 fn is_relative_token(tok: &str) -> bool {
     !tok.is_empty()
         && !tok.starts_with(['#', '/', '<'])
@@ -208,7 +214,7 @@ fn link_tokens(text: &str) -> Vec<String> {
     out
 }
 
-/// `dir` 기준 상대 토큰이 가리키는 파일·폴더가 root 아래에 있는지.
+/// `dir` 기준 상대 토큰이 가리키는 파일, 폴더가 root 아래에 있는지.
 fn token_exists(root: &Path, dir: &str, tok: &str) -> bool {
     let path = tok.split('#').next().unwrap_or("");
     let parts = norm_parts(dir.split('/').chain(path.split('/')));
@@ -243,7 +249,7 @@ fn basename(rel: &str) -> &str {
     rel.rsplit_once('/').map_or(rel, |(_, b)| b)
 }
 
-/// 문서의 기준 폴더 — 상태 폴더(`Wiki/`·`Archive/`·`Deprecated/`) 안이면 그 상위.
+/// 문서의 기준 폴더 — 상태 폴더(`Wiki/`, `Archive/`, `Deprecated/`) 안이면 그 상위.
 pub fn base_dir(rel: &str) -> String {
     let d = dirname(rel);
     if STATE_DIRS.contains(&basename(d)) { dirname(d).to_string() } else { d.to_string() }
@@ -253,7 +259,7 @@ fn is_plan_id(s: &str) -> bool {
     s.strip_prefix('P').is_some_and(|d| !d.is_empty() && d.bytes().all(|b| b.is_ascii_digit()))
 }
 
-/// 문서 ID — `S###`(세션 로그) · `P###`(계획 문서 접두) · 그 외 파일명(확장자 제외).
+/// 문서 ID — `S###`(세션 로그), `P###`(계획 문서 접두), 그 외 파일명(확장자 제외).
 pub fn doc_id(rel: &str) -> String {
     let name = basename(rel);
     if let Some(stem) = name.strip_suffix("_log.md")
@@ -286,7 +292,7 @@ fn state_variants(base: &str) -> [String; 3] {
     [base.to_string(), format!("{base}/Archive"), format!("{base}/Deprecated")]
 }
 
-/// `S###` · `P###` · 경로 → 프로젝트 기준 경로.
+/// `S###`, `P###`, 경로 → 프로젝트 기준 경로.
 fn resolve_doc(root: &Path, target: &str) -> Res<String> {
     if session::session_num(target).is_some() {
         for d in state_variants(LOG_BASE) {
@@ -339,7 +345,7 @@ fn check_scope(rel: &str) -> Res<()> {
     Ok(())
 }
 
-// ── 줄 범위 탐지 (코드 펜스 안의 줄은 헤딩·표시로 보지 않음) ─────────────
+// ── 줄 범위 탐지 (코드 펜스 안의 줄은 헤딩, 표시로 보지 않음) ─────────────
 
 fn fence_mask(lines: &[&str]) -> Vec<bool> {
     let mut mask = Vec::with_capacity(lines.len());
@@ -480,7 +486,7 @@ fn nearest_heading(lines: &[&str], idx: usize) -> Option<usize> {
     })
 }
 
-// ── ID·표기 줄·YAML ──────────────────────────────────────────────────
+// ── ID, 표기 줄, YAML ──────────────────────────────────────────────────
 
 /// `<문서 ID>-D<NN>` — 원 문서와 부분 파일에 남아 있는 최대 번호 + 1.
 fn next_block_id(doc: &str, origin: &str, container: Option<&str>) -> String {
@@ -537,7 +543,7 @@ fn yaml_unquote(s: &str) -> String {
     }
 }
 
-/// 맨 앞 YAML header(`---` … `---`) → (키·값, 닫는 `---` 줄 index). 없으면 None.
+/// 맨 앞 YAML header(`---` … `---`) → (키, 값, 닫는 `---` 줄 index). 없으면 None.
 fn parse_yaml_header(lines: &[&str]) -> Option<(BTreeMap<String, String>, usize)> {
     if clean(lines.first()?) != "---" {
         return None;
@@ -552,7 +558,7 @@ fn parse_yaml_header(lines: &[&str]) -> Option<(BTreeMap<String, String>, usize)
     Some((map, end))
 }
 
-/// 헤더 `> **Status**:` 값을 바꿈(끝 `\`·`\r` 보존). 없으면 None.
+/// 헤더 `> **Status**:` 값을 바꿈(끝 `\`, `\r` 보존). 없으면 None.
 fn set_header_status(content: &str, value: &str) -> Option<String> {
     let mut out: Vec<String> = content.split('\n').map(str::to_string).collect();
     for line in out.iter_mut() {
@@ -577,9 +583,9 @@ fn eol_of(text: &str) -> &'static str {
     if text.contains("\r\n") { "\r\n" } else { "\n" }
 }
 
-// ── Registry (전체 폐기·복원) ──────────────────────────────────────────
+// ── Registry (전체 폐기, 복원) ──────────────────────────────────────────
 
-/// 행의 Status·경로 열 갱신(타 행·EOL 보존). 반환 = 변경 전 (status, path).
+/// 행의 Status, 경로 열 갱신(타 행, EOL 보존). 반환 = 변경 전 (status, path).
 fn registry_set(reg_text: &str, sid: &str, status: &str, path: &str) -> (String, Option<(String, String)>) {
     let mut out = String::new();
     let mut old = None;
@@ -771,7 +777,7 @@ fn walk_docs(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// `doc`(+ 선택적 `tid`)에 대한 언급이 줄에 있는지 — `S012 t03`·`S012·t03`·`S012_t03` 등.
+/// `doc`(+ 선택적 `tid`)에 대한 언급이 줄에 있는지 — `S012 t03`, `S012, t03`, `S012_t03` 등.
 fn mentions(line: &str, doc: &str, tid: Option<&str>) -> bool {
     for (idx, _) in line.match_indices(doc) {
         let before_ok = idx == 0 || !line[..idx].chars().next_back().is_some_and(|c| c.is_alphanumeric());
@@ -783,7 +789,7 @@ fn mentions(line: &str, doc: &str, tid: Option<&str>) -> bool {
         match tid {
             None => return true,
             Some(t) => {
-                let rest = after.trim_start_matches([' ', '·', '_', '-', '/']);
+                let rest = after.trim_start_matches([' ', ',', '·', '_', '-', '/']);
                 if rest.starts_with(t) && !rest[t.len()..].chars().next().is_some_and(|c| c.is_ascii_digit()) {
                     return true;
                 }
@@ -793,8 +799,8 @@ fn mentions(line: &str, doc: &str, tid: Option<&str>) -> bool {
     false
 }
 
-/// 판단이 필요한 항목(출력만): 원 문서의 Handoff·같은 문서 안의 다른 trial에서의 언급, Registry key finding,
-/// 다른 문서의 참조(`scan_refs`), 옮긴 내용 속 figure embed·생성 파일 경로. 원 문서 본문은 조작 후 상태(`origin_text`)로 본다.
+/// 판단이 필요한 항목(출력만): 원 문서의 Handoff, 같은 문서 안의 다른 trial에서의 언급, Registry key finding,
+/// 다른 문서의 참조(`scan_refs`), 옮긴 내용 속 figure embed, 생성 파일 경로. 원 문서 본문은 조작 후 상태(`origin_text`)로 본다.
 fn review_items(
     root: &Path,
     origin_rel: &str,
@@ -1118,9 +1124,22 @@ fn deprecate_whole(root: &Path, rel: &str, o: &DeprecateOptions) -> Res<Report> 
 
 pub fn run_restore(root: &Path, id: &str) -> Res<Report> {
     if is_block_id(id) {
+        if let Some((orel, pdate)) = purged_info(root, id) {
+            return refuse(format!("{id} was purged on {pdate} (marker in {orel}) — recover it from git history"));
+        }
         return restore_block(root, id);
     }
-    let rel = resolve_doc(root, id)?;
+    let rel = match resolve_doc(root, id) {
+        Ok(r) => r,
+        Err(e) => {
+            if let Some(st) = registry_status(root, id)
+                && st.starts_with("Purged")
+            {
+                return refuse(format!("{id} was purged (registry Status Purged) — recover it from git history"));
+            }
+            return Err(e);
+        }
+    };
     if basename(dirname(&rel)) != "Deprecated" {
         return refuse(format!("{rel} is not deprecated"));
     }
@@ -1270,12 +1289,212 @@ fn restore_whole(root: &Path, rel: &str) -> Res<Report> {
     Ok(rep)
 }
 
+// ── experimental 게이트 (.elf/config.json `experimental` 배열) ────────────
+
+/// `.elf/config.json`의 `experimental` 배열(기능 이름 목록). 부재, 형식 불일치 = 빈 목록.
+/// 활성은 사용자가 config를 직접 편집한다(CLI 토글 없음 — 삭제 결정을 사용자에게 둠).
+pub fn experimental_features(root: &Path) -> Vec<String> {
+    fs::read_to_string(root.join(".elf").join("config.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get("experimental").and_then(|a| a.as_array()).cloned())
+        .map(|arr| arr.iter().filter_map(|e| e.as_str().map(str::to_string)).collect())
+        .unwrap_or_default()
+}
+
+pub fn experimental_enabled(root: &Path, feature: &str) -> bool {
+    experimental_features(root).iter().any(|f| f == feature)
+}
+
+// ── 실행기: purge (experimental — Deprecated/ 대기 영역의 영구 삭제) ───────
+
+/// 원 문서에서 `id`의 purged 표기 줄을 찾음 → (origin_rel, purged 날짜).
+fn purged_info(root: &Path, id: &str) -> Option<(String, String)> {
+    let doc = id.rsplit_once("-D").map(|(d, _)| d)?;
+    let rel = resolve_doc(root, doc).ok()?;
+    let text = fs::read_to_string(root.join(&rel)).ok()?;
+    for l in text.lines() {
+        if let Some(rest) = clean(l).strip_prefix(ORIGIN_PREFIX)
+            && let Some(fields) = rest.strip_prefix(PURGED_HEAD)
+            && fields.starts_with(&format!("{id} ·"))
+        {
+            let date = fields
+                .strip_suffix(')')
+                .unwrap_or(fields)
+                .split(" · ")
+                .find_map(|f| f.strip_prefix("purged: "))
+                .unwrap_or("?")
+                .to_string();
+            return Some((rel, date));
+        }
+    }
+    None
+}
+
+fn registry_status(root: &Path, sid: &str) -> Option<String> {
+    let text = fs::read_to_string(root.join(REGISTRY_REL)).ok()?;
+    session::parse_registry(&text).ok()?.into_iter().find(|r| r.session == sid).map(|r| r.status)
+}
+
+/// 다른 문서가 purge한 블록 ID를 언급하면 `review:` 줄 — 내용은 git 이력에만 남음.
+fn purge_review(root: &Path, id: &str, origin_rel: &str, crel: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut docs = Vec::new();
+    for b in [LOG_BASE, PLAN_BASE] {
+        walk_docs(&root.join(b), &mut docs);
+    }
+    for p in docs {
+        let rel = p.strip_prefix(root).map(|r| r.to_string_lossy().replace('\\', "/")).unwrap_or_default();
+        if rel == origin_rel || rel == crel {
+            continue;
+        }
+        let Ok(text) = fs::read_to_string(&p) else { continue };
+        for (i, l) in text.lines().enumerate() {
+            if l.contains(id) {
+                out.push(format!("review: ref: {rel}:{} mentions {id} — the content is gone (git history only)", i + 1));
+            }
+        }
+    }
+    out
+}
+
+/// `elf deprecate purge <ID>` — 블록(`S012-D01`)은 부분 파일에서 삭제하고 원 위치 표기를 purged로 바꿈,
+/// 문서(`S012`, `P007`, 경로)는 `Deprecated/` 파일을 삭제하고 세션 로그면 Registry Status를 `Purged`로 바꿈.
+/// 기본 비활성(experimental) — config `experimental`에 `deprecate_purge`가 있어야 함. purge 뒤 복구 = git 이력.
+pub fn run_purge(root: &Path, id: &str, dry_run: bool, date: &str) -> Res<Report> {
+    if !experimental_enabled(root, EXPERIMENTAL_PURGE) {
+        return refuse(format!(
+            "purge is experimental and disabled by default — add \"{EXPERIMENTAL_PURGE}\" to the \"experimental\" array in .elf/config.json to enable it (recovery after purge = git history)"
+        ));
+    }
+    if is_block_id(id) {
+        return purge_block(root, id, dry_run, date);
+    }
+    let rel = resolve_doc(root, id)?;
+    if basename(dirname(&rel)) != "Deprecated" {
+        return refuse(format!("{rel} is not deprecated — purge only removes content already under Deprecated/"));
+    }
+    purge_whole(root, &rel, dry_run, date)
+}
+
+fn purge_block(root: &Path, id: &str, dry_run: bool, date: &str) -> Res<Report> {
+    if let Some((orel, pdate)) = purged_info(root, id) {
+        return refuse(format!("{id} was already purged on {pdate} (marker in {orel})"));
+    }
+    let begin = format!("<!-- deprecated:begin {id} -->");
+    let end = format!("<!-- deprecated:end {id} -->");
+    let mut hit: Option<(String, String)> = None;
+    for (drel, dpath) in deprecated_dirs(root) {
+        let Ok(entries) = fs::read_dir(&dpath) else { continue };
+        let mut names: Vec<String> = entries
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.ends_with(".partial.md"))
+            .collect();
+        names.sort();
+        for n in names {
+            let text = fs::read_to_string(dpath.join(&n))?;
+            if text.contains(&begin) {
+                hit = Some((format!("{drel}/{n}"), text));
+            }
+        }
+    }
+    let Some((crel, ctext)) = hit else {
+        return Err(DeprecateError::NotFound(format!("block {id}")));
+    };
+    let clines: Vec<&str> = ctext.split('\n').collect();
+    let b = clines.iter().position(|l| clean(l) == begin).unwrap();
+    let Some(e) = clines.iter().position(|l| clean(l) == end) else {
+        return refuse(format!("{crel}: {begin} without matching end marker"));
+    };
+    if b < 2 || !clean(clines[b - 1]).is_empty() || !clean(clines[b - 2]).starts_with(BLOCK_PREFIX) {
+        return refuse(format!("{crel}: unexpected layout around {id} (expected marker line, blank line, begin)"));
+    }
+    let m = b - 2;
+    let mut start = if m > 0 && clean(clines[m - 1]).starts_with("##") { m - 1 } else { m };
+    if start > 0 && clean(clines[start - 1]).is_empty() {
+        start -= 1;
+    }
+    let unit = clean(clines[m])[BLOCK_PREFIX.len()..].split(" · ").nth(2).unwrap_or("").to_string();
+
+    let origin_rel = find_origin(root, &crel)?;
+    let otext = fs::read_to_string(root.join(&origin_rel))?;
+    let olines: Vec<&str> = otext.split('\n').collect();
+    let needle = format!("({id} ·");
+    let ks: Vec<usize> = olines
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| clean(l).starts_with(ORIGIN_PREFIX) && l.contains(&needle))
+        .map(|(i, _)| i)
+        .collect();
+    if ks.len() != 1 {
+        return refuse(format!("move marker for {id} not found exactly once in {origin_rel} ({} found)", ks.len()));
+    }
+    let k = ks[0];
+    let fields = {
+        let rest = clean(olines[k]);
+        let p = rest.find(&needle).unwrap();
+        let f = &rest[p + 1..];
+        f.strip_suffix(')').unwrap_or(f).to_string()
+    };
+    let cr = if olines[k].ends_with('\r') { "\r" } else { "" };
+    let purged_line = format!("{ORIGIN_PREFIX}{PURGED_HEAD}{fields} · purged: {date}){cr}");
+
+    let mut rep = Report::default();
+    rep.lines.push(format!(
+        "purged {id} ({unit}) — block removed from {crel}; marker in {origin_rel} now reads purged (recovery = git history)"
+    ));
+    if !dry_run {
+        let mut new_lines: Vec<&str> = olines.clone();
+        new_lines[k] = &purged_line;
+        fs::write(root.join(&origin_rel), new_lines.join("\n"))?;
+        let mut rest: Vec<&str> = Vec::new();
+        rest.extend_from_slice(&clines[..start]);
+        rest.extend_from_slice(&clines[e + 1..]);
+        let cpath = root.join(&crel);
+        if rest.iter().any(|l| clean(l).starts_with("<!-- deprecated:begin ")) {
+            fs::write(&cpath, rest.join("\n"))?;
+        } else {
+            fs::remove_file(&cpath)?;
+            rep.lines.push(format!("removed {crel} (no blocks left)"));
+        }
+        rep.changed = true;
+    }
+    rep.lines.extend(purge_review(root, id, &origin_rel, &crel));
+    Ok(rep)
+}
+
+fn purge_whole(root: &Path, rel: &str, dry_run: bool, date: &str) -> Res<Report> {
+    let text = fs::read_to_string(root.join(rel))?;
+    let lines: Vec<&str> = text.split('\n').collect();
+    let Some((meta, _)) = parse_yaml_header(&lines) else {
+        return refuse(format!("{rel} has no deprecated YAML header"));
+    };
+    let src = meta.get("source").cloned().unwrap_or_default();
+    let is_log = !src.is_empty() && is_session_log(&src);
+    let sid = if src.is_empty() { doc_id(rel) } else { doc_id(&src) };
+    let reg_text = if is_log { Some(load_registry(root)?) } else { None };
+    let mut rep = Report::default();
+    rep.lines.push(format!("purged {sid} (whole) — {rel} deleted on {date} (recovery = git history)"));
+    if !dry_run {
+        fs::remove_file(root.join(rel))?;
+        if let Some(reg) = reg_text {
+            let (new_reg, _) = registry_set(&reg, &sid, "Purged", "-");
+            fs::write(root.join(REGISTRY_REL), new_reg)?;
+            rep.lines.push(format!("registry: {sid} → Purged, -"));
+        }
+        rep.changed = true;
+    }
+    Ok(rep)
+}
+
 // ── 실행기: list (Deprecated/ 폴더 순회 + 표기↔블록 대조) ─────────────────
 
 pub fn run_list(root: &Path) -> Res<Report> {
     let mut rep = Report::default();
     let mut n_docs = 0;
     let mut n_blocks = 0;
+    let mut n_purged = 0;
     let mut warns = Vec::new();
     for (drel, dpath) in deprecated_dirs(root) {
         let Ok(entries) = fs::read_dir(&dpath) else { continue };
@@ -1314,9 +1533,17 @@ pub fn run_list(root: &Path) -> Res<Report> {
                             }
                         }
                         for l in otext.lines() {
-                            if let Some(rest) = clean(l).strip_prefix(ORIGIN_PREFIX)
-                                && let Some(p) = rest.find(" (")
-                            {
+                            let Some(rest) = clean(l).strip_prefix(ORIGIN_PREFIX) else { continue };
+                            if let Some(fields) = rest.strip_prefix(PURGED_HEAD) {
+                                // purged 표기: 블록이 없는 것이 정의 — 불일치가 아니라 purged 행으로 보고
+                                let fields = fields.strip_suffix(')').unwrap_or(fields);
+                                let f: Vec<&str> = fields.split(" · ").collect();
+                                let pdate = f.iter().find_map(|x| x.strip_prefix("purged: ")).unwrap_or("?");
+                                rep.lines.push(format!("{} · purged {pdate} · {} · {orel}", f[0], f.get(1).copied().unwrap_or("")));
+                                n_purged += 1;
+                                continue;
+                            }
+                            if let Some(p) = rest.find(" (") {
                                 let id = rest[p + 2..].split(" · ").next().unwrap_or("").to_string();
                                 if !id.is_empty() && !ids.contains(&id) {
                                     warns.push(format!("warn: {id}: move marker in {orel} has no block in {rel}"));
@@ -1344,7 +1571,11 @@ pub fn run_list(root: &Path) -> Res<Report> {
             }
         }
     }
-    rep.lines.push(format!("deprecated: {n_docs} document(s), {n_blocks} block(s)"));
+    if n_purged > 0 {
+        rep.lines.push(format!("deprecated: {n_docs} document(s), {n_blocks} block(s), {n_purged} purged marker(s)"));
+    } else {
+        rep.lines.push(format!("deprecated: {n_docs} document(s), {n_blocks} block(s)"));
+    }
     rep.lines.extend(warns);
     Ok(rep)
 }
@@ -1443,6 +1674,7 @@ mod tests {
     fn mentions_matches_session_and_trial_forms() {
         assert!(mentions("S002 t02의 결과", "S002", Some("t02")));
         assert!(mentions("S002·t02", "S002", Some("t02")));
+        assert!(mentions("S002, t02", "S002", Some("t02")));
         assert!(!mentions("S002 t020", "S002", Some("t02")));
         assert!(!mentions("S0021 t02", "S002", Some("t02")));
         assert!(mentions("see S002", "S002", None));

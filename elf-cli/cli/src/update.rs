@@ -3,7 +3,7 @@
 //! 원칙: **무경고 데이터 손실 금지.**
 //! - managed 편집본 → 덮어쓰지 않고 경고 + `<dest>.elf-new` 산출 (`--force`로만 덮어씀)
 //! - hybrid → 마커블록만 교체, 사용자 영역 보존. 블록 편집/마커 부재 시 보수적 기본동작
-//!   (interactive 질의·update_policy 저장은 2차 — S007 §4.1)
+//!   (interactive 질의, update_policy 저장은 2차 — S007 §4.1)
 //! - seed/instance → 절대 미접근
 //! - 블록 편집 감지 기준 = `.elf/baseline/<dest>` (init/update가 기록하는 배포본 사본)
 
@@ -90,7 +90,7 @@ pub fn find_project_root(start: &Path) -> Option<PathBuf> {
         .map(Path::to_path_buf)
 }
 
-/// `.elf/config.json`의 `lang`(BCP-47). 부재·파싱 실패 시 "" (= base만, ko 동작). (P016)
+/// `.elf/config.json`의 `lang`(BCP-47). 부재, 파싱 실패 시 "" (= base만, ko 동작). (P016)
 pub(crate) fn read_config_lang(root: &Path) -> String {
     fs::read_to_string(root.join(".elf").join("config.json"))
         .ok()
@@ -107,7 +107,7 @@ pub(crate) fn read_config_preset(root: &Path) -> Option<String> {
         .and_then(|v| v.get("preset").and_then(|p| p.as_str()).map(String::from))
 }
 
-/// 계보 해석의 출처 — 보고 문구·자동 복구 여부 분기용.
+/// 계보 해석의 출처 — 보고 문구, 자동 복구 여부 분기용.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum KindSource {
     /// config `preset` 명시 (시그니처 대조 통과)
@@ -118,7 +118,7 @@ pub(crate) enum KindSource {
 
 /// 프로젝트 계보 해석 (S026 t02) — 판정 전부 결정적(no-LLM: 문자열 매핑 + enum 비교):
 /// - config `preset` 있음 → `kind_from_preset` 매핑 후 stamp 시그니처와 대조. 모순 = `PresetMismatch`
-///   (오선언·config 오복사 상태에서 이종 manifest로 계획하는 사고를 진입 시점에 거부).
+///   (오선언, config 오복사 상태에서 이종 manifest로 계획하는 사고를 진입 시점에 거부).
 /// - 없음(pre-S026 init) → stamp `src_signature()` 추론 (기존 프로젝트 무마이그레이션 동작).
 pub(crate) fn resolve_kind(
     root: &Path,
@@ -156,7 +156,7 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
         return Err(UpdateError::NotElfProject(root.to_path_buf()));
     }
     let stamp_text = fs::read_to_string(&stamp_path)?;
-    // 프로젝트 언어로 stamp·new 둘 다 해석 — companion/variant가 lang에 맞게 일관 필터됨 (P016 §9).
+    // 프로젝트 언어로 stamp, new 둘 다 해석 — companion/variant가 lang에 맞게 일관 필터됨 (P016 §9).
     // stamp는 init이 전체 JSON으로 찍으므로, 같은 lang으로 필터해야 obsolete 오탐 방지.
     let lang = read_config_lang(root);
     let stamp_full = manifest::parse(&stamp_text).map_err(UpdateError::BadStamp)?;
@@ -447,7 +447,7 @@ pub(crate) fn read_baseline_block(root: &Path, dest: &str) -> Option<String> {
     block_of(&text).map(str::to_string)
 }
 
-/// pre-v2.15 legacy 잔재 감지 — **안내만**(비이전·비접촉, 차단하지 않음). (S024 t09)
+/// pre-v2.15 legacy 잔재 감지 — **안내만**(비이전, 비접촉, 차단하지 않음). (S024 t09)
 /// v2.16에서 legacy 레이아웃 지원이 제거되어, 미이전 프로젝트에 update를 실행하면
 /// `.elf/managed/`에 새 사본이 생기고 구 파일은 참조 없는 파일로 남는다. managed 규칙명이
 /// `0_Meta/`에 남아 있으면 그 상태이므로 2단계 업그레이드 경로를 경고로 안내한다.

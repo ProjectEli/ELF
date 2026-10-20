@@ -20,5 +20,5 @@
 폴더 구조 및 운영 상세 규칙은 `.elf/managed/EliRule.md`를 참조.
 AI 에이전트 로깅 규칙은 `.elf/managed/LogConvention.md`를 참조.
 AI 컨텍스트 관리 규칙은 `.elf/managed/AI_PARA_Framework.md`를 참조.
-data 파일(어휘·도메인) 커스터마이즈는 `0_Meta/<이름>.project.md` overlay를 사용 (EliRule §2.7).
-규칙 정본 위치·소유권의 현행 기준은 `AGENTS.md`(digest) 참조.
+data 파일(어휘, 도메인) 커스터마이즈는 `0_Meta/<이름>.project.md` overlay를 사용 (EliRule §2.7).
+규칙 정본 위치, 소유권의 현행 기준은 `AGENTS.md`(digest) 참조.

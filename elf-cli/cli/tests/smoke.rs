@@ -83,7 +83,7 @@ fn unknown_flag_is_usage_error() {
         .code(2);
 }
 
-/// help 출력에 내부 dev 표기(trial/세션/플랜 번호·_dev 등) 누출 금지 — v2.4.1 누출 회귀 게이트 (P011 t09)
+/// help 출력에 내부 dev 표기(trial/세션/플랜 번호, _dev 등) 누출 금지 — v2.4.1 누출 회귀 게이트 (P011 t09)
 #[test]
 fn help_outputs_contain_no_internal_dev_markers() {
     let marker = regex_lite_match;

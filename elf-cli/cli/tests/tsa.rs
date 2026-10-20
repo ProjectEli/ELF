@@ -1,6 +1,6 @@
 //! tsa: `elf tsa` — opt-in 연구 기록 시점인증 (S022 — Mastication #1 역이식).
-//! 불변식 검증 중심: 멱등 enable · 비파괴 훅(타 훅 보존) · disable 후 증거 보존 ·
-//! 원시 바이트 해시 · disabled 게이트(quiet 침묵). 네트워크 비의존(offline graceful만 검증).
+//! 불변식 검증 중심: 멱등 enable, 비파괴 훅(타 훅 보존), disable 후 증거 보존 ,
+//! 원시 바이트 해시, disabled 게이트(quiet 침묵). 네트워크 비의존(offline graceful만 검증).
 
 use assert_cmd::Command as AssertCommand;
 use elf_cli::init::{InitOptions, run_init};
@@ -56,7 +56,7 @@ fn enable_is_idempotent_and_sets_config_dir_hooks() {
     let pre = fs::read_to_string(root.join(".git/hooks/pre-commit")).unwrap();
     assert!(pre.contains("$HOME/.elf/bin/elf"));
 
-    // 재실행 = 멱등 (오류·중복 없음)
+    // 재실행 = 멱등 (오류, 중복 없음)
     let r2 = tsa::run_enable(&root).unwrap();
     assert!(tsa::is_enabled(&root));
     assert!(r1.lines.iter().any(|l| l.contains("config: tsa = true")));
@@ -254,7 +254,7 @@ fn record_captures_non_ascii_filenames_despite_quotepath() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
     tsa::run_enable(&root).unwrap();
-    // 최악 조건 강제: repo-local quotepath=true (코드의 -c false·-z가 이를 이겨야 함)
+    // 최악 조건 강제: repo-local quotepath=true (코드의 -c false, -z가 이를 이겨야 함)
     git(&root, &["config", "core.quotepath", "true"]);
     fs::write(root.join("한글파일.txt"), b"korean").unwrap();
     fs::write(root.join("café.md"), b"accent").unwrap();

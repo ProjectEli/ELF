@@ -4,6 +4,40 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.25.0] - 2026-10-20
+
+### Added
+- **`elf deprecate purge <ID>` (experimental, off by default)** — `Deprecated/` is now a waiting
+  area; purge removes a deprecated block or document for good. A block is deleted from the
+  partial file and its move marker becomes `> **Deprecated** → purged (…)` (trial number kept,
+  id never reused); a document is deleted and its registry Status becomes `Purged`, a closed
+  state that `elf validate` accepts without a log file. `--restore` refuses purged items
+  (recover from git history) and `list` reports purged markers. Enable it by adding
+  `"experimental": ["deprecate_purge"]` to `.elf/config.json`; `elf doctor` lists enabled
+  experimental features.
+
+### Changed
+- **Typography rule (EliRule §3 item 13, research and general, KO/EN)**: lists use commas
+  (no middle dot `·`), multiplication is `×`, sub/superscripts use plain characters with
+  `<sub>`/`<sup>`, and Greek letters come from the basic Greek block (`μ` U+03BC, not the
+  micro sign). Exception: the ` · ` in `elf deprecate` marker lines is a machine field
+  separator; LogConvention §6 says to exclude those lines from bulk substitutions.
+- **Middle dot → comma across the distribution**: the managed documents (KO and EN), the
+  README, the CLI reference, CLI messages and code comments now separate list items with
+  commas. Bilingual CLI help strings use ` / `. The Handoff rule reads "use commas inside a
+  part". `elf deprecate` review lines also recognize `S002, t02` style references.
+- **Legacy wording removed**: the `## 다음 세션 후보` paragraph in LogConvention is reduced to
+  the current behavior (the section is not used; existing logs keep it valid).
+
+### Fixed
+- **AGENTS.md standing duties**: in 2.24.0 the Deprecated line was appended to the end of the
+  external-egress line without a line break, so it did not render as its own bullet. Fixed in
+  the root and general templates (KO/EN) with a regression test.
+
+### Removed
+- **`sessionTemplate_v1.md` is no longer distributed** (`.elf/managed/templates/Archive/`).
+  Existing copies are reported by `elf update` as obsolete and left in place.
+
 ## [2.24.0] - 2026-10-08
 
 ### Added

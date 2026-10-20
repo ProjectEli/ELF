@@ -11,7 +11,7 @@ status: active
 
 ---
 # 교훈 (Lessons Learned)
-(LLM 자동 작성: 핵심 기술·전략 깨달음 2-3줄)
+(LLM 자동 작성: 핵심 기술, 전략 깨달음 2-3줄)
 
 ---
 # 내 생각
@@ -19,11 +19,11 @@ status: active
 
 ---
 # 질문 원본
-(append-only 질문 대장 — AGENTS.md §4. 최초 Q1, 후속 Q2·Q3…로 verbatim 누적)
+(append-only 질문 대장 — AGENTS.md §4. 최초 Q1, 후속 Q2, Q3…로 verbatim 누적)
 
 ## Q1 ([YYYY-MM-DD HH:mm])
 (사용자 최초 질문 — 원문 그대로)
 
 ---
 # LLM 답변 원본
-(핵심 답변. 후속 질문은 `## 부록 B/C…` 섹션으로 추가하고, 그 질문 원문은 위 대장에 Q2·Q3…로도 반드시 누적)
+(핵심 답변. 후속 질문은 `## 부록 B/C…` 섹션으로 추가하고, 그 질문 원문은 위 대장에 Q2, Q3…로도 반드시 누적)

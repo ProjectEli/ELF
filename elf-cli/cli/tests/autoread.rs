@@ -1,7 +1,7 @@
 //! autoread: `elf autoread` — 컨텍스트 재구성 후 거버넌스 digest 재주입 (S031).
-//! 불변식 검증 중심: 기본 켬(config 부재=on) · 비파괴 병합(타 설정 보존·malformed refuse) ·
-//! 마커 수명주기(session_id 단위·1회 주입·TTL gc) · digest 정본 추출(AGENTS 절·활성 상한·절단) ·
-//! 훅 fail-open(disabled 침묵) · update 훅 보장.
+//! 불변식 검증 중심: 기본 켬(config 부재=on), 비파괴 병합(타 설정 보존, malformed refuse) ,
+//! 마커 수명주기(session_id 단위, 1회 주입, TTL gc), digest 정본 추출(AGENTS 절, 활성 상한, 절단) ,
+//! 훅 fail-open(disabled 침묵), update 훅 보장.
 
 use elf_cli::autoread;
 use elf_cli::init::{run_init, InitOptions};
@@ -105,7 +105,7 @@ fn install_preserves_foreign_settings_and_hooks() {
     assert!(autoread::install_hooks(&root).unwrap());
     let v: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(settings_path(&root)).unwrap()).unwrap();
-    // 사용자 키·타 훅 보존
+    // 사용자 키, 타 훅 보존
     assert_eq!(v["permissions"]["allow"][0], "Bash(ls:*)");
     let ss = v["hooks"]["SessionStart"].as_array().unwrap();
     assert_eq!(ss.len(), 2, "foreign entry kept + elf entry added");
@@ -127,7 +127,7 @@ fn install_refuses_malformed_settings_without_touching_file() {
     assert_eq!(fs::read_to_string(settings_path(&root)).unwrap(), "{ not json");
 }
 
-// ── 마커 수명주기 · 훅 진입점 ─────────────────────────────────────────────────
+// ── 마커 수명주기, 훅 진입점 ─────────────────────────────────────────────────
 
 #[test]
 fn session_start_marks_and_prompt_injects_exactly_once() {
@@ -166,7 +166,7 @@ fn startup_source_and_disabled_config_stay_silent() {
     // startup = 신규 세션(CLAUDE.md 체인 fresh 로드) — 재정렬 대상 아님
     autoread::run_hook(&root, "session-start", &session_start_stdin("s", "startup"));
     assert!(autoread::run_hook(&root, "prompt", &prompt_stdin("s")).is_none());
-    // disabled → 훅 전체 no-op (훅 잔존·config 게이트)
+    // disabled → 훅 전체 no-op (훅 잔존, config 게이트)
     autoread::run_disable(&root).unwrap();
     autoread::run_hook(&root, "session-start", &session_start_stdin("s2", "compact"));
     assert!(autoread::run_hook(&root, "prompt", &prompt_stdin("s2")).is_none());
@@ -188,7 +188,7 @@ fn stale_and_unreadable_markers_are_gced() {
     assert!(autoread::run_hook(&root, "prompt", &prompt_stdin("old-session")).is_none());
 }
 
-// ── digest 구성 (정본 추출·상한·절단) ─────────────────────────────────────────
+// ── digest 구성 (정본 추출, 상한, 절단) ─────────────────────────────────────────
 
 #[test]
 fn digest_caps_active_sessions_and_truncates_handoff() {
@@ -248,7 +248,7 @@ fn fulltext_unsafe_and_missing_paths_fail_open() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
     declare_fulltext(&root, &["../outside.md", "0_Meta/absent.md"]);
-    // 트리 이탈·부재 — digest는 정상 생성(fail-open), 각 1행 표기, 전문 블록 없음
+    // 트리 이탈, 부재 — digest는 정상 생성(fail-open), 각 1행 표기, 전문 블록 없음
     let d = autoread::build_digest(&root, "compact");
     assert!(d.contains("path escapes the project tree: ../outside.md"));
     assert!(d.contains("declared but unreadable: 0_Meta/absent.md"));

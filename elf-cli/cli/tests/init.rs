@@ -196,13 +196,13 @@ fn qa_preset_creates_question_archive_and_skips_research() {
     let readme = std::fs::read_to_string(target.join("README.md")).unwrap();
     assert!(readme.contains("MyQA") && !readme.contains("PLACEHOLDER_"));
 
-    // 연구 유형 격리 — 세션·연구 managed 파일 미생성
+    // 연구 유형 격리 — 세션, 연구 managed 파일 미생성
     assert!(!target.join("2_Log/S001_log.md").exists());
     assert!(!target.join(".elf/managed/EliRule.md").exists());
     assert!(!target.join(".elf/managed/LogConvention.md").exists());
     assert!(!target.join("2_Log/Wiki/Session_Registry.tsv").exists());
     assert!(!target.join("3_HW").exists());
-    // P2: qa는 빈 .gitattributes·LICENSE cruft 없음, 불필요한 templates/.gitkeep 없음
+    // P2: qa는 빈 .gitattributes, LICENSE cruft 없음, 불필요한 templates/.gitkeep 없음
     assert!(!target.join(".gitattributes").exists());
     assert!(!target.join("LICENSE").exists());
     assert!(!target.join("templates/.gitkeep").exists());
@@ -240,12 +240,12 @@ fn general_preset_scaffolds_neutral_project() {
     o.preset = "general".into();
     let target = run_init(tmp.path(), &o).unwrap();
 
-    // general 전용 EliRule/LogConvention + 공유 AI_PARA·Registry
+    // general 전용 EliRule/LogConvention + 공유 AI_PARA, Registry
     assert!(target.join(".elf/managed/EliRule.md").is_file());
     assert!(target.join(".elf/managed/LogConvention.md").is_file());
     assert!(target.join(".elf/managed/AI_PARA_Framework.md").is_file());
     assert!(target.join("2_Log/Wiki/Session_Registry.tsv").is_file());
-    // general EliRule = 학술 제외(외부 문헌 검색·highIFjournals 부재) + general 명시
+    // general EliRule = 학술 제외(외부 문헌 검색, highIFjournals 부재) + general 명시
     let eli = std::fs::read_to_string(target.join(".elf/managed/EliRule.md")).unwrap();
     assert!(eli.contains("general"));
     assert!(!eli.contains("highIFjournals") && !eli.contains("외부 문헌 검색"));

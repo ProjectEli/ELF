@@ -37,7 +37,7 @@ mod tests {
 
     /// VERSION(ELF 표기) ↔ Cargo.toml(semver) 정합 — Versioning_Policy 매핑 게이트.
     /// vX.Y → X.Y.0 / vX.Y.Z → X.Y.Z / -suffix 보존 (예: v2.4-dev → 2.4.0-dev).
-    /// 릴리즈 Step 1(-dev drop) 누락을 로컬·CI cargo test에서 즉시 적발 (S008 사고 환류).
+    /// 릴리즈 Step 1(-dev drop) 누락을 로컬, CI cargo test에서 즉시 적발 (S008 사고 환류).
     #[test]
     fn version_maps_to_cargo_semver() {
         let v = version().strip_prefix('v').expect("v prefix");

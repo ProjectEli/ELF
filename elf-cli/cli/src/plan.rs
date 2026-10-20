@@ -1,5 +1,5 @@
-//! 순수 planner — FS 무부작용. 입력(manifest·stamp·현재 해시) → action 목록만 산출.
-//! 데이터-손실 위험 로직을 전부 여기에 모아 전수 테스트한다 (S007 t02·§4 행렬).
+//! 순수 planner — FS 무부작용. 입력(manifest, stamp, 현재 해시) → action 목록만 산출.
+//! 데이터-손실 위험 로직을 전부 여기에 모아 전수 테스트한다 (S007 t02, §4 행렬).
 //!
 //! 실행(FS 반영)은 init.rs(t03)/update.rs(t04)가 담당. 이 모듈은 std::fs를 import하지 않는다.
 

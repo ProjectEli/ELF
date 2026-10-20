@@ -4,7 +4,7 @@ use elf_cli::{
     tsa, update, validate,
 };
 
-/// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드·갱신 CLI (research project scaffold & update CLI)
+/// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드, 갱신 CLI (research project scaffold & update CLI)
 #[derive(Parser)]
 #[command(name = "elf", version = embed::version(), arg_required_else_help = true)]
 struct Cli {
@@ -14,123 +14,123 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// 새 ELF 프로젝트 스캐폴드 생성 · Scaffold an ELF project (생략 시 현재 폴더에 in-place)
+    /// 새 ELF 프로젝트 스캐폴드 생성 / Scaffold an ELF project (생략 시 현재 폴더에 in-place)
     Init {
-        /// 프로젝트 폴더 이름 (생략 시 현재 폴더 in-place) · project folder name (omit = in-place here)
+        /// 프로젝트 폴더 이름 (생략 시 현재 폴더 in-place) / project folder name (omit = in-place here)
         name: Option<String>,
-        /// 현재 폴더에 in-place 강제 · force in-place in the current directory
+        /// 현재 폴더에 in-place 강제 / force in-place in the current directory
         #[arg(long)]
         here: bool,
-        /// 확인 프롬프트 생략 · skip the confirmation prompt
+        /// 확인 프롬프트 생략 / skip the confirmation prompt
         #[arg(long)]
         yes: bool,
-        /// 변경 없이 계획만 출력 · preview only, write nothing
+        /// 변경 없이 계획만 출력 / preview only, write nothing
         #[arg(long = "dry-run")]
         dry_run: bool,
-        /// 기존 파일도 덮어씀 · overwrite existing files
+        /// 기존 파일도 덮어씀 / overwrite existing files
         #[arg(long)]
         force: bool,
-        /// 모듈 preset · module preset (full | experimental | software | minimal | qa[exp] | general[exp])
+        /// 모듈 preset / module preset (full | experimental | software | minimal | qa[exp] | general[exp])
         #[arg(long, default_value = "full", conflicts_with = "modules")]
         preset: String,
-        /// custom 모듈 선택 · custom modules (쉼표 구분: hw,fab,sw,exp,paper) — preset 대신
+        /// custom 모듈 선택 / custom modules (쉼표 구분: hw,fab,sw,exp,paper) — preset 대신
         #[arg(long, value_delimiter = ',')]
         modules: Option<Vec<String>>,
-        /// (qa preset) 사전 생성 카테고리 · pre-create categories (쉼표 구분) — 기본 0개(수요 기반)
+        /// (qa preset) 사전 생성 카테고리 / pre-create categories (쉼표 구분) — 기본 0개(수요 기반)
         #[arg(long, value_delimiter = ',')]
         categories: Option<Vec<String>>,
-        /// 프로젝트 언어 · project language (AI 응답 언어 — .elf/config.json)
+        /// 프로젝트 언어 / project language (AI 응답 언어 — .elf/config.json)
         #[arg(long, default_value = "ko-KR")]
         lang: String,
     },
-    /// 프로젝트의 ELF managed/hybrid 파일을 현 CLI 버전으로 갱신 · Update this project's ELF-managed files
+    /// 프로젝트의 ELF managed/hybrid 파일을 현 CLI 버전으로 갱신 / Update this project's ELF-managed files
     /// (CLI 자체 갱신은 `elf self-update` 또는 `elf update --self`)
     Update {
-        /// 변경 없이 작업 목록만 출력 · dry-run (preview only)
+        /// 변경 없이 작업 목록만 출력 / dry-run (preview only)
         #[arg(long)]
         dry_run: bool,
-        /// 사용자 편집 무시 강제 갱신 · force overwrite (managed 덮어쓰기·hybrid 블록 교체)
+        /// 사용자 편집 무시 강제 갱신 / force overwrite (managed 덮어쓰기, hybrid 블록 교체)
         #[arg(long)]
         force: bool,
-        /// elf 바이너리 자체를 갱신 · update the elf binary (= self-update alias)
+        /// elf 바이너리 자체를 갱신 / update the elf binary (= self-update alias)
         #[arg(long = "self", conflicts_with_all = ["dry_run", "force"])]
         update_self: bool,
     },
-    /// elf 바이너리 자체를 최신 릴리즈로 갱신 · Update the elf binary itself (프로젝트 파일은 `elf update`)
+    /// elf 바이너리 자체를 최신 릴리즈로 갱신 / Update the elf binary itself (프로젝트 파일은 `elf update`)
     #[command(name = "self-update", alias = "selfupdate")]
     SelfUpdate,
-    /// 세션 수명주기 · Session lifecycle (new / close / fix-headers)
+    /// 세션 수명주기 / Session lifecycle (new / close / fix-headers)
     Session {
         #[command(subcommand)]
         cmd: SessionCmd,
     },
-    /// trial 스캐폴드 · Trial scaffold (활성 로그에 정본 stub 추가 / append the canonical stub)
+    /// trial 스캐폴드 / Trial scaffold (활성 로그에 정본 stub 추가 / append the canonical stub)
     Trial {
         #[command(subcommand)]
         cmd: TrialCmd,
     },
     // (주의: doc comment(`///`)는 help로 노출됨 — 내부 표기 금지, 회귀 테스트가 게이트. P011 t09)
-    /// 프로젝트 ELF 파일 상태 진단 · Diagnose managed-file drift (편집/누락 — 읽기전용/read-only)
+    /// 프로젝트 ELF 파일 상태 진단 / Diagnose managed-file drift (편집/누락 — 읽기전용/read-only)
     Status {
-        /// 발견 시 exit 4 · exit 4 on findings — pre-commit/CI 게이트
+        /// 발견 시 exit 4 / exit 4 on findings — pre-commit/CI 게이트
         #[arg(long)]
         check: bool,
     },
-    /// 세션/Registry/로그 정합 검사 · Validate session/registry/log consistency (읽기전용/read-only)
+    /// 세션/Registry/로그 정합 검사 / Validate session/registry/log consistency (읽기전용/read-only)
     Validate {
-        /// issue 발견 시 exit 4 · exit 4 on issues — pre-commit/CI 게이트
+        /// issue 발견 시 exit 4 / exit 4 on issues — pre-commit/CI 게이트
         #[arg(long)]
         check: bool,
-        /// figure-embed 누락을 issue로 승격 · promote missing figure-embeds to issues
+        /// figure-embed 누락을 issue로 승격 / promote missing figure-embeds to issues
         #[arg(long)]
         strict: bool,
     },
-    /// 6_Exp/64_Viz/ → 세션별 Figure 색인 `_gallery.md` 생성 · Generate the figure gallery index
+    /// 6_Exp/64_Viz/ → 세션별 Figure 색인 `_gallery.md` 생성 / Generate the figure gallery index
     Gallery,
-    /// 환경+프로젝트 종합 진단 · Environment + project health check (읽기전용/read-only)
+    /// 환경+프로젝트 종합 진단 / Environment + project health check (읽기전용/read-only)
     Doctor,
-    /// 연구 기록 시점인증 · Research-record timestamping (manifest + RFC 3161 TSA, opt-in)
+    /// 연구 기록 시점인증 / Research-record timestamping (manifest + RFC 3161 TSA, opt-in)
     Tsa {
         #[command(subcommand)]
         cmd: TsaCmd,
     },
-    /// compact 후 거버넌스 자동 재독 · Governance digest re-injection after context reconstruction (기본 켬/default-on)
+    /// compact 후 거버넌스 자동 재독 / Governance digest re-injection after context reconstruction (기본 켬/default-on)
     Autoread {
         #[command(subcommand)]
         cmd: Option<AutoreadCmd>,
     },
-    /// 폐기 이동·복원·목록 · Deprecate, restore, or list deprecated content (session logs · planning docs → `Deprecated/`)
+    /// 폐기 이동, 복원, 목록 / Deprecate, restore, or list deprecated content (session logs, planning docs → `Deprecated/`)
     #[command(args_conflicts_with_subcommands = true)]
     Deprecate {
         #[command(subcommand)]
         cmd: Option<DeprecateCmd>,
-        /// 대상 · target: S### | P### | project-relative path (omit with --restore)
+        /// 대상 / target: S### | P### | project-relative path (omit with --restore)
         target: Option<String>,
-        /// trial 단위 · move one trial (e.g. t03) — keeps the heading, leaves a move marker
+        /// trial 단위 / move one trial (e.g. t03) — keeps the heading, leaves a move marker
         #[arg(long, value_name = "tNN")]
         trial: Option<String>,
-        /// 절 단위 · move one section of --trial (e.g. 해석) — heading moves with the body
+        /// 절 단위 / move one section of --trial (e.g. 해석) — heading moves with the body
         #[arg(long, value_name = "NAME", requires = "trial")]
         section: Option<String>,
-        /// 표시 블록 · move every block wrapped in <!-- deprecate:begin --> … <!-- deprecate:end -->
+        /// 표시 블록 / move every block wrapped in <!-- deprecate:begin --> … <!-- deprecate:end -->
         #[arg(long)]
         marked: bool,
-        /// 줄 범위 · move lines A-B (1-based, inclusive); requires --expect
+        /// 줄 범위 / move lines A-B (1-based, inclusive); requires --expect
         #[arg(long, value_name = "A-B")]
         lines: Option<String>,
-        /// 줄 범위 확인 · exact text of line A (guards --lines against drift)
+        /// 줄 범위 확인 / exact text of line A (guards --lines against drift)
         #[arg(long, value_name = "TEXT", requires = "lines")]
         expect: Option<String>,
-        /// 대체 · what replaces the deprecated content (recorded in the marker)
+        /// 대체 / what replaces the deprecated content (recorded in the marker)
         #[arg(long = "replaced-by", value_name = "TEXT")]
         replaced_by: Option<String>,
-        /// 사유 · reason (recorded in the marker)
+        /// 사유 / reason (recorded in the marker)
         #[arg(long, value_name = "TEXT")]
         reason: Option<String>,
-        /// 변경 없이 출력만 · preview only, write nothing
+        /// 변경 없이 출력만 / preview only, write nothing
         #[arg(long = "dry-run")]
         dry_run: bool,
-        /// 복원 · restore a block (S012-D01) or a whole document (S012 · P007 · path)
+        /// 복원 / restore a block (S012-D01) or a whole document (S012, P007, path)
         #[arg(long, value_name = "ID", conflicts_with_all = ["target", "trial", "marked", "lines"])]
         restore: Option<String>,
     },
@@ -138,62 +138,70 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum DeprecateCmd {
-    /// 목록 · List deprecated documents and blocks (walks `Deprecated/` folders; reports marker/block mismatches)
+    /// 목록 / List deprecated documents and blocks (walks `Deprecated/` folders; reports marker/block mismatches)
     List,
+    /// 영구 삭제(experimental, 기본 비활성) / Permanently remove a deprecated block or document (experimental; enable with "experimental": ["deprecate_purge"] in .elf/config.json)
+    Purge {
+        /// 블록 ID 또는 문서 / block id (S012-D01) or document (S012, P007, path under Deprecated/)
+        id: String,
+        /// 변경 없이 출력만 / preview only, write nothing
+        #[arg(long = "dry-run")]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand)]
 enum AutoreadCmd {
-    /// 켬 · Enable (config `"autoread": true` + Claude Code hooks — 멱등/idempotent, 프로젝트 단위)
+    /// 켬 / Enable (config `"autoread": true` + Claude Code hooks — 멱등/idempotent, 프로젝트 단위)
     Enable,
-    /// 끔 · Disable (config `"autoread": false` — 훅은 잔존·no-op/hooks stay but no-op)
+    /// 끔 / Disable (config `"autoread": false` — 훅은 잔존, no-op/hooks stay but no-op)
     Disable,
-    /// 상태 · Status (config·hooks·pending markers — 읽기전용/read-only)
+    /// 상태 / Status (config, hooks, pending markers — 읽기전용/read-only)
     Status,
-    /// 대기 마커 해제 · Clear pending reconstruction markers
+    /// 대기 마커 해제 / Clear pending reconstruction markers
     Ack,
-    /// (내부) 하네스 훅 진입점 · harness hook entrypoint (stdin JSON)
+    /// (내부) 하네스 훅 진입점 / harness hook entrypoint (stdin JSON)
     #[command(hide = true)]
     Hook {
-        /// 이벤트 · event (session-start | prompt)
+        /// 이벤트 / event (session-start | prompt)
         event: String,
     },
 }
 
 #[derive(Subcommand)]
 enum TsaCmd {
-    /// 기능 도입 · Enable (config + hooks + baseline record — 멱등/idempotent, 기존 훅 비파괴)
+    /// 기능 도입 / Enable (config + hooks + baseline record — 멱등/idempotent, 기존 훅 비파괴)
     Enable,
-    /// 기능 해제 · Disable (config off + elf 훅만 제거 — 증거 `0_Meta/tsa/`는 보존/kept)
+    /// 기능 해제 / Disable (config off + elf 훅만 제거 — 증거 `0_Meta/tsa/`는 보존/kept)
     Disable,
-    /// 상태 · Status (enabled·hooks·evidence counts — 읽기전용/read-only)
+    /// 상태 / Status (enabled, hooks, evidence counts — 읽기전용/read-only)
     Status,
-    /// 해시 기록 · Record file hashes into today's manifest (pre-commit 훅이 호출)
+    /// 해시 기록 / Record file hashes into today's manifest (pre-commit 훅이 호출)
     Record {
-        /// staged 파일만 · staged files only (훅 기본)
+        /// staged 파일만 / staged files only (훅 기본)
         #[arg(long, conflicts_with = "all")]
         staged: bool,
-        /// git 추적 전체 · all tracked files (baseline)
+        /// git 추적 전체 / all tracked files (baseline)
         #[arg(long)]
         all: bool,
-        /// 출력 억제 · suppress output (훅용)
+        /// 출력 억제 / suppress output (훅용)
         #[arg(long)]
         quiet: bool,
     },
-    /// TSA 시점토큰 요청 · Request timestamp tokens for unstamped manifests (post-commit 훅이 호출)
+    /// TSA 시점토큰 요청 / Request timestamp tokens for unstamped manifests (post-commit 훅이 호출)
     Stamp {
-        /// 과거 누락분 전부 · all unstamped manifests (오프라인 커밋 소급 보충)
+        /// 과거 누락분 전부 / all unstamped manifests (오프라인 커밋 소급 보충)
         #[arg(long)]
         backfill: bool,
-        /// 출력 억제 · suppress output (훅용)
+        /// 출력 억제 / suppress output (훅용)
         #[arg(long)]
         quiet: bool,
     },
-    /// 검증 · Verify a file against manifests, or a day's manifest↔token pair (읽기전용)
+    /// 검증 / Verify a file against manifests, or a day's manifest↔token pair (읽기전용)
     Verify {
-        /// 검증할 파일 · file to look up (sha256 → manifest 이력)
+        /// 검증할 파일 / file to look up (sha256 → manifest 이력)
         file: Option<String>,
-        /// 날짜 쌍 검증 · verify manifest↔token for a date (YYYY-MM-DD)
+        /// 날짜 쌍 검증 / verify manifest↔token for a date (YYYY-MM-DD)
         #[arg(long)]
         date: Option<String>,
     },
@@ -201,23 +209,23 @@ enum TsaCmd {
 
 #[derive(Subcommand)]
 enum SessionCmd {
-    /// 새 세션 로그 생성 + Registry 등록 · Create + register a new session log (S### 자동 증번)
+    /// 새 세션 로그 생성 + Registry 등록 / Create + register a new session log (S### 자동 증번)
     New {
-        /// 세션 제목 · session title (Registry 기록 — 탭 불가)
+        /// 세션 제목 / session title (Registry 기록 — 탭 불가)
         title: String,
     },
-    /// 활성 세션 종료 · Close the active session (→ Complete + Archive + registry, cross-ref 보정)
+    /// 활성 세션 종료 / Close the active session (→ Complete + Archive + registry, cross-ref 보정)
     Close {
-        /// 닫을 세션 ID · session id (생략 시 유일 활성 자동 선택)
+        /// 닫을 세션 ID / session id (생략 시 유일 활성 자동 선택)
         id: Option<String>,
-        /// 호환용(무효과) · accepted for compatibility, no effect since 2.20 (the next-section gate was removed)
+        /// 호환용(무효과) / accepted for compatibility, no effect since 2.20 (the next-section gate was removed)
         #[arg(long)]
         force: bool,
     },
-    /// 세션 로그 헤더 hard break(`\`) 보정 · Repair session-log header hard breaks
+    /// 세션 로그 헤더 hard break(`\`) 보정 / Repair session-log header hard breaks
     #[command(name = "fix-headers")]
     FixHeaders {
-        /// 변경 없이 대상 파일만 출력 · dry-run (list targets only)
+        /// 변경 없이 대상 파일만 출력 / dry-run (list targets only)
         #[arg(long)]
         dry_run: bool,
     },
@@ -225,11 +233,11 @@ enum SessionCmd {
 
 #[derive(Subcommand)]
 enum TrialCmd {
-    /// 활성 세션 로그에 현행 trialTemplate stub 추가 · Append the current canonical trial stub to the active session log
+    /// 활성 세션 로그에 현행 trialTemplate stub 추가 / Append the current canonical trial stub to the active session log
     New {
-        /// trial 제목 · trial title (생략 시 placeholder 유지 / omit = keep placeholder)
+        /// trial 제목 / trial title (생략 시 placeholder 유지 / omit = keep placeholder)
         title: Option<String>,
-        /// 대상 세션 · target session (S### — 생략 시 유일 활성 자동 선택)
+        /// 대상 세션 / target session (S### — 생략 시 유일 활성 자동 선택)
         #[arg(long)]
         session: Option<String>,
     },
@@ -239,7 +247,7 @@ enum TrialCmd {
 fn main() {
     let cli = Cli::parse();
     // autoread 배너 — 재구성 마커 대기 중이면 모든 명령 출력 선두 1행(보조 주입 채널: auto-compact
-    // 직후 프롬프트 미경유 경로 커버). 제외 = autoread 자신(훅 출력 계약·digest 중복)·tsa quiet(훅 경로).
+    // 직후 프롬프트 미경유 경로 커버). 제외 = autoread 자신(훅 출력 계약, digest 중복), tsa quiet(훅 경로).
     let banner_suppressed = matches!(cli.command, Commands::Autoread { .. })
         || matches!(
             cli.command,
@@ -265,7 +273,7 @@ fn main() {
             lang,
         } => {
             let cwd = std::env::current_dir().expect("cwd");
-            // mode: 무명 · `--here` · `.` → 현재 폴더 in-place (P018 name-presence)
+            // mode: 무명, `--here`, `.` → 현재 폴더 in-place (P018 name-presence)
             let dot = name.as_deref() == Some(".");
             let in_place = here || name.is_none() || dot;
             // project name: in-place는 cwd basename(또는 `--here <name>`), 그 외는 인자명
@@ -494,7 +502,7 @@ fn main() {
         Commands::Autoread { cmd } => {
             let cwd = std::env::current_dir().expect("cwd");
             match cmd {
-                // 훅 경로 — 전면 fail-open: 프로젝트 미탐지·stdin 오류·내부 실패 전부 exit 0 무출력.
+                // 훅 경로 — 전면 fail-open: 프로젝트 미탐지, stdin 오류, 내부 실패 전부 exit 0 무출력.
                 Some(AutoreadCmd::Hook { event }) => {
                     let Some(root) = update::find_project_root(&cwd) else { return };
                     let mut input = String::new();
@@ -512,7 +520,7 @@ fn main() {
                         );
                         std::process::exit(1);
                     };
-                    // 인수 없음 = 수동 digest (하네스 무관 fallback — 훅 없는 환경·즉시 재정렬용)
+                    // 인수 없음 = 수동 digest (하네스 무관 fallback — 훅 없는 환경, 즉시 재정렬용)
                     let Some(cmd) = cmd else {
                         print!("{}", autoread::build_digest(&root, "manual"));
                         return;
@@ -544,37 +552,45 @@ fn main() {
         }
         Commands::Deprecate { cmd, target, trial, section, marked, lines, expect, replaced_by, reason, dry_run, restore } => {
             let root = log_root_or_exit();
-            let result = if matches!(cmd, Some(DeprecateCmd::List)) {
-                deprecate::run_list(&root)
-            } else if let Some(id) = restore {
-                deprecate::run_restore(&root, &id)
-            } else {
-                let Some(target) = target else {
-                    eprintln!("[elf] error: a target is required (S### | P### | path), or use --restore <ID> / `elf deprecate list`");
-                    std::process::exit(2);
-                };
-                let lines = match lines.as_deref() {
-                    None => None,
-                    Some(s) => match s.split_once('-').and_then(|(a, b)| Some((a.trim().parse::<usize>().ok()?, b.trim().parse::<usize>().ok()?))) {
-                        Some(r) => Some(r),
-                        None => {
-                            eprintln!("[elf] error: --lines expects A-B (1-based line numbers), got \"{s}\"");
+            let purge_dry = matches!(&cmd, Some(DeprecateCmd::Purge { dry_run: true, .. }));
+            let result = match cmd {
+                Some(DeprecateCmd::Purge { id, dry_run: dr }) => {
+                    let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+                    deprecate::run_purge(&root, &id, dr, &date)
+                }
+                Some(DeprecateCmd::List) => deprecate::run_list(&root),
+                None => {
+                    if let Some(id) = restore {
+                        deprecate::run_restore(&root, &id)
+                    } else {
+                        let Some(target) = target else {
+                            eprintln!("[elf] error: a target is required (S### | P### | path), or use --restore <ID> / `elf deprecate list`");
                             std::process::exit(2);
-                        }
-                    },
-                };
-                let date = chrono::Local::now().format("%Y-%m-%d").to_string();
-                deprecate::run_deprecate(
-                    &root,
-                    &deprecate::DeprecateOptions { target, trial, section, marked, lines, expect, replaced_by, reason, dry_run, date },
-                )
+                        };
+                        let lines = match lines.as_deref() {
+                            None => None,
+                            Some(s) => match s.split_once('-').and_then(|(a, b)| Some((a.trim().parse::<usize>().ok()?, b.trim().parse::<usize>().ok()?))) {
+                                Some(r) => Some(r),
+                                None => {
+                                    eprintln!("[elf] error: --lines expects A-B (1-based line numbers), got \"{s}\"");
+                                    std::process::exit(2);
+                                }
+                            },
+                        };
+                        let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+                        deprecate::run_deprecate(
+                            &root,
+                            &deprecate::DeprecateOptions { target, trial, section, marked, lines, expect, replaced_by, reason, dry_run, date },
+                        )
+                    }
+                }
             };
             match result {
                 Ok(rep) => {
                     for l in &rep.lines {
                         println!("[elf] {l}");
                     }
-                    if dry_run && !rep.changed {
+                    if (dry_run || purge_dry) && !rep.changed {
                         println!("[elf] dry-run — nothing written");
                     }
                 }

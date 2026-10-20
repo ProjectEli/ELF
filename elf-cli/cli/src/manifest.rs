@@ -62,7 +62,7 @@ pub enum Tier {
     Seed,
     /// 마커블록만 ELF 소유 — 블록 교체 + 사용자 영역 보존 (S007 §4.1)
     Hybrid,
-    /// 부재 시 생성(init·update 공통), 존재 시 **절대 불변경**(내용 무관 — `.elf-new` 병기도 없음).
+    /// 부재 시 생성(init, update 공통), 존재 시 **절대 불변경**(내용 무관 — `.elf-new` 병기도 없음).
     /// 얇은 진입 어댑터(CLAUDE.md `@AGENTS.md` 포인터) 전용 — 기존 사용자 파일 소유권 존중 (S021 t06)
     Pointer,
 }
@@ -144,7 +144,7 @@ pub fn embedded_kind(kind: Kind) -> Manifest {
     }
 }
 
-/// 계보별 정본 manifest JSON 원문 — `.elf/manifest.json` stamp 기록용 (init·update re-stamp 공용).
+/// 계보별 정본 manifest JSON 원문 — `.elf/manifest.json` stamp 기록용 (init, update re-stamp 공용).
 pub fn kind_json(kind: Kind) -> &'static str {
     match kind {
         Kind::Research => crate::embed::MANIFEST_JSON,
@@ -260,7 +260,7 @@ mod tests {
     }
 
     /// src 시그니처의 전제 = 3 정본 manifest의 계보별 상호배타 — 정본 구성이 바뀌어
-    /// 전제가 깨지면 여기서 적발 (update/status의 preset 추론·게이트가 이 전제에 의존).
+    /// 전제가 깨지면 여기서 적발 (update/status의 preset 추론, 게이트가 이 전제에 의존).
     #[test]
     fn embedded_manifests_have_mutually_exclusive_signatures() {
         assert_eq!(embedded().src_signature(), Kind::Research);

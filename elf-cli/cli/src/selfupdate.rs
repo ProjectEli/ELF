@@ -3,7 +3,7 @@
 //! axoupdater **라이브러리 모드**: 별도 updater 바이너리는 파일명 update 키워드로
 //! Windows UAC installer detection(권한 상승 요구)에 걸림 — S007 t04 실측.
 //! cargo-dist 인스톨러가 남긴 install receipt를 읽어 GitHub Releases 확인 → atomic swap.
-//! receipt 없는 설치(dev 빌드·수동 배치)는 동작 불가 — 인스톨러 명령 안내 후 종료.
+//! receipt 없는 설치(dev 빌드, 수동 배치)는 동작 불가 — 인스톨러 명령 안내 후 종료.
 
 use axoupdater::AxoUpdater;
 

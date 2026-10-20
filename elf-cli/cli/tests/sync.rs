@@ -50,7 +50,8 @@ fn section3_universal_rules_match_between_research_and_general() {
 
     // 보편 규칙: 두 유형에서 byte-identical 유지 (silent drift 차단)
     // (v2.21: 구 8 "토큰 최소화 및 압축" 소급 삭제로 구 9~13 → 8~12 재번호)
-    const UNIVERSAL: [u32; 8] = [1, 2, 3, 7, 8, 10, 11, 12];
+    // (v2.25: 13 표기 규칙 추가 — 양 계보 동일)
+    const UNIVERSAL: [u32; 9] = [1, 2, 3, 7, 8, 10, 11, 12, 13];
     // 의도적 분기(도메인 특화) — 동일성 미강제
     const DIVERGENT: [u32; 4] = [4, 5, 6, 9];
 

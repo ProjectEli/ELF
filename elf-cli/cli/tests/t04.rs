@@ -98,7 +98,7 @@ fn set_config_preset(root: &Path, preset: Option<&str>) {
 
 #[test]
 fn qa_project_update_keeps_qa_identity() {
-    // S026 t01 피해 경로 a·b·e의 반전 검증
+    // S026 t01 피해 경로 a, b, e의 반전 검증
     let tmp = tempdir().unwrap();
     let root = new_project_preset(tmp.path(), "Q", "qa");
     let agents_before = fs::read(root.join("AGENTS.md")).unwrap();
@@ -181,7 +181,7 @@ fn preset_mismatch_refuses_update_untouched() {
     );
     let msg = err.to_string();
     assert!(msg.contains("\"full\"") && msg.contains("qa"), "{msg}");
-    // 거부 = 완전 무변경 (파일·stamp·version 전부)
+    // 거부 = 완전 무변경 (파일, stamp, version 전부)
     assert_eq!(fs::read(root.join("AGENTS.md")).unwrap(), agents_before);
     assert_eq!(fs::read(root.join(".elf/manifest.json")).unwrap(), stamp_before);
     assert!(!root.join(".elf/managed/EliRule.md").exists());
@@ -206,7 +206,7 @@ fn pre215_leftovers_warn_but_are_left_untouched() {
     assert!(warn.contains("0_Meta/EliRule.md") && warn.contains("0_Meta/LLMcliche.md"));
     assert!(warn.contains("v2.15.1") && warn.contains("elf migrate"), "2단계 경로 안내: {warn}");
     assert!(report.warnings >= 1);
-    // 비접촉 보장: 잔재 무변경·.elf-new 병기 없음·update는 정상 진행
+    // 비접촉 보장: 잔재 무변경, .elf-new 병기 없음, update는 정상 진행
     assert_eq!(fs::read(root.join("0_Meta/EliRule.md")).unwrap(), b"legacy leftover\n");
     assert!(!root.join("0_Meta/EliRule.md.elf-new").exists());
     assert_eq!(report.conflicts, 0, "{:?}", report.lines);
@@ -308,7 +308,7 @@ fn seed_and_instance_are_never_touched() {
 fn hybrid_clean_block_is_replaced_and_user_area_preserved() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
-    // 연출: 배포본이 구버전 블록이었다고 가정 — baseline·현재 파일 모두 구블록 + 사용자 규칙
+    // 연출: 배포본이 구버전 블록이었다고 가정 — baseline, 현재 파일 모두 구블록 + 사용자 규칙
     let old_template = format!("{MARKER_START}\nold-rule/\n{MARKER_END}\n");
     let current = format!("{old_template}\n# user rules\nmy_data/\n");
     fs::write(root.join(".gitignore"), &current).unwrap();
@@ -431,7 +431,7 @@ fn git_unborn_repo_warns_missing_baseline() {
         return;
     }
     // git init 직후 = 커밋 0(unborn HEAD) — 롤백 기준 부재 경고 (S021 t15).
-    // untracked-only 무경고·추적 변경 혼합 경고의 전체 분기는 tests/trial.rs 참조.
+    // untracked-only 무경고, 추적 변경 혼합 경고의 전체 분기는 tests/trial.rs 참조.
     let report = run_update(&root, &plain()).unwrap();
     assert!(report.lines.iter().any(|l| l.contains("no git commit yet")), "{:?}", report.lines);
 }

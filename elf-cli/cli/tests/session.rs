@@ -1,4 +1,4 @@
-//! t01 통합: `elf session new` — init 프로젝트에 세션 생성·등록, escalation 동작.
+//! t01 통합: `elf session new` — init 프로젝트에 세션 생성, 등록, escalation 동작.
 
 use assert_cmd::Command;
 use elf_cli::init::{run_init, InitOptions};
@@ -73,8 +73,8 @@ fn number_derives_from_archive_too() {
 }
 
 // S030: session new는 Registry 손상에 내성 — 파일 index(로그)로 번호를 내고 경고를 노출한다.
-// (구 동작 "손상=Escalation 중단·무변경"의 의도적 전환 — 멀티에이전트 가용성 우선. validate/close의
-//  Registry 파싱 escalation은 그대로 유지 — 진단·종료는 정합한 Registry를 요구.)
+// (구 동작 "손상=Escalation 중단, 무변경"의 의도적 전환 — 멀티에이전트 가용성 우선. validate/close의
+//  Registry 파싱 escalation은 그대로 유지 — 진단, 종료는 정합한 Registry를 요구.)
 #[test]
 fn malformed_registry_falls_back_to_log_index_with_warning() {
     let tmp = tempdir().unwrap();
@@ -86,7 +86,7 @@ fn malformed_registry_falls_back_to_log_index_with_warning() {
     assert_eq!(res.id, "S002"); // 파일 index(S001)+1 — Registry 무시
     assert!(res.warnings.iter().any(|w| w.contains("unparseable")), "{:?}", res.warnings);
     assert!(root.join("2_Log/S002_log.md").exists()); // 로그는 생성됨(중단 아님)
-    // 새 행은 raw append(손상부 보존·데이터 무손실)
+    // 새 행은 raw append(손상부 보존, 데이터 무손실)
     let reg = fs::read_to_string(root.join(REG)).unwrap();
     assert!(reg.lines().any(|l| l.starts_with("S002\t")));
 }
@@ -111,7 +111,7 @@ fn merge_conflict_registry_still_numbers_from_log_index() {
 }
 
 // §12.13 ①: 동시 세션 생성 원자성 — create_new(O_EXCL) 번호 예약 + Registry O_APPEND.
-// barrier로 8스레드 동시 출발: 전 성공·번호 전부 고유·로그 실존·Registry 행 무손실(lost update 0).
+// barrier로 8스레드 동시 출발: 전 성공, 번호 전부 고유, 로그 실존, Registry 행 무손실(lost update 0).
 #[test]
 fn concurrent_session_new_yields_unique_numbers_and_loses_no_registry_rows() {
     use std::sync::{Arc, Barrier};
@@ -323,7 +323,7 @@ fn close_no_longer_requires_next_section() {
     assert!(root2.join("2_Log/Archive/S001_log.md").exists());
 }
 
-/// 구 템플릿(≤ v2.19) 로그 — 절이 남아 있어도 close 동작 동일(하위호환: 절 유효·요구 없음).
+/// 구 템플릿(≤ v2.19) 로그 — 절이 남아 있어도 close 동작 동일(하위호환: 절 유효, 요구 없음).
 #[test]
 fn close_accepts_legacy_log_with_next_section() {
     let tmp = tempdir().unwrap();

@@ -1,5 +1,5 @@
 //! P018/S015: in-place init (`run_init_ex` in_place=true) — 비파괴 배치 검증.
-//! 기존 폴더를 제자리 ELF화하되 사용자 파일을 절대 덮어쓰지 않음(seed skip / managed·hybrid .elf-new).
+//! 기존 폴더를 제자리 ELF화하되 사용자 파일을 절대 덮어쓰지 않음(seed skip / managed, hybrid .elf-new).
 
 use elf_cli::init::{run_init_ex, InitError, InitOptions};
 use std::fs;

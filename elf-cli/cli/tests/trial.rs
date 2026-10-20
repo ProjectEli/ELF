@@ -1,4 +1,4 @@
-//! S021 통합: `elf trial new`(정본 stub append) + L2 진입 파일 배치·pointer tier 거동.
+//! S021 통합: `elf trial new`(정본 stub append) + L2 진입 파일 배치, pointer tier 거동.
 
 use elf_cli::init::{InitOptions, run_init, run_init_ex};
 use elf_cli::session::{SessionError, SessionNewOptions, run_session_new};
@@ -121,7 +121,7 @@ fn trial_new_with_multiple_open_requires_session_flag() {
     );
 }
 
-// ── L2 배치 · pointer tier ──────────────────────────────────────
+// ── L2 배치, pointer tier ──────────────────────────────────────
 
 #[test]
 fn init_places_agents_digest_and_claude_pointer() {
@@ -217,7 +217,7 @@ fn dirty_warning_fires_only_on_tracked_changes_or_unborn_head() {
     let l = update_lines(&root);
     assert!(!l.contains("would mix") && !l.contains("no git commit"), "{l}");
 
-    // ② git init 직후(unborn HEAD·전부 untracked) → 롤백 기준 부재 경고
+    // ② git init 직후(unborn HEAD, 전부 untracked) → 롤백 기준 부재 경고
     git(&root, &["init", "-q"]);
     let l = update_lines(&root);
     assert!(l.contains("no git commit yet"), "{l}");

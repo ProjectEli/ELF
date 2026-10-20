@@ -1,10 +1,10 @@
-//! `elf autoread` — 컨텍스트 재구성(compact·resume·clear) 후 거버넌스 digest 자동 재주입 (S031).
+//! `elf autoread` — 컨텍스트 재구성(compact, resume, clear) 후 거버넌스 digest 자동 재주입 (S031).
 //!
 //! 문제(ELF_Proposal_ContextReanchor): compact 요약 = lossy 파생 digest — agent가 재구성 후
-//! 정본(AGENTS 상시 의무·활성 Handoff)에 재정렬하지 않고 요약 위에서 동작하는 drift 실증(S031 t03).
+//! 정본(AGENTS 상시 의무, 활성 Handoff)에 재정렬하지 않고 요약 위에서 동작하는 drift 실증(S031 t03).
 //! 실패 축 분리(t04): 전달(내용이 컨텍스트에 있는가)과 발동(행동 개시점에서 실행하는가)은 별개 —
-//! 본 기능은 "감지 = 하네스 훅 / 판정·출력 = 본 바이너리"로 전달 방식을 확정한다(발동 강제는 비채택,
-//! t07: 차단은 목적[문서 재전달] 대비 과잉 — validate·close 게이트가 사후 검사 수단).
+//! 본 기능은 "감지 = 하네스 훅 / 판정, 출력 = 본 바이너리"로 전달 방식을 확정한다(발동 강제는 비채택,
+//! t07: 차단은 목적[문서 재전달] 대비 과잉 — validate, close 게이트가 사후 검사 수단).
 //!
 //! 체인(t07 확정): ① SessionStart(compact|resume|clear) 훅 → 마커 기록(stdout 미사용 —
 //! Claude Code #15174[compact matcher stdout 미주입]와 무관한 부수효과 경로) ② 다음
@@ -13,9 +13,9 @@
 //!
 //! 소유 모델: 로직 = 본 바이너리 / `.claude/settings.json` = 비추적 파생물(.gitignore가 `.claude/`
 //! 전체 ignore — clone 후 `elf update` 1회로 재생성) / 스위치 정본 = `.elf/config.json`(git 추적).
-//! **기본 켬**: config `autoread` 키 부재 = true (tsa[부재=false·opt-in]와 반대 극성 — 사용자 확정).
+//! **기본 켬**: config `autoread` 키 부재 = true (tsa[부재=false, opt-in]와 반대 극성 — 사용자 확정).
 //! disable = config false 기록 — 훅은 잔존하되 매 호출 config 게이트로 no-op(settings.json 왕복 회피).
-//! 훅 경로는 전면 fail-open: 어떤 내부 오류도 세션을 막지 않는다(exit 0·무출력).
+//! 훅 경로는 전면 fail-open: 어떤 내부 오류도 세션을 막지 않는다(exit 0, 무출력).
 //! 마커 = `.elf/runtime/autoread/<session_id>` 파일 단위 — 멀티에이전트(동시 다터미널)에서
 //! 세션 간 교차 오발동 없음(S030 정합). TTL 24h gc.
 
@@ -79,7 +79,7 @@ impl AutoreadReport {
 
 // ── config (`.elf/config.json`) — tsa와 동형 패턴, 극성만 반대(부재 = on) ─────────
 
-/// config `autoread` bool. **부재·파싱 실패 = true (default-on)** — 끄기는 명시적 false만.
+/// config `autoread` bool. **부재, 파싱 실패 = true (default-on)** — 끄기는 명시적 false만.
 pub fn is_enabled(root: &Path) -> bool {
     fs::read_to_string(root.join(".elf").join("config.json"))
         .ok()
@@ -89,7 +89,7 @@ pub fn is_enabled(root: &Path) -> bool {
 }
 
 /// config `autoread_fulltext` — 재구성 후 전문 주입할 정본 경로 목록(루트 상대).
-/// 부재·형식 불일치 = 빈 목록(주입 없음 — digest만). 스위치 bool과 별도 키:
+/// 부재, 형식 불일치 = 빈 목록(주입 없음 — digest만). 스위치 bool과 별도 키:
 /// enable/disable(`write_config_flag`)이 목록을 건드리지 않고, pre-fulltext 바이너리와도 호환.
 pub fn fulltext_list(root: &Path) -> Vec<String> {
     fs::read_to_string(root.join(".elf").join("config.json"))
@@ -104,8 +104,8 @@ pub fn fulltext_list(root: &Path) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// 선언 경로 안전 검사 — 루트 상대·트리 내부만. 절대 경로·루트 시작(`/`·`\`)·드라이브
-/// prefix(`C:` — 셋 다 join이 루트를 대체/이탈)·`..` 성분 거부.
+/// 선언 경로 안전 검사 — 루트 상대, 트리 내부만. 절대 경로, 루트 시작(`/`, `\`), 드라이브
+/// prefix(`C:` — 셋 다 join이 루트를 대체/이탈), `..` 성분 거부.
 pub(crate) fn fulltext_path_ok(rel: &str) -> bool {
     let p = Path::new(rel);
     !p.is_absolute()
@@ -140,13 +140,13 @@ fn write_config_flag(root: &Path, on: bool) -> Result<(), AutoreadError> {
 
 // ── Claude Code 어댑터 — `.claude/settings.json` hooks 병합 (비파괴) ───────────────
 //
-// 어댑터 테이블(t09): 1차 = Claude Code. Codex(`.codex/hooks.json` — Claude 스키마 명시 호환)·
+// 어댑터 테이블(t09): 1차 = Claude Code. Codex(`.codex/hooks.json` — Claude 스키마 명시 호환),
 // Gemini(`.gemini/settings.json` — PreCompress/BeforeAgent 매핑)는 실사용 확인 후 행 추가.
 
 /// (이벤트명, matcher, 훅 command) — Claude Code hooks 스키마.
 fn claude_hook_rows() -> [(&'static str, Option<&'static str>, String); 2] {
     [
-        // compact 외 resume·clear도 컨텍스트 경계 — SessionStart 4-matcher 중 startup 제외
+        // compact 외 resume, clear도 컨텍스트 경계 — SessionStart 4-matcher 중 startup 제외
         // (신규 세션은 CLAUDE.md→@AGENTS.md 체인이 fresh 로드라 재정렬 대상 아님).
         ("SessionStart", Some("compact|resume|clear"), format!("{HOOK_CMD_MARKER} session-start")),
         ("UserPromptSubmit", None, format!("{HOOK_CMD_MARKER} prompt")),
@@ -154,7 +154,7 @@ fn claude_hook_rows() -> [(&'static str, Option<&'static str>, String); 2] {
 }
 
 /// hooks 병합 — 기존 설정 보존: `hooks.<event>` 배열에서 elf 소유 항목(command에
-/// `elf autoread hook` 포함)만 최신 정의로 교체, 없으면 추가. 그 외 항목·키 불변(멱등).
+/// `elf autoread hook` 포함)만 최신 정의로 교체, 없으면 추가. 그 외 항목, 키 불변(멱등).
 /// 반환 = 파일 변경 여부. 파싱 실패 = Refuse(사용자 파일 훼손 금지 — 침묵 금지, S029).
 pub fn install_hooks(root: &Path) -> Result<bool, AutoreadError> {
     let dir = root.join(".claude");
@@ -226,7 +226,7 @@ fn is_ours(item: &serde_json::Value) -> bool {
         .unwrap_or(false)
 }
 
-/// 설치 상태 — (이벤트명, 설치 여부) 목록. status·doctor 공용.
+/// 설치 상태 — (이벤트명, 설치 여부) 목록. status, doctor 공용.
 pub fn hook_states(root: &Path) -> Vec<(String, bool)> {
     let text = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap_or_default();
     let v: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::json!({}));
@@ -276,7 +276,7 @@ pub fn run_disable(root: &Path) -> Result<AutoreadReport, AutoreadError> {
     Ok(r)
 }
 
-/// `elf autoread status` — config·훅·대기 마커. 읽기전용.
+/// `elf autoread status` — config, 훅, 대기 마커. 읽기전용.
 pub fn run_status(root: &Path) -> Result<AutoreadReport, AutoreadError> {
     let mut r = AutoreadReport::default();
     let explicit = fs::read_to_string(root.join(".elf").join("config.json"))
@@ -337,7 +337,7 @@ fn now_secs() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
-/// session_id → 마커 파일 경로. 영숫자·`-`·`_` 외 문자는 `_`로 치환(경로 안전).
+/// session_id → 마커 파일 경로. 영숫자, `-`, `_` 외 문자는 `_`로 치환(경로 안전).
 fn marker_path(root: &Path, session_id: &str) -> PathBuf {
     let safe: String = session_id
         .chars()
@@ -384,7 +384,7 @@ fn clear_markers(root: &Path) -> usize {
     n
 }
 
-/// TTL 초과·판독 불가 마커 정리 — 각 훅 호출 시 부수 실행(종료된 세션의 잔여 마커).
+/// TTL 초과, 판독 불가 마커 정리 — 각 훅 호출 시 부수 실행(종료된 세션의 잔여 마커).
 fn gc_markers(root: &Path) {
     let now = now_secs();
     for p in list_markers(root) {
@@ -401,9 +401,9 @@ fn gc_markers(root: &Path) {
 
 // ── 훅 진입점 (fail-open — 훅 경로는 절대 세션을 막지 않는다) ────────────────────
 
-/// `elf autoread hook <event>` 본체. stdin JSON(session_id·source…)을 받아
+/// `elf autoread hook <event>` 본체. stdin JSON(session_id, source…)을 받아
 /// session-start = 마커 기록(무출력) / prompt = 마커 있으면 digest 반환(stdout 주입)+해제.
-/// 모든 실패는 None(무출력·exit 0) — fail-open.
+/// 모든 실패는 None(무출력, exit 0) — fail-open.
 pub fn run_hook(root: &Path, event: &str, stdin_json: &str) -> Option<String> {
     if !is_enabled(root) {
         return None;
@@ -414,7 +414,7 @@ pub fn run_hook(root: &Path, event: &str, stdin_json: &str) -> Option<String> {
     match event {
         "session-start" => {
             let source = v.get("source").and_then(|s| s.as_str()).unwrap_or("");
-            // matcher가 이미 거르지만 방어적 재검사 (설정 드리프트·수동 호출 대비)
+            // matcher가 이미 거르지만 방어적 재검사 (설정 드리프트, 수동 호출 대비)
             if matches!(source, "compact" | "resume" | "clear") {
                 let _ = write_marker(root, session_id, source);
             }
@@ -430,7 +430,7 @@ pub fn run_hook(root: &Path, event: &str, stdin_json: &str) -> Option<String> {
     }
 }
 
-/// 배너 — 마커가 하나라도 대기 중이면 1행 반환. main이 (autoread hook·quiet 경로 제외)
+/// 배너 — 마커가 하나라도 대기 중이면 1행 반환. main이 (autoread hook, quiet 경로 제외)
 /// 모든 명령 출력 선두에 부착: 프롬프트 미경유 경로(auto-compact 직후 연속 작업)의 보조 주입 채널.
 pub fn pending_banner(cwd: &Path) -> Option<String> {
     let root = crate::update::find_project_root(cwd)?;
@@ -506,7 +506,7 @@ pub fn build_digest(root: &Path, source: &str) -> String {
 }
 
 /// config `autoread_fulltext` 선언 정본의 전문 블록을 out에 부착. 반환 = 실제 전문을 1건이라도
-/// 실었는지. 선언 오류(트리 이탈 경로·판독 불가)는 1행 표기 후 계속 — fail-open.
+/// 실었는지. 선언 오류(트리 이탈 경로, 판독 불가)는 1행 표기 후 계속 — fail-open.
 fn append_fulltext(root: &Path, out: &mut String) -> bool {
     let declared = fulltext_list(root);
     let mut injected = false;

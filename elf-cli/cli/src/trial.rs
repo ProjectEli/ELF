@@ -1,4 +1,4 @@
-//! `elf trial new` — 활성 세션 로그에 현행 정본 trialTemplate stub을 append (S021 t03·t07).
+//! `elf trial new` — 활성 세션 로그에 현행 정본 trialTemplate stub을 append (S021 t03, t07).
 //!
 //! 스캐폴드 원리: 규칙 텍스트를 복제하지 않고 **정본 구조를 인스턴스화** — 에이전트의
 //! 선례 모방 행동이 참조할 대상을 항상 현행 정본으로 유지한다(모방 대상의 자동 갱신).
@@ -48,7 +48,7 @@ pub fn next_trial_number(content: &str) -> u32 {
     trial_numbers(content).into_iter().max().map_or(1, |m| m + 1)
 }
 
-/// trialTemplate 렌더 — `t{NN}`·`S{NNN}` 치환 + 제목(옵션).
+/// trialTemplate 렌더 — `t{NN}`, `S{NNN}` 치환 + 제목(옵션).
 fn render_stub(tpl: &str, trial_id: &str, session_id: &str, title: Option<&str>) -> String {
     let mut s = tpl.replace("t{NN}", trial_id).replace("S{NNN}", session_id);
     if let Some(t) = title {
@@ -86,7 +86,7 @@ pub fn insert_trial(content: &str, stub: &str) -> String {
     }
 }
 
-/// 헤더 `> **Modified**:` 값을 date로 갱신 (트레일링 `\`·`\r` 보존). 변경 없으면 None.
+/// 헤더 `> **Modified**:` 값을 date로 갱신 (트레일링 `\`, `\r` 보존). 변경 없으면 None.
 pub fn update_modified(content: &str, date: &str) -> Option<String> {
     let mut out: Vec<String> = content.split('\n').map(str::to_string).collect();
     let mut changed = false;

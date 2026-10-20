@@ -2,10 +2,10 @@
 //! 부분+전체 공존, list 대조, 종료(close) 후 이동 표기 링크, 계획 문서 블록, 거부 조건·exit code.
 
 use assert_cmd::Command;
-use elf_cli::deprecate::{DeprecateError, DeprecateOptions, run_deprecate, run_list, run_restore};
+use elf_cli::deprecate::{DeprecateError, DeprecateOptions, run_deprecate, run_list, run_purge, run_restore};
 use elf_cli::init::{InitOptions, run_init};
 use elf_cli::session::{CloseOptions, SessionNewOptions, run_session_close, run_session_new};
-use elf_cli::validate::trial_structure_findings;
+use elf_cli::validate::{run_validate, trial_structure_findings};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -435,4 +435,113 @@ fn cli_exit_codes_and_list() {
     Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "--restore", "S002-D01"]).assert().success()
         .stdout(predicates::str::contains("[elf] restored S002-D01"));
     Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "S002", "--lines", "x-y", "--expect", "a"]).assert().code(2);
+}
+
+// ── purge (experimental, 기본 비활성 — S039 t03) ─────────────────────────
+
+fn enable_purge(root: &Path) {
+    let p = root.join(".elf/config.json");
+    let mut v: serde_json::Value = serde_json::from_str(&fs::read_to_string(&p).unwrap()).unwrap();
+    v["experimental"] = serde_json::json!(["deprecate_purge"]);
+    fs::write(&p, serde_json::to_string_pretty(&v).unwrap()).unwrap();
+}
+
+#[test]
+fn purge_is_experimental_and_disabled_by_default() {
+    let tmp = tempdir().unwrap();
+    let root = fixture(tmp.path());
+    run_deprecate(&root, &trial_opts("S002", "t02", None)).unwrap();
+    let s1 = snapshot(&root);
+    let err = run_purge(&root, "S002-D01", false, DATE).unwrap_err();
+    assert!(matches!(&err, DeprecateError::Refuse(m) if m.contains("experimental") && m.contains("deprecate_purge")), "{err}");
+    assert_same_tree(&snapshot(&root), &s1);
+    // dry-run은 활성 뒤에만 동작하고 아무것도 쓰지 않음(config 변경분 제외 동일)
+    enable_purge(&root);
+    let rep = run_purge(&root, "S002-D01", true, DATE).unwrap();
+    assert!(!rep.changed);
+    assert!(rep.lines[0].starts_with("purged S002-D01 (t02)"), "{:?}", rep.lines);
+    let mut s2 = snapshot(&root);
+    s2.remove(".elf/config.json");
+    let mut s1b = s1.clone();
+    s1b.remove(".elf/config.json");
+    assert_same_tree(&s2, &s1b);
+}
+
+#[test]
+fn purge_block_removes_block_marks_marker_and_blocks_restore() {
+    let tmp = tempdir().unwrap();
+    let root = fixture(tmp.path());
+    enable_purge(&root);
+    run_deprecate(&root, &trial_opts("S002", "t01", Some("교훈"))).unwrap(); // S002-D01
+    run_deprecate(&root, &trial_opts("S002", "t02", None)).unwrap(); // S002-D02
+    let rep = run_purge(&root, "S002-D02", false, "2026-10-18").unwrap();
+    assert!(rep.changed);
+    assert_eq!(
+        rep.lines[0],
+        "purged S002-D02 (t02) — block removed from 2_Log/Deprecated/S002_log.partial.md; marker in 2_Log/S002_log.md now reads purged (recovery = git history)"
+    );
+    let part = r(&root, "2_Log/Deprecated/S002_log.partial.md");
+    assert!(part.contains("<!-- deprecated:begin S002-D01 -->") && !part.contains("S002-D02"), "{part}");
+    let origin = r(&root, "2_Log/S002_log.md");
+    assert!(origin.contains("## t02: 4차 필터\n\n> **Deprecated** → purged (S002-D02 · t02 · 2026-10-07 · purged: 2026-10-18)\n"), "{origin}");
+    // list: purged 표기는 불일치가 아니라 purged 행
+    let list = run_list(&root).unwrap();
+    assert!(!list.lines.iter().any(|l| l.starts_with("warn:")), "{:?}", list.lines);
+    assert!(list.lines.contains(&"S002-D02 · purged 2026-10-18 · t02 · 2_Log/S002_log.md".to_string()), "{:?}", list.lines);
+    assert!(list.lines.contains(&"deprecated: 0 document(s), 1 block(s), 1 purged marker(s)".to_string()), "{:?}", list.lines);
+    // restore 거부, 재purge 거부
+    assert!(matches!(run_restore(&root, "S002-D02").unwrap_err(), DeprecateError::Refuse(m) if m.contains("purged")));
+    assert!(matches!(run_purge(&root, "S002-D02", false, "2026-10-19").unwrap_err(), DeprecateError::Refuse(m) if m.contains("already purged")));
+    // ID 비재사용: 다음 블록은 D03
+    let rep = run_deprecate(&root, &trial_opts("S002", "t03", None)).unwrap();
+    assert!(rep.lines[0].starts_with("deprecated S002-D03 (t03)"), "{:?}", rep.lines);
+    assert_eq!(run_validate(&root).unwrap().issues, 0);
+}
+
+#[test]
+fn purge_last_block_deletes_partial_file() {
+    let tmp = tempdir().unwrap();
+    let root = fixture(tmp.path());
+    enable_purge(&root);
+    run_deprecate(&root, &trial_opts("S002", "t02", None)).unwrap();
+    let rep = run_purge(&root, "S002-D01", false, "2026-10-18").unwrap();
+    assert!(rep.lines.contains(&"removed 2_Log/Deprecated/S002_log.partial.md (no blocks left)".to_string()), "{:?}", rep.lines);
+    assert!(!root.join("2_Log/Deprecated/S002_log.partial.md").exists());
+    assert!(r(&root, "2_Log/S002_log.md").contains("> **Deprecated** → purged (S002-D01 · t02 · 2026-10-07 · purged: 2026-10-18)"));
+    assert_eq!(run_validate(&root).unwrap().issues, 0);
+}
+
+#[test]
+fn purge_whole_deletes_file_and_sets_registry_purged() {
+    let tmp = tempdir().unwrap();
+    let root = fixture(tmp.path());
+    enable_purge(&root);
+    run_deprecate(&root, &opts("S003")).unwrap();
+    let rep = run_purge(&root, "S003", false, "2026-10-18").unwrap();
+    assert_eq!(rep.lines[0], "purged S003 (whole) — 2_Log/Deprecated/S003_log.md deleted on 2026-10-18 (recovery = git history)");
+    assert!(rep.lines.contains(&"registry: S003 → Purged, -".to_string()), "{:?}", rep.lines);
+    assert!(!root.join("2_Log/Deprecated/S003_log.md").exists());
+    let reg = r(&root, REG);
+    assert!(reg.lines().any(|l| l.starts_with("S003\t") && l.ends_with("\tPurged\t-\t-")), "{reg}");
+    let v = run_validate(&root).unwrap();
+    assert_eq!(v.issues, 0, "{:?}", v.lines);
+    assert!(!v.lines.iter().any(|l| l.contains("S003 is in the registry")), "{:?}", v.lines);
+    assert!(!v.lines.iter().any(|l| l.contains("active sessions") && l.contains("S003")), "{:?}", v.lines);
+    assert!(matches!(run_restore(&root, "S003").unwrap_err(), DeprecateError::Refuse(m) if m.contains("purged")));
+    // 폐기되지 않은 문서는 purge 대상이 아님
+    assert!(matches!(run_purge(&root, "S002", false, "2026-10-18").unwrap_err(), DeprecateError::Refuse(m) if m.contains("not deprecated")));
+}
+
+#[test]
+fn purge_cli_exit_codes() {
+    let tmp = tempdir().unwrap();
+    let root = fixture(tmp.path());
+    run_deprecate(&root, &trial_opts("S002", "t02", None)).unwrap();
+    Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "purge", "S002-D01"]).assert().code(3)
+        .stderr(predicates::str::contains("experimental"));
+    enable_purge(&root);
+    Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "purge", "S002-D99"]).assert().code(1);
+    Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "purge", "S002-D01", "--dry-run"]).assert().success()
+        .stdout(predicates::str::contains("[elf] dry-run — nothing written"));
+    assert!(root.join("2_Log/Deprecated/S002_log.partial.md").is_file());
 }

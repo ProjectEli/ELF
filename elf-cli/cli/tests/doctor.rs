@@ -146,7 +146,7 @@ fn overlay_removal_without_reason_warns() {
 fn overlay_for_non_overlayable_base_warns() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    // LogConvention = 구조·규약 파일 — overlay 비허용 (positive list 밖)
+    // LogConvention = 구조, 규약 파일 — overlay 비허용 (positive list 밖)
     fs::write(root.join("0_Meta/LogConvention.project.md"), "## 추가 (add)\n- x\n").unwrap();
     let r = run_doctor(&root, &env(true));
     let c = check(&r, "overlay");

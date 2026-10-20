@@ -1,13 +1,13 @@
 //! `elf doctor` — 환경+프로젝트 종합 진단 (P012 t05). **읽기전용**.
 //!
-//! ① CLI 버전·설치 receipt ② `.elf/` 무결성(stamp·version·baseline) ③ managed 파일 상태(status)
-//! ④ git 저장소·훅. 네트워크 버전 체크는 하지 않음(오프라인-safe). 프로젝트 밖에서도 환경 진단만 수행.
+//! ① CLI 버전, 설치 receipt ② `.elf/` 무결성(stamp, version, baseline) ③ managed 파일 상태(status)
+//! ④ git 저장소, 훅. 네트워크 버전 체크는 하지 않음(오프라인-safe). 프로젝트 밖에서도 환경 진단만 수행.
 //! receipt 탐지(axoupdater)는 main이 주입 → `run_doctor`는 결정론적(테스트 가능).
 
 use std::fs;
 use std::path::Path;
 
-use crate::{autoread, manifest, status, tsa, update};
+use crate::{autoread, deprecate, manifest, status, tsa, update};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Health {
@@ -43,7 +43,7 @@ pub struct DoctorEnv {
     pub receipt_present: bool,
 }
 
-/// install receipt 존재 여부(axoupdater, 읽기전용·오프라인). main에서 호출해 `DoctorEnv` 구성.
+/// install receipt 존재 여부(axoupdater, 읽기전용, 오프라인). main에서 호출해 `DoctorEnv` 구성.
 pub fn probe_receipt() -> bool {
     let mut u = axoupdater::AxoUpdater::new_for("elf-cli");
     u.load_receipt().is_ok()
@@ -72,6 +72,7 @@ pub fn run_doctor(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
             r.add(Health::Ok, "ELF project", format!("root: {}", root.display()));
             check_elf(&root, env, &mut r);
             check_claudeignore(&root, &mut r);
+            check_experimental(&root, &mut r);
             check_status(&root, &mut r);
             check_i18n(&root, &mut r);
             check_overlay(&root, &mut r);
@@ -118,7 +119,7 @@ fn check_elf(root: &Path, env: &DoctorEnv, r: &mut DoctorReport) {
     }
 }
 
-/// 루트 `.claudeignore` — Claude Code에서 효과가 없고 v2.24부터 ELF가 배포·관리하지 않음(S037). 있으면 안내만(자동 삭제 없음).
+/// 루트 `.claudeignore` — Claude Code에서 효과가 없고 v2.24부터 ELF가 배포, 관리하지 않음(S037). 있으면 안내만(자동 삭제 없음).
 fn check_claudeignore(root: &Path, r: &mut DoctorReport) {
     if root.join(".claudeignore").is_file() {
         r.add(
@@ -126,6 +127,14 @@ fn check_claudeignore(root: &Path, r: &mut DoctorReport) {
             ".claudeignore",
             "present — it has no effect in Claude Code and is not ELF-managed since v2.24; safe to delete (use your harness's own access rules if you still need exclusions)",
         );
+    }
+}
+
+/// `.elf/config.json` `experimental` 배열 — 켜진 experimental 기능(예: deprecate_purge)을 Info로 노출.
+fn check_experimental(root: &Path, r: &mut DoctorReport) {
+    let list = deprecate::experimental_features(root);
+    if !list.is_empty() {
+        r.add(Health::Info, "experimental", format!("enabled in .elf/config.json: {}", list.join(", ")));
     }
 }
 
@@ -143,8 +152,8 @@ fn check_status(root: &Path, r: &mut DoctorReport) {
     }
 }
 
-/// i18n 위상 advisory (P016 M4) — 비-ko 프로젝트의 companion 상태·operative 정본 안내.
-/// 누락·편집의 actionable 분류는 `check_status`가 담당(중복 경고 회피) → 여기선 Info 위주 framing.
+/// i18n 위상 advisory (P016 M4) — 비-ko 프로젝트의 companion 상태, operative 정본 안내.
+/// 누락, 편집의 actionable 분류는 `check_status`가 담당(중복 경고 회피) → 여기선 Info 위주 framing.
 fn check_i18n(root: &Path, r: &mut DoctorReport) {
     let lang = update::read_config_lang(root);
     let p = manifest::lang_primary(&lang);
@@ -183,7 +192,7 @@ fn check_i18n(root: &Path, r: &mut DoctorReport) {
     );
 }
 
-/// L2 진입 파일 연결 진단 (S021 t04·t06) — AGENTS.md(managed 상태는 check_status 소관)와
+/// L2 진입 파일 연결 진단 (S021 t04, t06) — AGENTS.md(managed 상태는 check_status 소관)와
 /// CLAUDE.md 포인터의 **연결 상태**를 봄: 포인터 부재 = Claude Code가 AGENTS.md 미로드.
 /// stamp에 AGENTS.md entry가 없는 구버전 프로젝트는 조용히 skip(missing은 status가 안내).
 fn check_l2(root: &Path, r: &mut DoctorReport) {
@@ -276,7 +285,7 @@ fn check_overlay(root: &Path, r: &mut DoctorReport) {
             Err(_) => r.add(Health::Warn, "overlay", format!("{ov} unreadable (not UTF-8?)")),
         }
     }
-    // base가 overlay 비허용(구조·규약 파일 등)이거나 미지 대상인 `*.project.md` — 병행 로드되지 않음을 경고
+    // base가 overlay 비허용(구조, 규약 파일 등)이거나 미지 대상인 `*.project.md` — 병행 로드되지 않음을 경고
     if let Ok(rd) = fs::read_dir(root.join("0_Meta")) {
         for entry in rd.flatten() {
             let name = entry.file_name().to_string_lossy().into_owned();
@@ -327,8 +336,8 @@ fn removals_missing_reason(text: &str) -> usize {
 }
 
 /// tsa 진단 (S022) — opt-in이라 disabled면 침묵. enabled 시: GPG 저작자 계층(선택),
-/// 미제출 manifest, 엄밀 검증용 openssl 존재(드문 경로 — 없어도 축적·경량 검증은 자기완결).
-/// autoread — default-on 기능의 반쪽 설치(기능 켬·훅 부재) 검사 (S031 t06 — CLAUDE.md 포인터 검사와 동렬).
+/// 미제출 manifest, 엄밀 검증용 openssl 존재(드문 경로 — 없어도 축적, 경량 검증은 자기완결).
+/// autoread — default-on 기능의 반쪽 설치(기능 켬, 훅 부재) 검사 (S031 t06 — CLAUDE.md 포인터 검사와 동렬).
 fn check_autoread(root: &Path, r: &mut DoctorReport) {
     if !autoread::is_enabled(root) {
         r.add(Health::Info, "autoread", "disabled (config) — `elf autoread enable` to turn on");
@@ -352,7 +361,7 @@ fn check_autoread(root: &Path, r: &mut DoctorReport) {
             ),
         );
     }
-    // fulltext 선언 실효성 — 부재·트리 이탈 경로는 주입 시 fail-open 스킵되므로 여기서만 드러남 (S031 t16).
+    // fulltext 선언 실효성 — 부재, 트리 이탈 경로는 주입 시 fail-open 스킵되므로 여기서만 드러남 (S031 t16).
     let broken: Vec<String> = autoread::fulltext_list(root)
         .into_iter()
         .filter(|rel| !autoread::fulltext_path_ok(rel) || !root.join(rel).is_file())

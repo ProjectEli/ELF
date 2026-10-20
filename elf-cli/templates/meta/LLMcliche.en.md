@@ -23,27 +23,27 @@ phrasing, and replace with **concrete, active, direct** statements. English outp
 
 | Category | Example vocabulary |
 |---|---|
-| Cliché verbs | represent · serve/stand/act as · delve · navigate · leverage · harness · showcase · underscore · foster · enhance · alleviate · unlock · elevate · streamline · spearhead · embark · garner · bolster · revolutionize · shed light on · (vague) yield · constitute (vague copula "X constitutes Y" — use is) · intensify (vague escalation — use increase; quantitative intensity: §4) · tie (A to B) (bonding cliché — use link) |
-| Vague adjectives | crucial · vital · pivotal · essential · seamless · intricate · profound · paramount · nuanced · multifaceted · holistic · vibrant · innovative · cutting-edge · meticulous · (vague) robust · (vague) comprehensive · (vague) trivial |
-| Cliché nouns | tapestry · landscape · realm · paradigm · testament · cornerstone · beacon · myriad · plethora · synergy · ecosystem · verdict (elevates an evaluation/check result into courtroom register — use result/pass-fail) · readout (vague nominalization of a measured result — use measurement/signal; hardware readout path: §4) · X family (non-academic metaphorical grouping of methods — use concrete terms such as methods; defined family terms: §4) · provenance (inflated nominalization of "source" — use source/origin or a concrete term such as data lineage; no exception) · dossier (non-academic elevation of a compilation — use record/summary) · caveat (cliché hedging noun for a limitation/note — use limitation/note) |
-| Overused connectors | Moreover · Furthermore · Consequently · Additionally · sentence-initial runs of However · Notably · Importantly · Indeed · Nonetheless |
-| Cliché phrases | "it is worth/important noting that" · "plays a crucial/pivotal role" · "pave the way" · "at the forefront of" · "in the realm of" · "a wide range/array of" · "rich tapestry" · "ever/rapidly evolving" · "revolutionize the way" · "in parallel (with)" (vague narrative linking) |
-| Emphasis adverbs | uniquely · fundamentally · primarily · meticulously · crystallize |
+| Cliché verbs | represent, serve/stand/act as, delve, navigate, leverage, harness, showcase, underscore, foster, enhance, alleviate, unlock, elevate, streamline, spearhead, embark, garner, bolster, revolutionize, shed light on, (vague) yield, constitute (vague copula "X constitutes Y" — use is), intensify (vague escalation — use increase; quantitative intensity: §4), tie (A to B) (bonding cliché — use link) |
+| Vague adjectives | crucial, vital, pivotal, essential, seamless, intricate, profound, paramount, nuanced, multifaceted, holistic, vibrant, innovative, cutting-edge, meticulous, (vague) robust, (vague) comprehensive, (vague) trivial |
+| Cliché nouns | tapestry, landscape, realm, paradigm, testament, cornerstone, beacon, myriad, plethora, synergy, ecosystem, verdict (elevates an evaluation/check result into courtroom register — use result/pass-fail), readout (vague nominalization of a measured result — use measurement/signal; hardware readout path: §4), X family (non-academic metaphorical grouping of methods — use concrete terms such as methods; defined family terms: §4), provenance (inflated nominalization of "source" — use source/origin or a concrete term such as data lineage; no exception), dossier (non-academic elevation of a compilation — use record/summary), caveat (cliché hedging noun for a limitation/note — use limitation/note) |
+| Overused connectors | Moreover, Furthermore, Consequently, Additionally, sentence-initial runs of However, Notably, Importantly, Indeed, Nonetheless |
+| Cliché phrases | "it is worth/important noting that", "plays a crucial/pivotal role", "pave the way", "at the forefront of", "in the realm of", "a wide range/array of", "rich tapestry", "ever/rapidly evolving", "revolutionize the way", "in parallel (with)" (vague narrative linking) |
+| Emphasis adverbs | uniquely, fundamentally, primarily, meticulously, crystallize |
 
-- Metaphorical substitutions (lens · navigate · deep dive · journey · shed light on · crystallize) are governed by `EliRule §3 rule 3` (no metaphor) — this section centers on non-metaphor vocabulary/register.
+- Metaphorical substitutions (lens, navigate, deep dive, journey, shed light on, crystallize) are governed by `EliRule §3 rule 3` (no metaphor) — this section centers on non-metaphor vocabulary/register.
 
-## 2. Assistant register · conversational clichés (cross-model, non-exhaustive)
+## 2. Assistant register and conversational clichés (cross-model, non-exhaustive)
 
 Register clichés common to chat/coding assistants (ChatGPT, Claude, Gemini, etc.).
 Check that they do not appear in logs, documents, and commit messages.
 
 | Type | Example |
 |---|---|
-| Opening greeting / over-agreement | "Certainly!" · "Absolutely!" · "Sure!" · "Great question" · "You're absolutely right" |
-| Self-reference | "I'd be happy to help" · "Let me explain" · "Let me break this down" · "I hope this helps" · "feel free to" |
-| Excess hedging/qualifiers | "It's worth noting that" · "It's important to note/remember" · "Generally speaking" · "In many cases" · "While this may vary" |
-| Formulaic constructions | "not only … but also" · "It's not X, it's Y" (repeated within one piece) · closing "In conclusion / In summary" |
-| Structural habit | habitual rule-of-three lists · repeated "**Bold term**: explanation" one-line items · excessive bullets |
+| Opening greeting / over-agreement | "Certainly!", "Absolutely!", "Sure!", "Great question", "You're absolutely right" |
+| Self-reference | "I'd be happy to help", "Let me explain", "Let me break this down", "I hope this helps", "feel free to" |
+| Excess hedging/qualifiers | "It's worth noting that", "It's important to note/remember", "Generally speaking", "In many cases", "While this may vary" |
+| Formulaic constructions | "not only … but also", "It's not X, it's Y" (repeated within one piece), closing "In conclusion / In summary" |
+| Structural habit | habitual rule-of-three lists, repeated "**Bold term**: explanation" one-line items, excessive bullets |
 | Punctuation | em-dash (—) overused multiple times per paragraph (where a comma or parenthesis suffices) |
 
 ## 3. Model-specific tendencies (non-deterministic, overlapping)
@@ -53,8 +53,8 @@ Check that they do not appear in logs, documents, and commit messages.
 
 | Model | Reported tendency | Evidence tier |
 |---|---|---|
-| GPT / ChatGPT | sharply increased excess vocabulary (delve · underscore · meticulous · boast · intricate · tapestry); formal, detached tone | academic (Kobak · FSU) |
-| Claude / Claude Code | em-dash overuse; excess qualifiers/hedges; self-reference ("I'd be happy to help" · "Let me"); "**Bold**: explanation" lists; off-topic ethics/generalization | community observation (non-academic) |
+| GPT / ChatGPT | sharply increased excess vocabulary (delve, underscore, meticulous, boast, intricate, tapestry); formal, detached tone | academic (Kobak, FSU) |
+| Claude / Claude Code | em-dash overuse; excess qualifiers/hedges; self-reference ("I'd be happy to help", "Let me"); "**Bold**: explanation" lists; off-topic ethics/generalization | community observation (non-academic) |
 | Gemini | conversational/approachable plain style; excessive bullets; in long documents the requested voice drifts to an informational tone | reporting (Scientific American) |
 
 ## 4. Exceptions — precise technical use (allowed, non-exhaustive)
@@ -69,7 +69,7 @@ denotation**. Examples:
 | comprehensive | when it actually means exhaustive/full coverage |
 | vital | standard terms such as vital sign (medicine) |
 | essential | standard terms such as essential amino acid |
-| yield | quantitative: yield strength · reaction yield · yield curve |
+| yield | quantitative: yield strength, reaction yield, yield curve |
 | trivial | definitional: trivial/non-trivial solution in math/CS |
 | readout | hardware readout circuitry/signal path (detector readout, etc.) — for a general result/signal use measurement/signal |
 | family | defined family terms such as a family of curves/distributions (math/statistics) or a protocol family (networking) — vague metaphorical groupings like "the X family of methods" are excluded |
