@@ -207,7 +207,7 @@ fn stamp_offline_is_graceful_and_leaves_no_token() {
 
     let r = tsa::run_stamp(&root, true).unwrap(); // Err 아닌 Ok+경고 (훅 경로 비차단)
     assert!(r.warnings > 0, "{:?}", r.lines);
-    assert!(r.lines.iter().any(|l| l.contains("--backfill")), "재시도 안내 필요: {:?}", r.lines);
+    assert!(r.lines.iter().any(|l| l.contains("elf tsa --all")), "재시도 안내 필요: {:?}", r.lines);
     let (_, stamped, unstamped) = tsa::evidence_counts(&root);
     assert_eq!((stamped, unstamped), (0, 1)); // 깨진 토큰 미저장
 }
@@ -216,21 +216,147 @@ fn stamp_offline_is_graceful_and_leaves_no_token() {
 fn disabled_gate_refuses_direct_run_but_quiet_hook_path_is_silent() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    // enable 없이 record 직접 실행 → refuse(exit 3)
-    AssertCommand::cargo_bin("elf")
-        .unwrap()
-        .args(["tsa", "record", "--staged"])
-        .current_dir(&root)
-        .assert()
-        .code(3);
+    // enable 없이 record, 토큰 요청(인수 없는 `elf tsa`) 직접 실행 → refuse(exit 3)
+    for args in [vec!["tsa", "record"], vec!["tsa"], vec!["tsa", "--all"]] {
+        AssertCommand::cargo_bin("elf").unwrap().args(&args).current_dir(&root).assert().code(3);
+    }
     // 훅 경로(--quiet) → 침묵 성공(disable 후 잔존 수동 훅 라인의 무해화)
-    AssertCommand::cargo_bin("elf")
-        .unwrap()
-        .args(["tsa", "record", "--staged", "--quiet"])
-        .current_dir(&root)
-        .assert()
-        .success()
-        .stdout("");
+    for args in [vec!["tsa", "record", "--quiet"], vec!["tsa", "--quiet"]] {
+        AssertCommand::cargo_bin("elf")
+            .unwrap()
+            .args(&args)
+            .current_dir(&root)
+            .assert()
+            .success()
+            .stdout("");
+    }
+}
+
+/// v2.26: `tsa stamp`, `--backfill`, `record --staged` 삭제(별칭 없음) — usage 오류.
+#[test]
+fn removed_tsa_forms_are_usage_errors() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    for args in [
+        vec!["tsa", "stamp"],
+        vec!["tsa", "stamp", "--backfill"],
+        vec!["tsa", "--backfill"],
+        vec!["tsa", "record", "--staged"],
+    ] {
+        AssertCommand::cargo_bin("elf").unwrap().args(&args).current_dir(&root).assert().code(2);
+    }
+}
+
+/// 네트워크 비의존 enable — TSA를 닫힌 로컬 포트로 지정한 뒤 enable(기준선 토큰 요청은 경고로 실패).
+/// 추적 파일 1개를 먼저 두어 기준선 manifest가 생기게 함.
+fn enable_offline(root: &Path) {
+    fs::write(root.join("seed.txt"), b"seed").unwrap();
+    git(root, &["add", "seed.txt"]);
+    let cfg = root.join(".elf/config.json");
+    let mut v: serde_json::Value = serde_json::from_str(&fs::read_to_string(&cfg).unwrap()).unwrap();
+    v.as_object_mut().unwrap().insert("tsaUrl".into(), "http://127.0.0.1:9".into());
+    fs::write(&cfg, serde_json::to_string_pretty(&v).unwrap()).unwrap();
+    tsa::run_enable(root).unwrap();
+}
+
+const LEGACY_HEAD: &str = "#!/bin/sh\n# elf-tsa hook — managed by `elf tsa enable`; removed by `elf tsa disable`. Do not edit (replaced in full on enable).\nELF=\"$HOME/.elf/bin/elf\"; { [ -x \"$ELF\" ] || [ -x \"$ELF.exe\" ]; } || ELF=elf\n";
+
+/// v2.25 이전 훅 본문(구 명령 호출) 재현.
+fn write_legacy_hooks(root: &Path) {
+    let hooks = root.join(".git/hooks");
+    fs::write(hooks.join("pre-commit"), format!("{LEGACY_HEAD}\"$ELF\" tsa record --staged --quiet || true\n")).unwrap();
+    fs::write(
+        hooks.join("post-commit"),
+        format!("{LEGACY_HEAD}(\"$ELF\" tsa stamp --quiet >/dev/null 2>&1 || true) &\n"),
+    )
+    .unwrap();
+}
+
+#[test]
+fn update_replaces_legacy_hooks_and_reports_once() {
+    use elf_cli::update::{UpdateOptions, run_update};
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    enable_offline(&root);
+    assert!(tsa::hook_states(&root).iter().all(|(_, s)| *s == tsa::HookState::Current));
+    write_legacy_hooks(&root);
+    assert!(tsa::hook_states(&root).iter().all(|(_, s)| *s == tsa::HookState::Outdated));
+
+    // dry-run: 안내만, 훅 불변
+    let r = run_update(&root, &UpdateOptions { dry_run: true, force: false }).unwrap();
+    assert!(r.lines.iter().any(|l| l.contains("tsa: would update hooks")), "{:?}", r.lines);
+    assert!(tsa::hook_states(&root).iter().all(|(_, s)| *s == tsa::HookState::Outdated));
+
+    // 실행: 교체 + 누락 가능 안내(바뀐 내용, 마지막 manifest, 보충 명령)
+    let r = run_update(&root, &UpdateOptions { dry_run: false, force: false }).unwrap();
+    let text = r.lines.join("\n");
+    assert!(text.contains("tsa: updated hooks"), "{text}");
+    assert!(text.contains("no longer exist"), "{text}");
+    assert!(text.contains("last manifest"), "{text}");
+    assert!(text.contains("elf tsa record --all") && text.contains("elf tsa --all"), "{text}");
+    assert!(tsa::hook_states(&root).iter().all(|(_, s)| *s == tsa::HookState::Current));
+    let pre = fs::read_to_string(root.join(".git/hooks/pre-commit")).unwrap();
+    assert!(pre.contains("tsa record --quiet") && !pre.contains("--staged"), "{pre}");
+    let post = fs::read_to_string(root.join(".git/hooks/post-commit")).unwrap();
+    assert!(post.contains("\"$ELF\" tsa --quiet") && !post.contains("stamp"), "{post}");
+
+    // 두 번째 update: 현행 본문이므로 tsa 안내 없음(첫 update에서 1회)
+    let r = run_update(&root, &UpdateOptions { dry_run: false, force: false }).unwrap();
+    assert!(!r.lines.iter().any(|l| l.contains("tsa:") || l.contains("no longer exist")), "{:?}", r.lines);
+}
+
+#[test]
+fn update_leaves_foreign_hooks_and_disabled_projects_alone() {
+    use elf_cli::update::{UpdateOptions, run_update};
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    // tsa 끔: 구 본문이 있어도 손대지 않음
+    fs::create_dir_all(root.join(".git/hooks")).unwrap();
+    write_legacy_hooks(&root);
+    run_update(&root, &UpdateOptions { dry_run: false, force: false }).unwrap();
+    let pre = fs::read_to_string(root.join(".git/hooks/pre-commit")).unwrap();
+    assert!(pre.contains("--staged"));
+    // tsa 켬 + 타 도구 훅: 비접근
+    enable_offline(&root);
+    fs::write(root.join(".git/hooks/pre-commit"), "#!/bin/sh\necho other\n").unwrap();
+    run_update(&root, &UpdateOptions { dry_run: false, force: false }).unwrap();
+    assert_eq!(fs::read_to_string(root.join(".git/hooks/pre-commit")).unwrap(), "#!/bin/sh\necho other\n");
+}
+
+#[test]
+fn check_files_warns_on_outdated_and_absent_hooks() {
+    use elf_cli::check::{self, Level, Scope};
+    use elf_cli::doctor::DoctorEnv;
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    enable_offline(&root);
+    let env = DoctorEnv { version: elf_cli::embed::version().to_string(), receipt_present: false };
+    let warns = |root: &Path| -> Vec<String> {
+        check::run_scope(root, &env, Scope::Files)
+            .items
+            .into_iter()
+            .filter(|i| i.level == Level::Warn && i.text.starts_with("tsa hooks"))
+            .map(|i| i.text)
+            .collect()
+    };
+    assert!(warns(&root).is_empty(), "{:?}", warns(&root));
+    write_legacy_hooks(&root);
+    let w = warns(&root);
+    assert_eq!(w.len(), 2, "{w:?}");
+    assert!(w.iter().all(|x| x.contains("run `elf update`")), "{w:?}");
+    fs::remove_file(root.join(".git/hooks/post-commit")).unwrap();
+    assert!(warns(&root).iter().any(|x| x.contains("post-commit hook absent")));
+}
+
+#[test]
+fn e2e_tsa_all_retries_unstamped_manifests_offline() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    enable_offline(&root); // 기준선 manifest는 토큰 없이 남음
+    let out = AssertCommand::cargo_bin("elf").unwrap().args(["tsa", "--all"]).current_dir(&root).output().unwrap();
+    assert!(out.status.success());
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("retry with `elf tsa --all`"), "{text}");
 }
 
 #[test]

@@ -84,11 +84,11 @@ Project files fall into four ownership classes, which `elf update` strictly resp
 |------|------|-------------------|
 | **ELF-managed** | `.elf/managed/` `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `LLMcliche.md`, `templates/*` (incl. companions); root `AGENTS.md` | Replaced with the new version. **If you edited it, it is not overwritten**; the new version is written as `<file>.elf-new` (merging is up to you; `--force` replaces) |
 | **User-owned** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, all work data and logs | **Never modified** |
-| **Pointer (create-only)** | `CLAUDE.md` | Created if missing; if present it is **never modified** (regardless of content — existing-file ownership is preserved). `elf doctor` checks whether it loads `@AGENTS.md` |
+| **Pointer (create-only)** | `CLAUDE.md` | Created if missing; if present it is **never modified** (regardless of content — existing-file ownership is preserved). `elf check files` checks whether it loads `@AGENTS.md` |
 | **Partially managed** | `.gitignore` | Only the marker block (`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) is replaced; user rules outside the block are preserved |
 
 - For project-rule customization, prefer **writing in `ProjectRule.md`** instead of editing ELF-managed files (no update conflicts).
-- Check status: `elf status` (diagnoses without changes; `--check` is for CI/hook gates).
+- Check status: `elf check files` (diagnoses without changes; exits 4 on findings, usable as a CI/hook gate).
 
 #### Data overlay — `<name>.project.md` (customizing data files)
 
@@ -100,7 +100,7 @@ Data-type ELF-managed files (marked `overlayable` in the manifest — currently 
   - `## 제외 (remove)`: remove base entries **per entry** — **each removal must state a reason**. Disabling whole sections or files is not allowed.
   - `## 재정의 (override)`: replace a base entry with the project's definition.
 - **Registration discipline**: overlay entries are added or changed only with user approval — the AI does not register them autonomously. Propose entries of general value to ELF core.
-- Check: `elf doctor` detects overlays, verifies removal reasons, and warns on overlays without an overlayable base.
+- Check: `elf check files` detects overlays, verifies removal reasons, and warns on overlays without an overlayable base.
 
 ### 2.5 Session ownership — one writer per session (multi-agent)
 

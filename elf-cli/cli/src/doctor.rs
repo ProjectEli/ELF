@@ -1,4 +1,6 @@
-//! `elf doctor` — 환경+프로젝트 종합 진단 (P012 t05). **읽기전용**.
+//! 환경, 프로젝트 진단 검사 묶음 (P012 t05). **읽기전용**.
+//! `elf check setup` = `setup_checks`, `elf check files` = `files_checks` + 관리 파일 상태(status).
+//! 구 이름 `elf doctor`(숨김 별칭)는 `run_doctor` — 두 묶음과 status 요약을 기존 순서로 출력.
 //!
 //! ① CLI 버전, 설치 receipt ② `.elf/` 무결성(stamp, version, baseline) ③ managed 파일 상태(status)
 //! ④ git 저장소, 훅. 네트워크 버전 체크는 하지 않음(오프라인-safe). 프로젝트 밖에서도 환경 진단만 수행.
@@ -56,9 +58,9 @@ pub fn run_doctor(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
     // ── 환경 ──
     r.add(Health::Info, "elf version", env.version.clone());
     if env.receipt_present {
-        r.add(Health::Ok, "install receipt", "found — `elf self-update` works");
+        r.add(Health::Ok, "install receipt", "found — `elf self update` works");
     } else {
-        r.add(Health::Info, "install receipt", "absent — self-update unavailable (dev/manual build)");
+        r.add(Health::Info, "install receipt", "absent — `elf self update` unavailable (dev/manual build)");
     }
 
     // ── 프로젝트(.elf/) ──
@@ -85,6 +87,40 @@ pub fn run_doctor(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
     // ── git ──
     check_git(cwd, &mut r);
 
+    r
+}
+
+/// `elf check setup` — CLI 버전, 설치 receipt, git과 훅, (프로젝트 안이면) autoread, experimental.
+pub fn setup_checks(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
+    let mut r = DoctorReport::default();
+    r.add(Health::Info, "elf version", env.version.clone());
+    if env.receipt_present {
+        r.add(Health::Ok, "install receipt", "found — `elf self update` works");
+    } else {
+        r.add(Health::Info, "install receipt", "absent — `elf self update` unavailable (dev/manual build)");
+    }
+    match update::find_project_root(cwd) {
+        None => r.add(Health::Info, "ELF project", "not inside an ELF project (.elf/ not found) — project settings skipped"),
+        Some(root) => {
+            r.add(Health::Ok, "ELF project", format!("root: {}", root.display()));
+            check_experimental(&root, &mut r);
+            check_autoread(&root, &mut r);
+        }
+    }
+    check_git(cwd, &mut r);
+    r
+}
+
+/// `elf check files`의 진단 묶음 — `.elf` 기록, `.claudeignore`, 언어 파일, overlay, AGENTS 연결, tsa.
+/// 관리 파일 상태(status)는 호출 측이 이어 붙임.
+pub fn files_checks(root: &Path, env: &DoctorEnv) -> DoctorReport {
+    let mut r = DoctorReport::default();
+    check_elf(root, env, &mut r);
+    check_claudeignore(root, &mut r);
+    check_i18n(root, &mut r);
+    check_overlay(root, &mut r);
+    check_l2(root, &mut r);
+    check_tsa(root, &mut r);
     r
 }
 
@@ -146,7 +182,7 @@ fn check_status(root: &Path, r: &mut DoctorReport) {
         Ok(s) => r.add(
             Health::Warn,
             "managed files",
-            format!("{} pending, {} conflict(s) — run `elf status`", s.pending, s.conflicts),
+            format!("{} pending, {} conflict(s) — run `elf check files`", s.pending, s.conflicts),
         ),
         Err(e) => r.add(Health::Warn, "managed files", format!("status failed: {e}")),
     }
@@ -389,8 +425,28 @@ fn check_tsa(root: &Path, r: &mut DoctorReport) {
         r.add(
             Health::Warn,
             "tsa",
-            format!("{unstamped} unstamped manifest(s) — run `elf tsa stamp --backfill` when online"),
+            format!("{unstamped} unstamped manifest(s) — run `elf tsa --all` when online"),
         );
+    }
+    for (name, state) in tsa::hook_states(root) {
+        match state {
+            tsa::HookState::Current => {}
+            tsa::HookState::Outdated => r.add(
+                Health::Warn,
+                "tsa hooks",
+                format!("{name} hook calls an old command — run `elf update`"),
+            ),
+            tsa::HookState::Absent => r.add(
+                Health::Warn,
+                "tsa hooks",
+                format!("{name} hook absent — commits are not recorded; run `elf tsa enable`"),
+            ),
+            tsa::HookState::Foreign => r.add(
+                Health::Info,
+                "tsa hooks",
+                format!("{name} hook is not elf-tsa's — make sure it calls `elf tsa` (see `elf tsa enable` output)"),
+            ),
+        }
     }
     let gpg_on = std::process::Command::new("git")
         .args(["config", "--get", "commit.gpgsign"])

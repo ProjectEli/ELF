@@ -34,7 +34,7 @@ S012  goal: SNR by wavelength
 | Registry | `2_Log/Wiki/Session_Registry.tsv` — one row per session (status, one-line conclusion) |
 | Archive | Where closed logs go (`2_Log/Archive/`). Closed records that remain valid; the agent may read them |
 | Deprecated | Where withdrawn logs and blocks go (`2_Log/Deprecated/`). Readable, but not a basis for current decisions. `elf deprecate` moves them there and back; `elf deprecate purge` (experimental, off by default) removes them for good |
-| validate | `elf validate` — consistency check of logs, registry, numbering, cross-refs, figure embeds, and trial sections |
+| check | `elf check` — read-only checks of the install and settings, the managed files, and the logs (registry, numbering, cross-refs, figure embeds, trial sections) |
 
 ## Principles
 
@@ -42,7 +42,7 @@ S012  goal: SNR by wavelength
 |---|---|
 | **Base-Delta** | Declare the baseline once; after that, record only what changed. One change is a trial, one goal is a session — trials accumulate into sessions, sessions into the project's record. |
 | **Hypothesis first** | Write the hypothesis and prediction, stop, then run. That is what makes one change one experiment. |
-| **People judge, the agent writes, the tool checks** | One format for both, so each continues the other's work — and `elf validate` detects what is missing. |
+| **People judge, the agent writes, the tool checks** | One format for both, so each continues the other's work — and `elf check` detects what is missing. |
 | **Everything stays local** | Markdown and folders, nothing else — no server, no account. Manage it with git, read it without ELF. For security, the agent is not allowed to publish public links as a rule. |
 
 ## In practice
@@ -72,11 +72,11 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases
 A single binary is installed to `~/.elf/bin` (no Node or Python). Open a new shell and check with `elf --version`.
 
 ```bash
-elf init MyProject --preset experimental --lang en-US   # 6_Exp + 7_Paper. With no name, initializes the current folder
+elf init MyProject --preset exp --lang en-US   # 6_Exp + 7_Paper. With no name, initializes the current folder
 cd MyProject
 ```
 
-`[elf] created MyProject (ELF v2.25.0, preset: experimental, lang: en-US)` — along with the folder structure you get `AGENTS.md` (the shared entry digest for agents) and `2_Log/S001_log.md` (the first session stub). The agent starts by reading `AGENTS.md`, so nothing else needs to be set up. Claude Code files (`CLAUDE.md` pointer, hook settings) are created too; other agents can ignore them. Project-specific rules go in `0_Meta/ProjectRule.md`. `--lang en-US` sets the agent's response language and deploys English companions of the rule documents (the operative rules are Korean; the English copies are for reading, and log section headings are bilingual, e.g. `### 목표 (Goal)`).
+`[elf] created MyProject (ELF v2.26.0, preset: exp, lang: en-US)` — along with the folder structure you get `AGENTS.md` (the shared entry digest for agents) and `2_Log/S001_log.md` (the first session stub). The agent starts by reading `AGENTS.md`, so nothing else needs to be set up. Claude Code files (`CLAUDE.md` pointer, hook settings) are created too; other agents can ignore them. Project-specific rules go in `0_Meta/ProjectRule.md`. `--lang en-US` sets the agent's response language and deploys English companions of the rule documents (the operative rules are Korean; the English copies are for reading, and log section headings are bilingual, e.g. `### 목표 (Goal)`).
 
 **2-A. From scratch — start from an idea sketch**
 
@@ -103,9 +103,9 @@ Reference papers go in `1_Concept/11_Literature/` — the rules include a source
 | Step | Command / what you say | What gets recorded | What you do |
 |---|---|---|---|
 | Next change | "Raise the photon count to 1e9 and run again." (A) → `elf trial new "photons 1e9"` | `[elf] appended t02 to 2_Log/S001_log.md (S001)` — t02: base = t01, delta + reason → stop → run → record. Repeat from the last result | Decide whether it runs |
-| Close | `elf validate` → `elf session close` | `[elf] ok: registry, logs, numbering, and cross-refs are consistent` → `[elf] closed S001 → 2_Log/Archive/S001_log.md (Status: Complete, registry updated)` | Check the one-line conclusion in the registry |
+| Close | `elf check logs` → `elf session close` | `[elf] check logs: 0 issue(s), 0 warning(s)` → `[elf] closed S001 → 2_Log/Archive/S001_log.md (Status: Complete, registry updated)` | Check the one-line conclusion in the registry |
 
-`elf validate` reports missing figures, non-canonical sections, and registry mismatches as warnings or issues; `elf session close` runs validate once more, moves the log to `Archive/`, and fixes its relative cross-refs. If the Handoff still lists pending items, it warns.
+`elf check logs` reports missing figures, non-canonical sections, and registry mismatches as warnings or issues; `elf session close` runs the same checks once more, moves the log to `Archive/`, and fixes its relative cross-refs. If the Handoff still lists pending items, it warns.
 
 A trial the agent leaves behind looks like this (A's t02):
 
@@ -145,7 +145,7 @@ A trial the agent leaves behind looks like this (A's t02):
 | Figure | `6_Exp/64_Viz/S001/S001_t02_SNR_ci.png` |
 ```
 
-Without an agent: paste `.elf/managed/templates/trialTemplate.md` into the log and write it yourself; `elf trial new`, `elf validate`, and `elf session close` work the same.
+Without an agent: paste `.elf/managed/templates/trialTemplate.md` into the log and write it yourself; `elf trial new`, `elf check`, and `elf session close` work the same.
 
 ## How it works
 
@@ -153,8 +153,8 @@ Without an agent: paste `.elf/managed/templates/trialTemplate.md` into the log a
 |---|---|
 | `AGENTS.md` | The agent's entry digest — record in the same turn, canonical rules over precedent (no imitating deviating logs), re-read the Handoff after a context rebuild. The canonical rules live in `.elf/managed/` (EliRule, LogConvention, AI_PARA_Framework); project rules in `0_Meta/ProjectRule.md` |
 | Stop before the run | Hypothesis and prediction are fixed before execution (LogConvention §5.1). The agent observes this stop even in autonomous mode |
-| `elf validate` | Checks registry ↔ logs, numbering, cross-refs, missing figure embeds, and trial section structure. `session close` runs it automatically |
-| `elf autoread` | `elf autoread` (no arguments) prints a digest — rule summary, active session Handoff, validate counts — for any agent to re-read after a context rebuild. In Claude Code, hooks (`.claude/settings.json`) inject it automatically on the first prompt after a compaction or restart (on by default; `autoread_fulltext` adds full rule texts) |
+| `elf check` | Checks the install and settings (`setup`), the managed files (`files`), and the logs (`logs`: registry ↔ logs, numbering, cross-refs, missing figure embeds, trial section structure). With no scope, all three; exit 4 on issues. `session close` runs the logs checks automatically |
+| `elf autoread` | `elf autoread` (no arguments) prints a digest — rule summary, active session Handoff, log check counts — for any agent to re-read after a context rebuild. In Claude Code, hooks (`.claude/settings.json`) inject it automatically on the first prompt after a compaction or restart (on by default; `autoread_fulltext` adds full rule texts) |
 | Handoff, Registry | Handoff = one line "valid conclusion; pending; references", rewritten as a whole; registry key finding = the session's one-line conclusion — where you resume from |
 | One writer | One session log has one writer (an agent or a person). Parallel work means one session per agent, with relationships noted in the header `관련:` (related) field |
 | Archive, Deprecated | `Archive/` holds closed, still-valid records (reading allowed); `Deprecated/` holds withdrawn records (reading allowed, not a basis for current decisions) — an `AGENTS.md` rule. People decide what to deprecate; the agent runs `elf deprecate` (AI_PARA_Framework) |
@@ -166,27 +166,25 @@ Without an agent: paste `.elf/managed/templates/trialTemplate.md` into the log a
 
 | Command | Role |
 |---|---|
-| `elf init [name] [--preset …] [--modules …] [--lang …]` | Create a project. With no name, in place in the current folder. Presets `full`/`experimental`/`software`/`minimal` (experimental: `general`, `qa`) |
-| `elf session new <title>` / `close [S###]` / `fix-headers` | Create a session, close it (validate → move to Archive → registry and cross-ref fix-up), repair header line breaks |
+| `elf init [name] [--preset …] [--modules …] [--lang …]` | Create a project. With no name, in place in the current folder. Presets `full`, `exp`, `sw`, `minimal` (a research preset = the module of the same name + `paper`; experimental: `general`, `qa`) |
+| `elf session new <title>` / `close [S###]` / `fix-headers` | Create a session, close it (log checks → move to Archive → registry and cross-ref fix-up), repair header line breaks |
 | `elf trial new [title]` | Append the canonical trial stub to the active log (auto-numbered `t##`) |
-| `elf deprecate <target> [--trial tNN [--section name]] [--marked] [--lines A-B --expect …]` / `--restore <ID>` / `list` / `purge <ID>` | Move all or part of a log or planning document to `Deprecated/` (a one-line move marker stays behind), restore it, or list what is deprecated. Outputs stay in place |
-| `elf validate [--check] [--strict]` | Consistency check (read-only). `--check` exits 4 on issues; `--strict` promotes missing embeds and structure warnings to issues |
+| `elf deprecate [target] [--trial tNN [--section name]] [--marked] [--lines A-B --expect …]` / `--restore <ID>` / `purge <ID>` | Move all or part of a log or planning document to `Deprecated/` (a one-line move marker stays behind) or restore it. With no arguments, lists what is deprecated. Outputs stay in place |
 | `elf gallery` | Build the figure index `_gallery.md` from `6_Exp/64_Viz/` |
 | `elf autoread [enable\|disable\|status]` | Rule re-injection after a context rebuild. With no argument, prints the digest (any agent); automatic hook injection is Claude Code only (on by default) |
 | `elf update [--dry-run] [--force]` | Update managed files to the installed CLI version — research data, logs, and settings are never touched |
-| `elf status [--check]` | Diagnose managed-file state (read-only). `--check` exits 4 on findings |
-| `elf doctor` | Environment and project health check (read-only) |
-| `elf tsa <sub>` | Optional: per-commit file-hash manifest + RFC 3161 timestamp — proof of what existed when. Off by default; the only data transmitted externally is a 32-byte manifest digest |
-| `elf self-update` | Update the `elf` binary |
+| `elf check [setup\|files\|logs]` | Read-only checks (no scope = all three, problems only). Exit 4 on issues — usable as a team or CI gate |
+| `elf tsa [sub]` | Optional: per-commit file-hash manifest + RFC 3161 timestamp — proof of what existed when. Off by default; the only data transmitted externally is a 32-byte manifest digest |
+| `elf self update` | Update the `elf` binary |
 
 Operations:
 
 ```bash
-elf self-update          # apply a new version ① update the CLI
-elf status               # ② see what would change
+elf self update          # apply a new version ① update the CLI
+elf check files          # ② see what would change
 elf update --dry-run     # ③ preview without writing
 elf update               # ④ managed files only — on "edited: … — kept; new version at ….elf-new" your edit stays; diff and merge (or --force to take the canonical version)
-elf status --check       # team/CI gate — exit 4 on findings (elf validate --check works the same way)
+elf check                # team/CI gate — exit 4 on issues (elf check logs for the logs only)
 ```
 
 In `.gitignore`, ELF manages only the marker block (`# >>> ELF managed >>>` … `# <<< ELF managed <<<`); everything else is preserved.

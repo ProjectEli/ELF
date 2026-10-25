@@ -128,11 +128,11 @@ README.md가 설계 원칙과 개요를 기술한다면, 이 문서는 실무 �
 |------|------|-------------------|
 | **ELF 관리** | `.elf/managed/`의 `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`(companion 포함), 루트 `AGENTS.md` | 새 버전으로 교체. **직접 수정한 경우 덮어쓰지 않고** 새 버전을 `<파일>.elf-new`로 생성(병합은 사용자 몫, `--force`로 강제 교체 가능) |
 | **사용자 소유** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, 모든 연구 데이터, 로그 | **절대 미접근** |
-| **포인터(생성만)** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(내용 무관 — 기존 파일 소유권 보존). `@AGENTS.md` 로드 여부는 `elf doctor`가 점검 |
+| **포인터(생성만)** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(내용 무관 — 기존 파일 소유권 보존). `@AGENTS.md` 로드 여부는 `elf check files`가 점검 |
 | **부분 관리** | `.gitignore` | 마커블록(`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) 안쪽만 교체, 블록 밖 사용자 규칙 보존 |
 
 - 프로젝트 규칙 커스터마이즈는 ELF 관리 파일을 고치는 대신 **`ProjectRule.md`에 작성**하는 것을 권장합니다(갱신 충돌 없음).
-- 상태 확인: `elf status` (변경 없이 진단만, `--check`는 CI/훅 게이트용).
+- 상태 확인: `elf check files` (변경 없이 진단만, 문제 발견 시 종료 코드 4 — CI/훅 게이트로 사용 가능).
 
 #### Data overlay — `<이름>.project.md` (data 파일 커스터마이즈)
 
@@ -144,7 +144,7 @@ data 성격의 ELF 관리 파일(manifest에 `overlayable`로 명시 — 현행:
   - `## 제외 (remove)`: base 항목의 **항목 단위** 제외 — 각 항목에 **사유 필수 기재**. 절, 파일 단위 무력화 금지.
   - `## 재정의 (override)`: base 항목을 프로젝트 정의로 교체.
 - **등록 규율**: overlay 항목의 등록, 수정은 사용자 승인 경유 — AI가 자율 등록하지 않습니다. 일반화 가치가 있는 항목은 ELF 코어 반영을 제안합니다.
-- 점검: `elf doctor`가 overlay 인지, 제외 사유 유무, 비허용 대상 overlay를 진단합니다.
+- 점검: `elf check files`가 overlay 인지, 제외 사유 유무, 비허용 대상 overlay를 진단합니다.
 
 ### 2.8 세션 소유권 — 1세션 1작성자 (멀티에이전트)
 

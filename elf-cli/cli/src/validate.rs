@@ -1,4 +1,4 @@
-//! `elf validate` — 세션/Registry/로그 정합 검사 (P012 t04). **읽기전용** — FS 무변경.
+//! `elf check logs` — 세션/Registry/로그 정합 검사(구 이름 `elf validate` — 숨김 별칭, P012 t04). **읽기전용** — FS 무변경.
 //!
 //! Registry TSV 파서(session.rs)는 공용 — **파싱 불가는 escalation(exit 5)**,
 //! 그 외 발견은 보고(`--check` 시 issue에 한해 exit 4). "검사 결과"와 "검사 불능"을 구분(P012 §0.1).
@@ -333,13 +333,9 @@ fn scan_viz_images(viz: &Path) -> Vec<String> {
     v
 }
 
-/// `elf validate`: Registry↔로그 정합, 번호 중복/gap, 활성 복수, cross-ref, figure-embed 검사. 읽기전용.
+/// `elf check logs`: Registry↔로그 정합, 번호 중복/gap, 활성 복수, cross-ref, figure-embed 검사. 읽기전용.
+/// figure-embed 누락과 trial 구조 발견은 warning(구 `--strict` 승격은 v2.26에서 삭제).
 pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
-    run_validate_opts(root, false)
-}
-
-/// `strict`=true → figure-embed 누락을 warning 대신 **issue**로 승격(`--check`/CI 게이트 대상).
-pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, ValidateError> {
     let reg_text = fs::read_to_string(root.join(crate::session::REGISTRY_REL)).unwrap_or_default();
     let rows = parse_registry(&reg_text).map_err(ValidateError::Escalation)?;
 
@@ -408,7 +404,7 @@ pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, Va
             }
         }
         // 동일 세션 64_Viz의 그림이 세션 문서(로그 + 부분 폐기 파일 `Deprecated/S###_log.partial.md`)에
-        // 인라인 임베딩되지 않으면 보고(strict 시 issue). 폐기된 블록의 embed도 그 세션의 embed로 센다.
+        // 인라인 임베딩되지 않으면 warning. 폐기된 블록의 embed도 그 세션의 embed로 센다.
         let images = scan_viz_images(&root.join(format!("6_Exp/64_Viz/S{n:03}")));
         if !images.is_empty() {
             let partial = fs::read_to_string(root.join(format!("2_Log/Deprecated/S{n:03}_log.partial.md")))
@@ -425,11 +421,7 @@ pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, Va
                     "S{n:03}: figure '{img}' exists in 64_Viz/ but is not embedded in the log body \
                      (table path ≠ embed; add ![..](..) or `<!-- noembed: {img} -->`)"
                 );
-                if strict {
-                    report.issue(msg);
-                } else {
-                    report.warn(msg);
-                }
+                report.warn(msg);
             }
         }
     }
@@ -441,12 +433,7 @@ pub fn run_validate_opts(root: &Path, strict: bool) -> Result<ValidateReport, Va
         let fname = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
         for f in trial_structure_findings(&content) {
             structure_hit = true;
-            let msg = format!("{fname}: {f}");
-            if strict {
-                report.issue(msg);
-            } else {
-                report.warn(msg);
-            }
+            report.warn(format!("{fname}: {f}"));
         }
     }
     if structure_hit {

@@ -143,7 +143,7 @@ fn session_start_marks_and_prompt_injects_exactly_once() {
     assert!(digest.contains("AGENTS.md standing duties")); // 절 구분자
     assert!(digest.contains("컨텍스트 재구성 후 상태 복원")); // AGENTS 정본 본문(L23) 실추출 검증
     assert!(digest.contains("S002")); // 활성 세션 Handoff
-    assert!(digest.contains("validate:")); // 카운트
+    assert!(digest.contains("check logs:")); // 카운트
     // 두 번째 프롬프트 = 침묵 (마커 소모됨)
     assert!(autoread::run_hook(&root, "prompt", &prompt_stdin("sid-1")).is_none());
 }
@@ -276,16 +276,62 @@ fn fulltext_declaration_survives_toggle_roundtrip() {
 
 // ── 배너 (보조 주입 채널) ─────────────────────────────────────────────────────
 
+/// 수동 digest(인수 없는 `elf autoread`)가 대기 마커를 해제 — 구 `ack` 기능 흡수(v2.26).
+/// 세션 ID가 없으면(사람이 연 터미널, 다른 하네스) 세션 구분 없이 동작.
 #[test]
-fn banner_pending_then_cleared_by_ack() {
+fn banner_pending_then_cleared_by_manual_digest_without_session_id() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    assert!(autoread::pending_banner(&root).is_none());
+    assert!(autoread::pending_banner_for(&root, None).is_none());
     autoread::run_hook(&root, "session-start", &session_start_stdin("s", "resume"));
-    let b = autoread::pending_banner(&root).expect("banner");
+    let b = autoread::pending_banner_for(&root, None).expect("banner");
     assert!(b.contains("elf autoread"));
-    autoread::run_ack(&root).unwrap();
-    assert!(autoread::pending_banner(&root).is_none());
+    let d = autoread::run_manual_for(&root, None);
+    assert!(d.contains("context was reconstructed (manual)"), "{d}");
+    assert!(d.contains("marker(s) cleared: 1"), "{d}");
+    assert!(autoread::pending_banner_for(&root, None).is_none());
+    // 마커가 없으면 해제 줄 없음
+    assert!(!autoread::run_manual_for(&root, None).contains("cleared"));
+}
+
+/// 세션 ID가 있으면 배너와 해제가 그 세션에 한정 — 다른 세션의 대기 주입을 건드리지 않음(v2.26).
+#[test]
+fn banner_and_manual_clear_are_scoped_to_the_session() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    autoread::run_hook(&root, "session-start", &session_start_stdin("sid-a", "compact"));
+    // 다른 세션 B: 배너 없음, 수동 digest가 A의 마커를 지우지 않음
+    assert!(autoread::pending_banner_for(&root, Some("sid-b")).is_none());
+    assert!(!autoread::run_manual_for(&root, Some("sid-b")).contains("cleared"));
+    assert!(autoread::pending_banner_for(&root, Some("sid-a")).is_some());
+    // A의 다음 프롬프트는 여전히 digest 주입
+    assert!(autoread::run_hook(&root, "prompt", &prompt_stdin("sid-a")).is_some());
+    // A가 수동으로 받은 경우: 자기 마커만 해제
+    autoread::run_hook(&root, "session-start", &session_start_stdin("sid-a", "compact"));
+    autoread::run_hook(&root, "session-start", &session_start_stdin("sid-c", "compact"));
+    assert!(autoread::run_manual_for(&root, Some("sid-a")).contains("marker(s) cleared: 1"));
+    assert!(autoread::pending_banner_for(&root, Some("sid-a")).is_none());
+    assert!(autoread::pending_banner_for(&root, Some("sid-c")).is_some());
+}
+
+/// e2e: 환경 변수 `CLAUDE_CODE_SESSION_ID`로 세션 판정(하네스가 Bash, 훅에 설정하는 값).
+#[test]
+fn e2e_banner_uses_claude_code_session_id_env() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    autoread::run_hook(&root, "session-start", &session_start_stdin("sid-a", "compact"));
+    let run = |sid: Option<&str>| -> String {
+        let mut c = assert_cmd::Command::cargo_bin("elf").unwrap();
+        c.args(["check", "logs"]).current_dir(&root);
+        match sid {
+            Some(s) => c.env("CLAUDE_CODE_SESSION_ID", s),
+            None => c.env_remove("CLAUDE_CODE_SESSION_ID"),
+        };
+        String::from_utf8_lossy(&c.output().unwrap().stdout).into_owned()
+    };
+    assert!(run(Some("sid-a")).contains("autoread: context was reconstructed"));
+    assert!(!run(Some("sid-b")).contains("autoread: context was reconstructed"));
+    assert!(run(None).contains("autoread: context was reconstructed"));
 }
 
 // ── update 통합 (설치 자동화 — clone 복원 경로) ───────────────────────────────
@@ -303,4 +349,16 @@ fn update_restores_hooks_unless_disabled() {
     autoread::run_disable(&root).unwrap();
     run_update(&root, &UpdateOptions { dry_run: false, force: false }).unwrap();
     assert!(!settings_path(&root).exists());
+}
+
+// ── e2e: 인수 없는 실행 = digest, ack 삭제 (v2.26) ─────────────────────────────
+
+#[test]
+fn e2e_bare_autoread_prints_digest_and_ack_is_gone() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    let out = assert_cmd::Command::cargo_bin("elf").unwrap().arg("autoread").current_dir(&root).output().unwrap();
+    assert!(out.status.success());
+    assert!(String::from_utf8_lossy(&out.stdout).contains("context was reconstructed (manual)"));
+    assert_cmd::Command::cargo_bin("elf").unwrap().args(["autoread", "ack"]).current_dir(&root).assert().code(2);
 }

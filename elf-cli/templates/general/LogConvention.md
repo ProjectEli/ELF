@@ -130,7 +130,7 @@ Planning으로 분리된 내용은 원본 Log에 blockquote stub으로 표시:
 
 ### 5.1 Session 종료 표준 절차
 세션 Status를 `Complete`로 전환 직전:
-- [ ] **`elf validate` 실행 — 경고 해소** 후 진행: Archive 이동 후에는 구조 검사 범위에서 빠지므로 **close 전이 마지막 검증 기회**
+- [ ] **`elf check logs` 실행 — 경고 해소** 후 진행: Archive 이동 후에는 구조 검사 범위에서 빠지므로 **close 전이 마지막 검증 기회**
 - [ ] Handoff 정리: 미완료 파트 소거(완료, 또는 Registry key finding, `12_Planning/` 문서로 이관) — 잔존 시 `elf session close`가 경고
 - [ ] `Wiki/`에 핵심 결론 요약 + Archive 경로 링크 추가
 - [ ] `S{NNN}_log.md` → `Archive/`로 파일명 그대로 이동
@@ -154,6 +154,6 @@ Planning으로 분리된 내용은 원본 Log에 blockquote stub으로 표시:
 - 이동 표기 줄: `> **Deprecated** → [Deprecated/S###_log.partial.md](Deprecated/S###_log.partial.md) (ID · 단위 · 날짜 [· replaced_by: …])` — `elf session close`가 Archive 기준으로 링크를 재계산함.
 - 산출물(스크립트, 데이터, figure)은 제자리. Handoff, Registry key finding, 다른 문서의 참조는 도구가 고치지 않고 `review:` 줄로 출력함 — 에이전트가 처리.
 - 복원: `elf deprecate --restore <ID>`(블록) 또는 `--restore S###`(전체). 목록, 대조: `elf deprecate list`.
-- `elf validate`는 `Deprecated/`의 로그를 번호, Registry 정합 검사에 포함함. 구조, 링크 검사는 하지 않음.
+- `elf check logs`는 `Deprecated/`의 로그를 번호, Registry 정합 검사에 포함함. 구조, 링크 검사는 하지 않음.
 - 일괄 치환 주의: 프로젝트 md 전역에서 가운뎃점(`·`)을 쉼표로 치환할 때 `> **Deprecated** →` 행, `<!-- deprecated:begin/end -->` 행, 부분 파일의 `> **Deprecated**:` 행은 제외합니다. 이 줄들의 ` · `는 나열이 아니라 `elf deprecate list`/`--restore`가 해석하는 필드 구분(기계 형식)입니다(EliRule §3 표기 규칙의 예외).
-- 정리(purge, experimental, 기본 비활성): `Deprecated/`는 대기 영역임. 더 이상 보관할 가치가 없다고 사용자가 결정한 블록, 문서는 `elf deprecate purge <ID>`로 영구 삭제함 — 블록은 부분 파일에서 지우고 원 위치 표기 줄을 `> **Deprecated** → purged (ID · 단위 · 날짜 · purged: 날짜)`로 바꿈(trial 번호 보존, ID 재사용 없음), 문서는 파일을 지우고 Registry Status를 `Purged`(종료 상태, 로그 파일 없음이 정의)로 바꿈. purge 뒤 복구는 git 이력이며 `--restore`는 거부함. 활성은 사용자가 `.elf/config.json`에 `"experimental": ["deprecate_purge"]`를 직접 추가함(CLI 토글 없음). purge한 블록의 figure는 embed 합산에서 빠지므로 `elf validate` 경고가 날 수 있음(`<!-- noembed: … -->` 또는 파일 정리는 사용자 결정).
+- 정리(purge, experimental, 기본 비활성): `Deprecated/`는 대기 영역임. 더 이상 보관할 가치가 없다고 사용자가 결정한 블록, 문서는 `elf deprecate purge <ID>`로 영구 삭제함 — 블록은 부분 파일에서 지우고 원 위치 표기 줄을 `> **Deprecated** → purged (ID · 단위 · 날짜 · purged: 날짜)`로 바꿈(trial 번호 보존, ID 재사용 없음), 문서는 파일을 지우고 Registry Status를 `Purged`(종료 상태, 로그 파일 없음이 정의)로 바꿈. purge 뒤 복구는 git 이력이며 `--restore`는 거부함. 활성은 사용자가 `.elf/config.json`에 `"experimental": ["deprecate_purge"]`를 직접 추가함(CLI 토글 없음). purge한 블록의 figure는 embed 합산에서 빠지므로 `elf check logs` 경고가 날 수 있음(`<!-- noembed: … -->` 또는 파일 정리는 사용자 결정).

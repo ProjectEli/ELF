@@ -126,7 +126,7 @@ impl std::fmt::Display for Kind {
 }
 
 /// preset 문자열 → 계보. init 분기와 update/status 해석의 **단일 소스** —
-/// full/experimental/software/minimal(폴더 preset)은 전부 연구 계보.
+/// full/exp/sw/minimal(폴더 preset, 구 이름 experimental/software 포함)은 전부 연구 계보.
 pub fn kind_from_preset(preset: &str) -> Kind {
     match preset {
         "qa" => Kind::Qa,
@@ -254,7 +254,7 @@ mod tests {
     fn kind_from_preset_maps_folder_presets_to_research() {
         assert_eq!(kind_from_preset("qa"), Kind::Qa);
         assert_eq!(kind_from_preset("general"), Kind::General);
-        for p in ["full", "experimental", "software", "minimal", "unknown-preset"] {
+        for p in ["full", "exp", "sw", "minimal", "experimental", "software", "unknown-preset"] {
             assert_eq!(kind_from_preset(p), Kind::Research, "preset {p}");
         }
     }

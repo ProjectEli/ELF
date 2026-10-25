@@ -81,7 +81,7 @@
 - **헤더 줄바꿈**: 인용구(`>`) 헤더 각 줄 끝의 `\`는 CommonMark **hard break** — Discord 미리보기 등 strict 렌더러에서 줄 분리를 보존(없으면 6개 항목이 한 줄로 합쳐짐). **삭제 금지**. 마지막 줄(Handoff)은 `\` 없음(블록 종료). 헤더는 6줄 유지 → `limit=9` 빠른읽기 불변.
 - **trial 번호**: `t01`, `t02`, ... 순서대로. 중복 금지
 - **이미지 경로**: `![alt text](../6_Exp/64_Viz/S{NNN}/filename.png)` (2_Log 기준 상대경로)
-- **Figure 인라인 임베딩 필수 (plot = trial 산출물)**: 모든 plot은 특정 trial(`t{NN}`)의 산출물 — trial 추가(base delta)로 figure 생성 시 **그 작업 turn에 즉시** 해당 trial `### 관찰` 절에 인라인 임베딩(`![alt](경로)`)하고, alt text에 Figure 번호 + 1줄 설명(축, 핵심 관찰)을 기재한다. **금지**: ① 파일 목록 테이블에 경로만 기재, 본문 미임베딩, ② 확정, 피드백 대기, 중간(v1) 버전을 이유로 미룸(v1도 즉시 embed 후 갱신), ③ 외부 표시(채팅/뷰어 전송)로 로그 임베딩 대체. `elf validate`가 64_Viz 그림↔본문 임베딩 누락을 검출(`--strict`는 issue 승격; 의도적 제외는 `<!-- noembed: file.png -->`).
+- **Figure 인라인 임베딩 필수 (plot = trial 산출물)**: 모든 plot은 특정 trial(`t{NN}`)의 산출물 — trial 추가(base delta)로 figure 생성 시 **그 작업 turn에 즉시** 해당 trial `### 관찰` 절에 인라인 임베딩(`![alt](경로)`)하고, alt text에 Figure 번호 + 1줄 설명(축, 핵심 관찰)을 기재한다. **금지**: ① 파일 목록 테이블에 경로만 기재, 본문 미임베딩, ② 확정, 피드백 대기, 중간(v1) 버전을 이유로 미룸(v1도 즉시 embed 후 갱신), ③ 외부 표시(채팅/뷰어 전송)로 로그 임베딩 대체. `elf check logs`가 64_Viz 그림↔본문 임베딩 누락을 검출(`--strict`는 issue 승격; 의도적 제외는 `<!-- noembed: file.png -->`).
 - **예상 산출물 사전등록 (Phase 1)**: figure 산출이 예상되는 trial은 `### 예상`에 예상 산출물(figure, 표) 목록을 명시 — 각 항목 = Phase 2에서 **생성 즉시 embed 대상**. **"전부 그린 후 일괄 정리" 계획 금지**(계획 단위 = figure 1건 생성 즉시 embed — 지연 배치는 중단, 컨텍스트 재구성에서 유실됨). 예상에 없던 figure도 생성 즉시 embed하고 예상 대비 차이를 `### 관찰`에 명시.
 - **서브에이전트(위임 작업자) 산출 figure 동일 적용**: 위임 작업자가 생성한 figure도 본 규칙의 대상 — **회수(merge) 시점에 main 에이전트가** 해당 trial `### 관찰`에 embed. **위임은 embed 의무를 면제하지 않음(의무 귀속 = main)**. 회수 기록의 산출물이 figure면 경로 기재가 아니라 embed.
 - **행동 시점 리마인더 훅 (권장)**: 상시 규칙은 존재를 보장할 뿐 발동 시점을 보장하지 않음 — harness(에이전트 실행 환경)가 도구 훅을 제공하면 **figure 생성 직후 embed 리마인더 훅 설치를 권장**(원칙 = harness 무관, 구현 = harness별). Claude Code 예시: `.claude/settings.json`에 PostToolUse 훅 등록 — 셸 도구 실행 후 `6_Exp/64_Viz/`의 신규 이미지를 감지하면 "생성된 figure를 해당 trial `### 관찰`에 즉시 embed (LogConvention §2)" 리마인더를 반환. 등록 문법은 사용 harness 문서 참조.
@@ -186,7 +186,7 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 - [ ] trial 실행 (스크립트/시뮬/조사 등)
 - [ ] **코드 실행 직후 figure 확인**: MATLAB 등 실행 종료 즉시 `6_Exp/64_Viz/S{NNN}/`에 이번 trial이 산출한 figure가 있는지 확인(실행 turn 이탈 전). 있으면 누락 없이 아래 embed 단계 수행 — 확정 대기, 피드백, 외부표시(채팅/뷰어 전송)를 이유로 미루지 않음.
 - [ ] `### 관찰 (Observation)` 작성 (팩트 + 가설/예상 대조 표)
-- [ ] 생성한 figure를 `### 관찰`에 인라인 embed (`![alt](경로)`; 경로만 표 기재는 embed 아님 — `elf validate`가 검출)
+- [ ] 생성한 figure를 `### 관찰`에 인라인 embed (`![alt](경로)`; 경로만 표 기재는 embed 아님 — `elf check logs`가 검출)
 - [ ] **반복 개선 판정(트리거)**: 작동하는 산출물을 파라미터, 스타일 바꿔 재생성하면 → 다음 trial(delta)로 전개(script 버전 보존 §3.3 + figure embed + `### 조건 (Conditions)`에 delta, 이유). **외형 변경(폰트, 색, 크기, 스타일)은 1회라도 delta-trial**; 외형 무변경(오타, 경로) 수정만 `### 시행착오` 절 표.
 - [ ] `### 해석 (Interpretation)` 작성 (첫 줄: 예상 일치 정도 명시 + 메커니즘 해석)
 - [ ] `### 교훈 (Lessons)` 작성
@@ -195,7 +195,7 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 ### 5.2 Session 종료 표준 절차
 
 세션 Status를 `Complete`로 전환 직전:
-- [ ] **`elf validate` 실행 — 경고 해소**(미embed, 구조 위반) 또는 의도적 예외 명시(`<!-- noembed: file.png -->`) 후 진행: Archive 이동 후에는 구조 검사 범위에서 빠지므로 **close 전이 마지막 검증 기회**
+- [ ] **`elf check logs` 실행 — 경고 해소**(미embed, 구조 위반) 또는 의도적 예외 명시(`<!-- noembed: file.png -->`) 후 진행: Archive 이동 후에는 구조 검사 범위에서 빠지므로 **close 전이 마지막 검증 기회**
 - [ ] Handoff 정리: 미완료 파트 소거(완료, 또는 Registry key finding, `12_Planning/` 문서로 이관) — 잔존 시 `elf session close`가 경고
 - [ ] `Wiki/`에 핵심 결론 요약 + Archive 경로 링크 추가
 - [ ] `S{NNN}_log.md` → `Archive/`로 파일명 그대로 이동
@@ -219,6 +219,6 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 - 이동 표기 줄: `> **Deprecated** → [Deprecated/S###_log.partial.md](Deprecated/S###_log.partial.md) (ID · 단위 · 날짜 [· replaced_by: …])` — `elf session close`가 Archive 기준으로 링크를 재계산함.
 - 산출물(스크립트, 데이터, figure)은 제자리. Handoff, Registry key finding, 다른 문서의 참조는 도구가 고치지 않고 `review:` 줄로 출력함 — 에이전트가 처리.
 - 복원: `elf deprecate --restore <ID>`(블록) 또는 `--restore S###`(전체). 목록, 대조: `elf deprecate list`.
-- `elf validate`는 `Deprecated/`의 로그를 번호, Registry 정합 검사에 포함하고, 부분 파일의 figure embed를 그 세션의 embed로 셈. 구조, 링크 검사는 하지 않음.
+- `elf check logs`는 `Deprecated/`의 로그를 번호, Registry 정합 검사에 포함하고, 부분 파일의 figure embed를 그 세션의 embed로 셈. 구조, 링크 검사는 하지 않음.
 - 일괄 치환 주의: 프로젝트 md 전역에서 가운뎃점(`·`)을 쉼표로 치환할 때 `> **Deprecated** →` 행, `<!-- deprecated:begin/end -->` 행, 부분 파일의 `> **Deprecated**:` 행은 제외합니다. 이 줄들의 ` · `는 나열이 아니라 `elf deprecate list`/`--restore`가 해석하는 필드 구분(기계 형식)입니다(EliRule §3 표기 규칙의 예외).
-- 정리(purge, experimental, 기본 비활성): `Deprecated/`는 대기 영역임. 더 이상 보관할 가치가 없다고 사용자가 결정한 블록, 문서는 `elf deprecate purge <ID>`로 영구 삭제함 — 블록은 부분 파일에서 지우고 원 위치 표기 줄을 `> **Deprecated** → purged (ID · 단위 · 날짜 · purged: 날짜)`로 바꿈(trial 번호 보존, ID 재사용 없음), 문서는 파일을 지우고 Registry Status를 `Purged`(종료 상태, 로그 파일 없음이 정의)로 바꿈. purge 뒤 복구는 git 이력이며 `--restore`는 거부함. 활성은 사용자가 `.elf/config.json`에 `"experimental": ["deprecate_purge"]`를 직접 추가함(CLI 토글 없음). purge한 블록의 figure는 embed 합산에서 빠지므로 `elf validate` 경고가 날 수 있음(`<!-- noembed: … -->` 또는 파일 정리는 사용자 결정).
+- 정리(purge, experimental, 기본 비활성): `Deprecated/`는 대기 영역임. 더 이상 보관할 가치가 없다고 사용자가 결정한 블록, 문서는 `elf deprecate purge <ID>`로 영구 삭제함 — 블록은 부분 파일에서 지우고 원 위치 표기 줄을 `> **Deprecated** → purged (ID · 단위 · 날짜 · purged: 날짜)`로 바꿈(trial 번호 보존, ID 재사용 없음), 문서는 파일을 지우고 Registry Status를 `Purged`(종료 상태, 로그 파일 없음이 정의)로 바꿈. purge 뒤 복구는 git 이력이며 `--restore`는 거부함. 활성은 사용자가 `.elf/config.json`에 `"experimental": ["deprecate_purge"]`를 직접 추가함(CLI 토글 없음). purge한 블록의 figure는 embed 합산에서 빠지므로 `elf check logs` 경고가 날 수 있음(`<!-- noembed: … -->` 또는 파일 정리는 사용자 결정).

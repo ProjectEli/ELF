@@ -1,4 +1,4 @@
-//! `elf status` — 프로젝트 ELF 파일 상태 진단 (t05). **읽기전용** — FS 무변경.
+//! `elf check files`의 관리 파일 상태 진단(구 이름 `elf status` — 숨김 별칭, t05). **읽기전용** — FS 무변경.
 //! t02 planner(plan_update)를 그대로 재사용해 상태를 분류만 한다.
 //! `--check` 게이트(발견 시 exit 4)는 main이 report 카운트로 결정.
 
@@ -11,9 +11,23 @@ use crate::manifest::{self, Manifest};
 use crate::plan::{self, CurrentState, UpdateAction};
 use crate::update::{self, UpdateError};
 
+/// 줄 종류 — `elf check files`가 issue/warn/ok로 다시 분류할 때 사용(줄 내용은 별칭 출력과 동일).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineKind {
+    Ok,
+    Info,
+    Warn,
+    /// update가 해소할 항목
+    Pending,
+    /// 사용자 개입 필요 항목
+    Conflict,
+}
+
 #[derive(Debug, Default)]
 pub struct StatusReport {
     pub lines: Vec<String>,
+    /// `lines`와 같은 길이 — 각 줄의 종류
+    pub kinds: Vec<LineKind>,
     /// update가 해소할 항목 (outdated/missing)
     pub pending: usize,
     /// 사용자 개입 필요 항목 (edited/마커 부재)
@@ -26,13 +40,28 @@ impl StatusReport {
         self.pending + self.conflicts
     }
 
+    fn push(&mut self, kind: LineKind, line: String) {
+        match kind {
+            LineKind::Warn => self.warnings += 1,
+            LineKind::Pending => self.pending += 1,
+            LineKind::Conflict => self.conflicts += 1,
+            LineKind::Ok | LineKind::Info => {}
+        }
+        self.kinds.push(kind);
+        self.lines.push(line);
+    }
+
     fn warn(&mut self, line: String) {
-        self.warnings += 1;
-        self.lines.push(format!("warn: {line}"));
+        self.push(LineKind::Warn, format!("warn: {line}"));
     }
 }
 
 pub fn run_status(root: &Path) -> Result<StatusReport, UpdateError> {
+    run_status_parts(root, true)
+}
+
+/// `with_version_tsa`=false → 버전 줄과 tsa 줄 생략(`elf check files`는 같은 항목을 `.elf` 기록, tsa 검사로 따로 보고).
+pub fn run_status_parts(root: &Path, with_version_tsa: bool) -> Result<StatusReport, UpdateError> {
     let stamp_path = root.join(".elf").join("manifest.json");
     if !stamp_path.is_file() {
         return Err(UpdateError::NotElfProject(root.to_path_buf()));
@@ -48,11 +77,11 @@ pub fn run_status(root: &Path) -> Result<StatusReport, UpdateError> {
     // 모순도 중단 대신 경고 + stamp 시그니처(실물과 정합한 쪽) 기준으로 진단 계속.
     let kind = match update::resolve_kind(root, &stamp_full) {
         Ok((kind, update::KindSource::Config)) => {
-            report.lines.push(format!("preset: {kind}"));
+            report.push(LineKind::Info, format!("preset: {kind}"));
             kind
         }
         Ok((kind, update::KindSource::Inferred)) => {
-            report.lines.push(format!(
+            report.push(LineKind::Info, format!(
                 "preset: {kind} (inferred from stamp — `elf update` records it to .elf/config.json)"
             ));
             kind
@@ -73,24 +102,28 @@ pub fn run_status(root: &Path) -> Result<StatusReport, UpdateError> {
     let project_version = fs::read_to_string(root.join(".elf").join("version"))
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|_| "(unknown)".into());
-    if project_version == embed::version() {
-        report.lines.push(format!("ELF {project_version} (project = CLI)"));
+    if !with_version_tsa {
+        // check files: 버전은 `.elf` 기록 검사가 보고
+    } else if project_version == embed::version() {
+        report.push(LineKind::Info, format!("ELF {project_version} (project = CLI)"));
     } else {
-        report.warnings += 1;
-        report.lines.push(format!(
-            "project ELF {project_version} ≠ CLI {} — run `elf update` to refresh stamp",
-            embed::version()
-        ));
+        report.push(
+            LineKind::Warn,
+            format!(
+                "project ELF {project_version} ≠ CLI {} — run `elf update` to refresh stamp",
+                embed::version()
+            ),
+        );
     }
 
-    // tsa (opt-in — enabled일 때만 1줄; 상세는 `elf tsa status`/`elf doctor`)
-    if crate::tsa::is_enabled(root) {
+    // tsa (opt-in — enabled일 때만 1줄; 상세는 `elf tsa status`/`elf check files`)
+    if with_version_tsa && crate::tsa::is_enabled(root) {
         let (manifests, stamped, unstamped) = crate::tsa::evidence_counts(root);
         if unstamped == 0 {
-            report.lines.push(format!("tsa: enabled ({manifests} manifest(s), {stamped} stamped)"));
+            report.push(LineKind::Info, format!("tsa: enabled ({manifests} manifest(s), {stamped} stamped)"));
         } else {
             report.warn(format!(
-                "tsa: {unstamped} unstamped manifest(s) — run `elf tsa stamp --backfill` when online"
+                "tsa: {unstamped} unstamped manifest(s) — run `elf tsa --all` when online"
             ));
         }
     }
@@ -110,28 +143,26 @@ pub fn run_status(root: &Path) -> Result<StatusReport, UpdateError> {
 
 fn classify(root: &Path, action: &UpdateAction, new_m: &Manifest, report: &mut StatusReport) {
     match action {
-        UpdateAction::NoChange { dest } => report.lines.push(format!("ok: {dest}")),
-        UpdateAction::SkipSeed { dest } => report.lines.push(format!("seed: {dest}")),
-        UpdateAction::KeepPointer { dest } => report
-            .lines
-            .push(format!("pointer (user content, kept): {dest} (`elf doctor` checks @AGENTS.md)")),
+        UpdateAction::NoChange { dest } => report.push(LineKind::Ok, format!("ok: {dest}")),
+        UpdateAction::SkipSeed { dest } => report.push(LineKind::Info, format!("seed: {dest}")),
+        UpdateAction::KeepPointer { dest } => report.push(
+            LineKind::Info,
+            format!("pointer (user content, kept): {dest} (`elf check files` checks @AGENTS.md)"),
+        ),
         UpdateAction::Overwrite { dest } => {
-            report.pending += 1;
-            report.lines.push(format!("outdated: {dest} (run `elf update`)"));
+            report.push(LineKind::Pending, format!("outdated: {dest} (run `elf update`)"));
         }
         UpdateAction::CreateMissing { dest } => {
-            report.pending += 1;
-            report.lines.push(format!("missing: {dest} (run `elf update`)"));
+            report.push(LineKind::Pending, format!("missing: {dest} (run `elf update`)"));
         }
         UpdateAction::Conflict { dest } => {
-            report.conflicts += 1;
-            report.lines.push(format!(
-                "edited: {dest} (kept on update; `elf update --force` to overwrite)"
-            ));
+            report.push(
+                LineKind::Conflict,
+                format!("edited: {dest} (kept on update; `elf update --force` to overwrite)"),
+            );
         }
         UpdateAction::Obsolete { dest } => {
-            report.warnings += 1;
-            report.lines.push(format!("obsolete: {dest} (no longer managed — left in place)"));
+            report.push(LineKind::Warn, format!("obsolete: {dest} (no longer managed — left in place)"));
         }
         UpdateAction::MergeBlock { dest } => classify_hybrid(root, dest, new_m, report),
     }
@@ -149,7 +180,7 @@ fn classify_hybrid(root: &Path, dest: &str, new_m: &Manifest, report: &mut Statu
         .and_then(|f| f.contents_utf8());
     let Some(template) = template else {
         report.warn(format!(
-            "internal: embedded template unavailable for {dest} — reinstall (`elf self-update`)"
+            "internal: embedded template unavailable for {dest} — reinstall (`elf self update`)"
         ));
         return;
     };
@@ -159,30 +190,28 @@ fn classify_hybrid(root: &Path, dest: &str, new_m: &Manifest, report: &mut Statu
     };
 
     let Ok(current) = fs::read_to_string(root.join(dest)) else {
-        report.conflicts += 1;
-        report.lines.push(format!("unreadable (not UTF-8?): {dest}"));
+        report.push(LineKind::Conflict, format!("unreadable (not UTF-8?): {dest}"));
         return;
     };
 
     match update::extract_block(&current) {
         None => {
-            report.conflicts += 1;
-            report.lines.push(format!(
-                "marker missing: {dest} (`elf update --force` reinserts at top)"
-            ));
+            report.push(
+                LineKind::Conflict,
+                format!("marker missing: {dest} (`elf update --force` reinserts at top)"),
+            );
         }
         Some((s, e)) => {
             let block = &current[s..e];
             if block == new_block {
-                report.lines.push(format!("ok (block current, user area free): {dest}"));
+                report.push(LineKind::Ok, format!("ok (block current, user area free): {dest}"));
             } else if update::read_baseline_block(root, dest).as_deref() == Some(block) {
-                report.pending += 1;
-                report.lines.push(format!("block outdated: {dest} (run `elf update`)"));
+                report.push(LineKind::Pending, format!("block outdated: {dest} (run `elf update`)"));
             } else {
-                report.conflicts += 1;
-                report.lines.push(format!(
-                    "block edited: {dest} (kept on update; `elf update --force` to replace)"
-                ));
+                report.push(
+                    LineKind::Conflict,
+                    format!("block edited: {dest} (kept on update; `elf update --force` to replace)"),
+                );
             }
         }
     }

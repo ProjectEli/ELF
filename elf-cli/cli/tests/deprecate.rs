@@ -545,3 +545,23 @@ fn purge_cli_exit_codes() {
         .stdout(predicates::str::contains("[elf] dry-run — nothing written"));
     assert!(root.join("2_Log/Deprecated/S002_log.partial.md").is_file());
 }
+
+// ── 인수 없는 실행 = 목록 (v2.26) ─────────────────────────
+
+#[test]
+fn e2e_bare_deprecate_lists_and_options_without_target_error() {
+    let tmp = tempdir().unwrap();
+    let root = fixture(tmp.path());
+    let out = assert_cmd::Command::cargo_bin("elf").unwrap().arg("deprecate").current_dir(&root).output().unwrap();
+    assert!(out.status.success());
+    assert!(String::from_utf8_lossy(&out.stdout).contains("deprecated: 0 document(s), 0 block(s)"));
+    // 구 이름 `list`도 동작(숨김 별칭)
+    assert_cmd::Command::cargo_bin("elf").unwrap().args(["deprecate", "list"]).current_dir(&root).assert().success();
+    // 대상 없이 이동 옵션만 = usage 오류
+    assert_cmd::Command::cargo_bin("elf")
+        .unwrap()
+        .args(["deprecate", "--trial", "t01"])
+        .current_dir(&root)
+        .assert()
+        .code(2);
+}

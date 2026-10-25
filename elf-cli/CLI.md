@@ -20,7 +20,7 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/ProjectEli/ELF/rel
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.sh | sh
 ```
 
-Installs the binary to `~/.elf/bin` and adds it to PATH. Open a new shell and verify with `elf --version`. Update the tool itself with `elf self-update` (or re-run the installer).
+Installs the binary to `~/.elf/bin` and adds it to PATH. Open a new shell and verify with `elf --version`. Update the tool itself with `elf self update` (or re-run the installer).
 
 ## Command summary
 
@@ -28,18 +28,18 @@ Installs the binary to `~/.elf/bin` and adds it to PATH. Open a new shell and ve
 |---------|---------|
 | `elf init [name]` | Scaffold an ELF project (in place, or in `./<name>`) |
 | `elf update` | Update managed files in the current project |
-| `elf status` | Diagnose managed-file drift (read-only) |
-| `elf validate` | Check session/registry/log consistency (read-only) |
+| `elf self update` | Update the `elf` binary itself |
 | `elf session new <title>` | Create + register the next session log |
 | `elf session close [S###]` | Close the active session → archive + update registry |
 | `elf session fix-headers` | Repair session-log header rendering |
 | `elf trial new [title]` | Append the canonical trial stub to the active session log |
-| `elf deprecate <target> …` | Move all or part of a session log or planning document to `Deprecated/`, `--restore`, `list` |
+| `elf check [setup\|files\|logs]` | Read-only checks of the install and settings, the managed files, and the session logs (no scope = all; exit 4 on issues) |
 | `elf gallery` | Generate the figure index `_gallery.md` from `6_Exp/64_Viz/` |
+| `elf tsa [sub]` | Research-record timestamping, **opt-in**: per-commit hash manifest + RFC 3161 token (no subcommand = request today's token) |
 | `elf autoread [sub]` | Governance digest after a context reconstruction — print it (any harness); Claude Code hooks inject it automatically (default-on) |
-| `elf tsa <sub>` | Research-record timestamping, **opt-in**: per-commit hash manifest + RFC 3161 token |
-| `elf doctor` | Aggregate environment + project health check (read-only) |
-| `elf self-update` | Update the `elf` binary itself |
+| `elf deprecate [target] …` | Move all or part of a session log or planning document to `Deprecated/`, `--restore`; no arguments = list |
+
+Names before 2.26 still work and are hidden from `--help`: `elf doctor`, `elf status`, `elf validate` (see `elf check`), `elf self-update`, `elf selfupdate`, `elf update --self` (see `elf self update`), `elf deprecate list`.
 
 Global flags: `elf --version`, `elf --help`, `elf <command> --help`.
 
@@ -51,11 +51,11 @@ Scaffold an ELF project. **With no name, `elf init` initializes the current fold
 
 | Flag | Default | Meaning |
 |------|---------|---------|
-| `--here` | off | Force in-place in the current folder even if a name is given (uses the name as the project name) |
+| `--here` | off | Initialize the current folder under the given name (`elf init --here <name>`); with no name, `elf init` is already in place |
 | `--yes` | off | Skip the in-place confirmation prompt (for scripts/CI) |
 | `--dry-run` | off | Preview the plan; write nothing |
 | `--force` | off | Overwrite existing files (default keeps yours) |
-| `--preset <p>` | `full` | Module set: `full` / `experimental` / `software` / `minimal`. Experimental project types: **`qa`** (question-archive, not research), **`general`** (goal-driven non-research) |
+| `--preset <p>` | `full` | Module set: `full` (all modules) / `exp` (6_Exp + 7_Paper) / `sw` (5_SW + 7_Paper) / `minimal` (none) — a research preset is the module of the same name plus `paper`; the names before 2.26 (`experimental`, `software`) are still accepted. Experimental project types: **`qa`** (question-archive, not research), **`general`** (goal-driven non-research) |
 | `--modules <list>` | — | Custom modules (comma-separated): `hw,fab,sw,exp,paper`. Overrides `--preset` |
 | `--lang <lang>` | `ko-KR` | AI agent response language, BCP-47 tag (written to `.elf/config.json`). For a non-Korean tag (e.g. `en-US`), English **companion** docs are also deployed — see note below |
 
@@ -68,7 +68,7 @@ elf init                              # in-place: adopt ELF into the current fol
 elf init --here --preset general      # in-place, goal-driven project type
 elf init . --yes                      # in-place, no prompt (scripts/CI)
 elf init NIRS_Probe                   # subfolder: create ./NIRS_Probe/
-elf init NIRS_Probe --preset experimental --lang en-US
+elf init NIRS_Probe --preset exp --lang en-US
 elf init NIRS_Probe --modules hw,sw
 elf init my_questions --preset qa                          # experimental: Q&A bundle archive (no categories)
 elf init my_questions --preset qa --categories Daily,ITGeneral   # pre-create categories
@@ -81,7 +81,7 @@ elf init my_questions --preset qa --categories Daily,ITGeneral   # pre-create ca
 > reading, and the user-owned `README.md` / `ProjectRule.md` are scaffolded in English.
 > Companions are non-operative (marked `NOT OPERATIVE`) — customize rules via
 > `ProjectRule.md`, not the companion. `elf update` keeps companions in sync and
-> `elf doctor` reports i18n status. English (`en`) is provided today; other languages fall
+> `elf check files` reports i18n status. English (`en`) is provided today; other languages fall
 > back to Korean.
 
 > **`qa` preset (experimental).** Scaffolds a *question-archive* project type instead of the research hierarchy: a root `AGENTS.md` (operational rules) + `CLAUDE.md` (loader pointer), `templates/bundle_template.md`, and `.elf/`. **No categories are pre-created by default** — create them on demand per `CLAUDE.md`, or pre-create with `--categories a,b,c` (each gets an `archive/`). Q&A is captured as semantic **bundles** (not sessions/trials/figures). Shares the `.elf/` control area with its own manifest (`manifest.qa.json`), so `elf update` propagates the convention. Separated from the research preset; subject to change while it is being refined.
@@ -96,7 +96,6 @@ Update the ELF-managed files in the current project to the installed CLI version
 |------|---------|
 | `--dry-run` | Show the action list without writing anything |
 | `--force` | Overwrite user-edited managed files / replace hybrid blocks |
-| `--self` | Update the `elf` binary instead (alias of `self-update`) |
 
 Behavior per file type → see [File ownership](#file-ownership).
 
@@ -109,7 +108,7 @@ on the first non-dry-run update. If `config.json` and the stamp contradict each 
 from being updated against the wrong template set.
 
 ```bash
-elf status            # see what would change
+elf check files       # see what would change
 elf update --dry-run  # preview the actions
 elf update            # apply (safe by default)
 ```
@@ -120,26 +119,28 @@ elf update            # apply (safe by default)
 > page → `elf update` → `elf migrate` there → then return to the latest CLI. Details:
 > the 2.16.0 entry in [CHANGELOG.md](../CHANGELOG.md).
 
-### `elf status [--check]`
+### `elf check [setup|files|logs]`
 
-Diagnose managed-file state (read-only). Reports each file as `ok` / `outdated` / `missing` / `edited`, plus version mismatch and obsolete entries. The report starts with the project's `preset:` line (research / qa / general — same resolution as `elf update`); a `config.json`/stamp contradiction is reported as a warning and the diagnosis follows the stamp.
+Read-only checks in three scopes. With no scope, all three run and only problems are printed — one summary line per scope, its issue and warning lines, and a total. With a scope, every item of that scope is printed as `ok` / `info` / `warn` / `issue`. It does not use the network.
 
-- `--check`: exit **4** if there are any findings — use it as a pre-commit hook or CI gate.
+| Scope | Checks |
+|---|---|
+| `setup` | `elf` version and install receipt (whether `elf self update` works), git repository and `pre-commit` hook, autoread state and `autoread_fulltext` declarations, experimental features enabled in `.elf/config.json` |
+| `files` | `.elf/` stamp, version and baseline; each managed file as `ok` / `outdated` / `missing` / `edited`, after the project's `preset:` line (a `config.json`/stamp contradiction is a warning and the diagnosis follows the stamp); a leftover `.claudeignore` (no effect in Claude Code, not ELF-managed since v2.24, safe to delete); language companions; data overlays (`0_Meta/<name>.project.md`: removal entries missing a reason, overlays without an overlayable base); the `CLAUDE.md` → `@AGENTS.md` pointer, excess pointer content and pending `*.elf-new` files; tsa when enabled (unstamped manifests, hook state, GPG signing, `openssl`) |
+| `logs` | Session-record consistency, below |
 
-### `elf validate [--check] [--strict]`
+**`logs` in detail:** registry ↔ log files (unregistered logs / registry rows with no log file — across `2_Log/`, `Archive/`, and `Deprecated/`), session numbering (duplicates / gaps), multiple active sessions, broken relative `.md` cross-references inside logs, **figure-embed gaps** (a figure exists in `6_Exp/64_Viz/S###/` but is not inline-embedded in that session's log body — a table path is *not* an embed; embeds in blocks moved to `Deprecated/S###_log.partial.md` count for that session), and **trial structure** in active logs (non-canonical `###` headings, section order, the `예상 일치 정도` (prediction match) first line of `### 해석` (the older `가설 적중 여부` line is still accepted), and Phase-1 sections missing while `### 관찰` exists). Structure checks skip `Archive/` (the convention applies to new writing, not backfill) and only cover the stable core of the format — content quality is not machine-checked.
 
-Check session-record consistency (read-only): registry ↔ log files (unregistered logs / registry rows with no log file — across `2_Log/`, `Archive/`, and `Deprecated/`), session numbering (duplicates / gaps), multiple active sessions, broken relative `.md` cross-references inside logs, **figure-embed gaps** (a figure exists in `6_Exp/64_Viz/S###/` but is not inline-embedded in that session's log body — a table path is *not* an embed; embeds in blocks moved to `Deprecated/S###_log.partial.md` count for that session), and **trial structure** in active logs (non-canonical `###` headings, section order, the `예상 일치 정도` (prediction match) first line of `### 해석` (the older `가설 적중 여부` line is still accepted), and Phase-1 sections missing while `### 관찰` exists). Structure checks skip `Archive/` (the convention applies to new writing, not backfill) and only cover the stable core of the format — content quality is not machine-checked.
-
-- **issues** (registry/log mismatch, duplicate number, broken cross-ref) vs **warnings** (numbering gap, multiple active, figure-embed gap, trial structure) — only issues are gated.
-- `--check`: exit **4** if there are any issues — pre-commit/CI gate.
-- `--strict`: promote figure-embed gaps and trial-structure findings from warnings to issues (so `--check` gates on them).
+- **issue** vs **warning**: issues are registry/log mismatches, duplicate numbers, broken cross-references, and managed files waiting for `elf update` (`outdated`, `missing`) or edited by you (`edited`, missing marker). Everything else (numbering gaps, multiple active sessions, figure-embed gaps, trial structure, version mismatch, overlay format, hook state) is a warning.
+- Exit code: **4** if there is any issue (use it as a pre-commit hook or CI gate), **0** with warnings only, **5** if the registry cannot be parsed (escalation — "cannot check" is kept apart from "found problems").
+- A scope that does not apply is skipped: without `.elf/` (outside an ELF project, or a folder that only keeps `2_Log/`), `files` is skipped and `logs` still runs. Naming a scope that does not apply exits **1**.
 - Exclude an intentional non-embed (SI, or a figure kept out of the body on purpose) with a `<!-- noembed: filename.png -->` comment in the log.
-- If the registry itself cannot be parsed, `elf` exits **5** (escalation) — it distinguishes "found problems" from "cannot check".
+- Names before 2.26 still work, hidden from `--help`, with their previous output and exit codes: `elf doctor` (the setup and files items), `elf status [--check]` (managed files), `elf validate [--check]` (logs). `validate --strict` was removed in 2.26; figure-embed gaps and trial-structure findings are warnings.
 
 ```bash
-elf validate                   # report (figure-embed gaps as warnings)
-elf validate --check            # exit 4 on issues (CI gate)
-elf validate --check --strict   # also gate on figure-embed gaps
+elf check          # all scopes, problems only
+elf check logs     # session logs in detail — after a figure-producing trial and before closing
+elf check files    # managed files in detail — what `elf update` would change
 ```
 
 ### `elf session new <title>`
@@ -158,7 +159,7 @@ The title must not contain a tab character (it would break the TSV registry). If
 
 Close a session: set its header `Status` to `Complete`, move the log to `2_Log/Archive/` (filename unchanged — the folder *is* the status), update its registry row, and recompute relative links inside the log (links starting with `../` and links starting with `Wiki/`, `Archive/`, or `Deprecated/`). With no id, the single active session is chosen automatically; if several are open, `elf` lists them and asks you to name one.
 
-Before archiving, close also runs `elf validate` and reports the findings **scoped to the session being closed** (missing figure embeds, trial-structure warnings) — non-blocking, but this is the last check before the log leaves the active-structure scope by moving to `Archive/`.
+Before archiving, close also runs the `elf check logs` checks and reports the findings **scoped to the session being closed** (missing figure embeds, trial-structure warnings) — non-blocking, but this is the last check before the log leaves the active-structure scope by moving to `Archive/`.
 
 | Flag | Meaning |
 |------|---------|
@@ -190,7 +191,7 @@ elf trial new --session S007          # several sessions open — name one
 
 Why a command: agents (and humans) imitate whatever the previous trial looked like. `elf trial new` keeps the imitation target canonical — the stub always comes from the *installed* template version, so a drifted precedent never propagates. Errors: no open session → exit 1 (start one with `elf session new`); several open without `--session` → exit 1 with the list.
 
-### `elf deprecate <target> [unit] [options]`, `--restore <ID>`, `list`, `purge <ID>`
+### `elf deprecate [target] [unit] [options]`, `--restore <ID>`, `purge <ID>`
 
 Move all or part of a session log or planning document into the **deprecated** state — not deleted, but moved to `Deprecated/` in the same folder (a waiting area). Such records may be read but are not a basis for current decisions. The user decides what to deprecate; the agent runs the command after an instruction or approval (`AGENTS.md`). Outputs (scripts, data, figures) stay where they are; only the document moves. Permanent removal is a later user decision made with `purge` (experimental, off by default).
 
@@ -204,8 +205,8 @@ Move all or part of a session log or planning document into the **deprecated** s
 | `--replaced-by <text>`, `--reason <text>` | Recorded in the marker line and the YAML header |
 | `--dry-run` | Print only, write nothing |
 | `--restore <ID>` | Return a block (`S012-D01`) or a document (`S012`, `P007`, a path) to its original position. After restoring, validate and link checks for that document are printed as warnings (never refused) |
-| `list` | Walks `2_Log/Deprecated/` and `1_Concept/12_Planning/Deprecated/`, lists documents and blocks, and reports marker/block mismatches |
-| `purge <ID> [--dry-run]` | **Experimental, off by default**: permanently remove a block (`S012-D01`) or document (`S012`, `P007`) under `Deprecated/`. A block is deleted from the partial file and its move marker becomes `> **Deprecated** → purged (ID · unit · date · purged: date)` (number kept, id never reused); a document is deleted and its registry Status becomes `Purged`. `--restore` refuses purged items; recovery is git history. Enable by adding `"experimental": ["deprecate_purge"]` to `.elf/config.json` (edited by the user; `elf doctor` shows it as Info) |
+| *(no arguments)* | List deprecated content. It reads `2_Log/Deprecated/` and `1_Concept/12_Planning/Deprecated/` each time (no list file is kept): one line per document or block (ID, date, unit, replaced_by, reason, location), purged blocks, a total, and marker/block mismatches as `warn:` lines. A whole document removed by `purge` no longer appears (a purged session log stays in the registry as `Purged`). The old form `elf deprecate list` still works |
+| `purge <ID> [--dry-run]` | **Experimental, off by default**: permanently remove a block (`S012-D01`) or document (`S012`, `P007`) under `Deprecated/`. A block is deleted from the partial file and its move marker becomes `> **Deprecated** → purged (ID · unit · date · purged: date)` (number kept, id never reused); a document is deleted and its registry Status becomes `Purged`. `--restore` refuses purged items; recovery is git history. Enable by adding `"experimental": ["deprecate_purge"]` to `.elf/config.json` (edited by the user; `elf check setup` shows it as Info) |
 
 - Partial file: per block, a copy of the `## tNN:` heading + one `> **Deprecated**: date · ID · unit …` line + the original text (`<!-- deprecated:begin ID -->` … `<!-- deprecated:end ID -->`). Relative links in the moved content (figures included) are recomputed for the folder, so previews still render. ID = a per-document sequence such as `S012-D01`.
 - Move marker at the original position: `> **Deprecated** → [Deprecated/S012_log.partial.md](Deprecated/S012_log.partial.md) (S012-D01 · t03 · 2026-10-08 · replaced_by: S015 t02)`. `elf session close` recomputes this link for the Archive location.
@@ -221,7 +222,7 @@ elf deprecate S012 --trial t03 --replaced-by "S015 t02" --reason "wrong measurem
 elf deprecate S014 --reason "wrong setup"         # whole session → 2_Log/Deprecated/S014_log.md, registry Status Deprecated
 elf deprecate P007 --marked --reason "scope cut"  # marked block in a planning document
 elf deprecate --restore S012-D01                  # restore the block
-elf deprecate list
+elf deprecate                                     # list deprecated content
 elf deprecate purge S012-D01                      # experimental, off by default — only when deprecate_purge is in the config's experimental array
 ```
 
@@ -236,19 +237,18 @@ elf gallery
 
 ### `elf autoread [subcommand]`
 
-Governance re-injection after a context reconstruction. When an AI coding session's context is compacted, resumed, or cleared, the agent continues from a lossy summary and the project rules are no longer in the context. `elf autoread` prints a **digest** that puts them back: the standing-duties section of `AGENTS.md`, the active session headers (Handoff, truncated), the current `elf validate` counts, and a closing instruction to act on the full rule texts rather than the summary. With no subcommand it prints the digest to stdout — usable from any agent harness (paste or pipe it into the next prompt).
+Governance re-injection after a context reconstruction. When an AI coding session's context is compacted, resumed, or cleared, the agent continues from a lossy summary and the project rules are no longer in the context. `elf autoread` prints a **digest** that puts them back: the standing-duties section of `AGENTS.md`, the active session headers (Handoff, truncated), the current `elf check logs` counts, and a closing instruction to act on the full rule texts rather than the summary. With no subcommand it prints the digest to stdout — usable from any agent harness (paste or pipe it into the next prompt).
 
-**Claude Code integration (automatic).** `elf init` and `elf update` keep two minimal hook entries in `.claude/settings.json` (the file is untracked; the merge preserves everything else in it): a `SessionStart` hook records a per-session marker under `.elf/runtime/` (nothing is injected at that point), and a `UserPromptSubmit` hook injects the digest on the next prompt. Until that prompt arrives, every `elf` command prints a one-line reminder banner as a fallback channel. Hook paths are strictly fail-open — any internal error exits 0 with no output and never blocks the session. The managed block of `.gitignore` excludes `.elf/runtime/`.
+**Claude Code integration (automatic).** `elf init` and `elf update` keep two minimal hook entries in `.claude/settings.json` (the file is untracked; the merge preserves everything else in it): a `SessionStart` hook records a per-session marker under `.elf/runtime/` (nothing is injected at that point), and a `UserPromptSubmit` hook injects the digest on the next prompt. Until that prompt arrives, every `elf` command run in that session prints a one-line reminder banner as a fallback channel (the session is identified by `CLAUDE_CODE_SESSION_ID`, which Claude Code sets for Bash commands and hooks; other sessions in the same project are not affected). Hook paths are strictly fail-open — any internal error exits 0 with no output and never blocks the session. The managed block of `.gitignore` excludes `.elf/runtime/`.
 
 | Subcommand | Effect |
 |---|---|
-| *(none)* | Print the digest (any harness) |
+| *(none)* | Print the digest (any harness) and clear the pending reconstruction marker of the current Claude Code session (outside Claude Code, all pending markers) |
 | `enable` | `"autoread": true` in `.elf/config.json` + Claude Code hook entries — idempotent, per project. An absent key means on |
 | `disable` | `"autoread": false` — hook entries stay in place but become no-ops |
 | `status` | Config, hook installation, `autoread_fulltext` declarations (ok / missing / unsafe), pending markers — read-only |
-| `ack` | Clear pending reconstruction markers by hand |
 
-**`autoread_fulltext` (opt-in).** List root-relative paths (e.g. your log convention) in the `autoread_fulltext` array of `.elf/config.json`; after a reconstruction the digest then carries those files verbatim, so the rules it summarizes are deterministically back in context. Paths that escape the project tree are refused, each file is capped at 24k characters (truncated with a notice), and a missing or unsafe entry degrades to a one-line note. The switch (`autoread`) and the list are separate keys. `elf doctor` reports the autoread state and warns about declarations that point nowhere.
+**`autoread_fulltext` (opt-in).** List root-relative paths (e.g. your log convention) in the `autoread_fulltext` array of `.elf/config.json`; after a reconstruction the digest then carries those files verbatim, so the rules it summarizes are deterministically back in context. Paths that escape the project tree are refused, each file is capped at 24k characters (truncated with a notice), and a missing or unsafe entry degrades to a one-line note. The switch (`autoread`) and the list are separate keys. `elf check setup` reports the autoread state and warns about declarations that point nowhere.
 
 ```bash
 elf autoread              # print the digest now
@@ -258,54 +258,35 @@ elf autoread disable      # per-project off (hooks remain as no-ops)
 
 > Do not run the installed hooks with an `elf` binary older than 2.19: it exits with code 2 on the unknown subcommand, which Claude Code treats as a blocking hook error on prompt submission. Normal installs and updates are unaffected — only avoid downgrading `elf` after hooks are installed.
 
-### `elf tsa <subcommand>` (opt-in)
+### `elf tsa [subcommand]` (opt-in)
 
 Research-record timestamping — proves *what* existed *when*. Once enabled, every commit's file hashes are appended to a daily manifest (`0_Meta/tsa/YYYY-MM-DD_manifest.json`, pre-commit hook), and the day's first commit requests an RFC 3161 timestamp token from a TSA (post-commit hook; `.tsr` saved next to the manifest). Off by default — nothing runs until you enable it, and most researchers can ignore it entirely.
 
-**Privacy**: the only thing that ever leaves your machine is one 32-byte sha256 digest of the manifest file — no file contents, no file names. **Authorship** (GPG commit signing), the optional third layer, is owned by git itself, not by this command — `elf tsa enable` and `elf doctor` print how to turn it on.
+**Privacy**: the only thing that ever leaves your machine is one 32-byte sha256 digest of the manifest file — no file contents, no file names. **Authorship** (GPG commit signing), the optional third layer, is owned by git itself, not by this command — `elf tsa enable` and `elf check files` print how to turn it on.
 
 | Subcommand | Effect |
 |---|---|
+| *(none)* `[--all] [--quiet]` | Request timestamp tokens for unstamped manifests (default: today only; `--all` = every unstamped manifest, which fills in manifests left unstamped by offline commits). The post-commit hook calls this. A non-granted response is discarded, never saved as evidence |
 | `enable` | Idempotent setup: `"tsa": true` in `.elf/config.json`, creates `0_Meta/tsa/`, installs both hooks **non-destructively** (a foreign hook is left untouched, with the exact line to add manually), prints GPG guidance, then takes a **baseline record** (records all tracked files + stamps). Retroactive proof of the past is impossible by design — the baseline proves "this existed by the day I enabled" |
 | `disable` | Config off + removes only marker-owned hooks (a foreign hook survives). **Evidence under `0_Meta/tsa/` is never deleted** — re-enabling appends to the existing evidence |
 | `status` | Enabled state, hook ownership, evidence counts, unstamped manifests (read-only) |
-| `record --staged\|--all [--quiet]` | Hash staged files (hook path) or all tracked files (baseline) into today's manifest — raw-byte sha256, duplicates skipped; the manifest itself is auto-staged so it is included in the same commit |
-| `stamp [--backfill] [--quiet]` | Request tokens for unstamped manifests (default: today only; `--backfill` = all — stamps manifests left unstamped by offline commits). A non-granted response is discarded, never saved as evidence |
+| `record [--all] [--quiet]` | Hash staged files (default, the pre-commit hook path) or all tracked files (`--all`, baseline) into today's manifest — raw-byte sha256, duplicates skipped; the manifest itself is auto-staged so it is included in the same commit |
 | `verify <file>` | Look up the file's current sha256 across all manifests — "when did this exact content exist?" |
 | `verify --date <D>` | Lightweight manifest↔token check (granted status, messageImprint match, genTime), then prints the `openssl ts -verify` command for full signature-chain verification (rare path — disputes/audits) |
 
-Defaults: DigiCert's free public TSA (`http://timestamp.digicert.com`, no account or credentials; override via `"tsaUrl"` in `.elf/config.json`). Requires git — commits are the recording unit. Hooks never block a commit (stamping runs in the background; failures defer to `--backfill`). Everything except `stamp` works fully offline.
+Defaults: DigiCert's free public TSA (`http://timestamp.digicert.com`, no account or credentials; override via `"tsaUrl"` in `.elf/config.json`). Requires git — commits are the recording unit. Hooks never block a commit (token requests run in the background; failures are filled in later with `elf tsa --all`). Everything except token requests works fully offline. `elf update` rewrites the ELF-owned tsa hooks to the current commands; when it replaces hooks written before 2.26, it prints the last manifest date and the number of commits after that day, so each project can decide whether to run `elf tsa record --all` and `elf tsa --all`.
 
 ```bash
 elf tsa enable            # once per project — hooks + baseline from here on
 git commit …              # recording + stamping now happen automatically
 elf tsa verify paper.md   # existence history of this exact content
-elf tsa stamp --backfill  # after offline days
+elf tsa --all             # after offline days
 elf tsa disable           # stops recording; evidence stays
 ```
 
-### `elf self-update`
+### `elf self update`
 
-Update the `elf` binary itself to the latest release. Works on installer-based installs (it reads the install receipt); otherwise it prints the installer command for manual update. Also reachable as `elf update --self`.
-
-### `elf doctor`
-
-Aggregate health check (read-only). Reports each item as `OK` / `WARN` / `INFO`:
-
-- **environment** — `elf` version, install receipt presence (self-update availability)
-- **project** (if inside one) — `.elf/` stamp parses, version matches the CLI, baseline present
-- **managed files** — a `elf status` summary (pending / conflicts)
-- **`.claudeignore`** — if present at the root, an Info line (it has no effect in Claude Code and is not ELF-managed since v2.24 — safe to delete)
-- **overlay** — active data overlays (`0_Meta/<name>.project.md`), removal entries missing a reason, overlays without an overlayable base
-- **agent entry** — `CLAUDE.md` loads `@AGENTS.md` (warns when the pointer line is missing — Claude Code would not load the rules), flags excess content in the pointer and pending `AGENTS.md.elf-new`/`CLAUDE.md.elf-new` files
-- **tsa** (only when enabled) — unstamped manifests, GPG signing state, `openssl` availability (needed only for full chain verification)
-- **git** — repository and `pre-commit` hook presence
-
-Works outside an ELF project too (environment checks only). Does not hit the network. Always exits **0**.
-
-```bash
-elf doctor
-```
+Update the `elf` binary itself to the latest release. Works on installer-based installs (it reads the install receipt); otherwise it prints the installer command for manual update. `elf self` alone prints help, so the binary is never replaced by accident. The older forms `elf self-update`, `elf selfupdate` and `elf update --self` still work.
 
 ## Exit codes
 
@@ -315,7 +296,7 @@ elf doctor
 | 1 | Runtime error (I/O, not an ELF project, …) |
 | 2 | Usage error (bad flags or arguments) |
 | 3 | Refused (e.g. the target already exists) |
-| 4 | `--check` found issues (gate signal, distinct from a real error) |
+| 4 | `elf check` found issues (also `--check` on the old `status` and `validate` names) — a gate signal, distinct from a real error |
 | 5 | **Escalation** — needs human/agent judgment (see below) |
 
 ## Escalation (exit 5)
@@ -341,7 +322,7 @@ The `agent-action:` line is a stable marker. An LLM agent driving `elf` can dete
 | **Managed** | `.elf/managed/` (`EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`, companions); root `.editorconfig`, `AGENTS.md` | Replaced with the new version. If you edited one, it is **kept** and the new version is written as `<file>.elf-new` (use `--force` to overwrite) |
 | **Yours** | `0_Meta/` (`ProjectRule.md`, `<name>.project.md` overlays), `Session_Registry.tsv`, `README.md`, all research data and logs | **Never touched** |
 | **Hybrid** | `.gitignore` | Only the marker block (`# >>> ELF managed >>>` … `# <<< ELF managed <<<`) is replaced; your rules outside the block are preserved |
-| **Pointer** | `CLAUDE.md` | Created if missing; if present it is **never modified** (no `.elf-new` either) — an existing hand-written `CLAUDE.md` stays exactly yours. Add a `@AGENTS.md` line yourself to load the ELF rules; `elf doctor` checks the link |
+| **Pointer** | `CLAUDE.md` | Created if missing; if present it is **never modified** (no `.elf-new` either) — an existing hand-written `CLAUDE.md` stays exactly yours. Add a `@AGENTS.md` line yourself to load the ELF rules; `elf check files` checks the link |
 
 Customize project rules in `ProjectRule.md` (yours) rather than editing managed files — that way updates never conflict. For the data files (`LLMcliche.md`, `highIFjournals.md`), add/remove/override entries via a **project overlay** `0_Meta/<name>.project.md` (user-owned; effective rules = base ⊕ overlay; removals need a stated reason — see EliRule §2.7).
 

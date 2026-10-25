@@ -17,7 +17,7 @@ use crate::plan::{self, KeepFile};
 
 pub struct InitOptions {
     pub name: String,
-    /// preset 이름 (full/experimental/software/minimal). modules 지정 시 무시.
+    /// preset 이름 (full/exp/sw/minimal — 연구 preset = 이름과 같은 주 모듈 + paper). modules 지정 시 무시.
     pub preset: String,
     /// custom 모듈 선택 (Some이면 preset 대신 사용)
     pub modules: Option<Vec<String>>,
@@ -53,7 +53,7 @@ impl std::fmt::Display for InitError {
             InitError::Plan(s) => write!(f, "plan: {s}"),
             InitError::Internal(s) => write!(
                 f,
-                "internal: {s} — corrupted install? run `elf self-update` or reinstall"
+                "internal: {s} — corrupted install? run `elf self update` or reinstall"
             ),
             InitError::Io(e) => write!(f, "io: {e}"),
         }

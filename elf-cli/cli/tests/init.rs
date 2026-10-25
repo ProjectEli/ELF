@@ -289,3 +289,34 @@ fn unknown_preset_errors_with_valid_list() {
         other => panic!("expected Plan error, got {other:?}"),
     }
 }
+
+// ── preset 이름 exp, sw (v2.26) — 구 이름 experimental, software는 CLI 숨김 별칭 ───
+
+#[test]
+fn exp_and_sw_presets_create_main_module_plus_paper() {
+    for (preset, main_dir, absent) in [("exp", "6_Exp", "5_SW"), ("sw", "5_SW", "6_Exp")] {
+        let tmp = tempdir().unwrap();
+        let mut o = opts("P");
+        o.preset = preset.into();
+        let root = run_init(tmp.path(), &o).unwrap();
+        assert!(root.join(main_dir).is_dir(), "{preset}: {main_dir}");
+        assert!(root.join("7_Paper").is_dir(), "{preset}: 7_Paper");
+        assert!(!root.join(absent).exists(), "{preset}: {absent} must not exist");
+    }
+}
+
+#[test]
+fn e2e_legacy_preset_names_are_accepted_and_recorded_as_new() {
+    for (old, new) in [("experimental", "exp"), ("software", "sw")] {
+        let tmp = tempdir().unwrap();
+        assert_cmd::Command::cargo_bin("elf")
+            .unwrap()
+            .args(["init", "P", "--preset", old])
+            .current_dir(tmp.path())
+            .assert()
+            .success();
+        let config: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(tmp.path().join("P/.elf/config.json")).unwrap()).unwrap();
+        assert_eq!(config["preset"], new);
+    }
+}

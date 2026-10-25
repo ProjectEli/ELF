@@ -3,7 +3,7 @@
 use assert_cmd::Command;
 use elf_cli::init::{InitOptions, run_init};
 use elf_cli::session::{SessionNewOptions, run_session_new};
-use elf_cli::validate::{ValidateError, run_validate, run_validate_opts};
+use elf_cli::validate::{ValidateError, run_validate};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
@@ -224,13 +224,28 @@ fn noembed_comment_suppresses_warning() {
     assert!(!r.lines.iter().any(|l| l.contains("S001_fig.png")), "{:?}", r.lines);
 }
 
+/// `--strict` 삭제(v2.26) — embed 누락은 경고로만 보고되고 issue로 승격되지 않음.
 #[test]
-fn strict_promotes_embed_miss_to_issue() {
+fn embed_miss_is_warning_not_issue() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
     seed_fig(&root, "S001_fig.png");
-    let r = run_validate_opts(&root, true).unwrap();
-    assert!(r.issues >= 1, "strict 시 embed 누락은 issue: {:?}", r.lines);
+    let r = run_validate(&root).unwrap();
+    assert_eq!(r.issues, 0, "{:?}", r.lines);
+    assert!(r.lines.iter().any(|l| l.starts_with("warn:") && l.contains("S001_fig.png")), "{:?}", r.lines);
+}
+
+#[test]
+fn e2e_validate_strict_flag_removed() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    Command::cargo_bin("elf")
+        .unwrap()
+        .current_dir(&root)
+        .args(["validate", "--strict"])
+        .assert()
+        .failure()
+        .code(2);
 }
 
 // ── e2e ──────────────────────────────────────────────

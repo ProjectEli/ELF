@@ -50,7 +50,7 @@ impl std::fmt::Display for UpdateError {
             ),
             UpdateError::Internal(s) => write!(
                 f,
-                "internal: {s} — corrupted install? run `elf self-update` or reinstall"
+                "internal: {s} — corrupted install? run `elf self update` or reinstall"
             ),
             UpdateError::Io(e) => write!(f, "io: {e}"),
         }
@@ -229,6 +229,17 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
         }
     }
 
+    // tsa 훅 갱신 — 켠 프로젝트만, elf 소유(마커) 훅만 현행 본문으로 교체. git hooks는 비추적이라
+    // 명령 이름이 바뀌면 이 단계가 하류 프로젝트의 유일한 갱신 경로. 구 본문이면 누락 가능 안내(판단은 프로젝트 몫).
+    if crate::tsa::is_enabled(root) {
+        for line in crate::tsa::refresh_hooks(root, opts.dry_run) {
+            match line.strip_prefix("warn: ") {
+                Some(w) => report.warn(w.to_string()),
+                None => report.note(line),
+            }
+        }
+    }
+
     Ok(report)
 }
 
@@ -249,7 +260,7 @@ fn apply(
         UpdateAction::KeepPointer { dest } => {
             // t06: 기존 파일 절대 불변경 + 공지 — `.elf-new` 병기도 하지 않음(1줄 병합은 사용자 몫)
             report.note(format!(
-                "pointer (kept as-is): {dest} — ensure it loads AGENTS.md (`@AGENTS.md` line); `elf doctor` checks"
+                "pointer (kept as-is): {dest} — ensure it loads AGENTS.md (`@AGENTS.md` line); `elf check files` checks"
             ));
         }
         UpdateAction::Obsolete { dest } => {

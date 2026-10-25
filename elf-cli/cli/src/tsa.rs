@@ -151,9 +151,13 @@ fn hooks_dir(root: &Path) -> Result<PathBuf, TsaError> {
 // ── 훅 (비파괴 — S022 t03 사용자 승인) ─────────────────────────────────────────────
 
 /// 훅 본문 — elf 호출 1줄(로직은 바이너리 소유). `$HOME/.elf/bin` 우선(훅 환경 PATH 빈약 대비),
-/// 비차단(`|| true` — 커밋을 절대 막지 않음), stamp는 백그라운드(TSA 응답 지연이 커밋 UX 비침범).
+/// 비차단(`|| true` — 커밋을 절대 막지 않음), 토큰 요청은 백그라운드(TSA 응답 지연이 커밋 UX 비침범).
 fn hook_body(subcmd: &str, background: bool) -> String {
-    let call = format!("\"$ELF\" tsa {subcmd} --quiet");
+    let call = if subcmd.is_empty() {
+        "\"$ELF\" tsa --quiet".to_string()
+    } else {
+        format!("\"$ELF\" tsa {subcmd} --quiet")
+    };
     let call = if background {
         format!("({call} >/dev/null 2>&1 || true) &")
     } else {
@@ -162,6 +166,106 @@ fn hook_body(subcmd: &str, background: bool) -> String {
     format!(
         "#!/bin/sh\n{HOOK_MARKER} — managed by `elf tsa enable`; removed by `elf tsa disable`. Do not edit (replaced in full on enable).\nELF=\"$HOME/.elf/bin/elf\"; {{ [ -x \"$ELF\" ] || [ -x \"$ELF.exe\" ]; }} || ELF=elf\n{call}\n"
     )
+}
+
+/// 현행 훅 본문: pre-commit = 해시 기록, post-commit = 시점 토큰 요청(`elf tsa`).
+fn pre_commit_body() -> String {
+    hook_body("record", false)
+}
+
+fn post_commit_body() -> String {
+    hook_body("", true)
+}
+
+/// 훅 1개의 상태 — check와 status 공용.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HookState {
+    /// elf 소유, 현행 본문
+    Current,
+    /// elf 소유, 구 본문(`elf update`가 교체)
+    Outdated,
+    /// 다른 도구의 훅(비접근)
+    Foreign,
+    Absent,
+}
+
+/// (훅 이름, 상태) 2종. git 저장소가 아니면 빈 목록.
+pub fn hook_states(root: &Path) -> Vec<(&'static str, HookState)> {
+    let Ok(hooks) = hooks_dir(root) else { return Vec::new() };
+    [("pre-commit", pre_commit_body()), ("post-commit", post_commit_body())]
+        .into_iter()
+        .map(|(name, body)| {
+            let state = match fs::read_to_string(hooks.join(name)) {
+                Ok(t) if t.contains(HOOK_MARKER) && t == body => HookState::Current,
+                Ok(t) if t.contains(HOOK_MARKER) => HookState::Outdated,
+                Ok(_) => HookState::Foreign,
+                Err(_) => HookState::Absent,
+            };
+            (name, state)
+        })
+        .collect()
+}
+
+/// `elf update` 경로 — elf 소유(마커) 훅만 현행 본문으로 교체(타 훅, 부재 훅은 비접근 — 설치는 `tsa enable`).
+/// 구 명령(`tsa record --staged`, `tsa stamp`)을 부르던 훅이면, 실행 파일 갱신 뒤 이 update 전까지의
+/// 커밋에서 기록과 토큰이 빠졌을 수 있음을 안내 — 판단은 프로젝트 몫.
+pub fn refresh_hooks(root: &Path, dry_run: bool) -> Vec<String> {
+    let mut out = Vec::new();
+    let Ok(hooks) = hooks_dir(root) else { return out };
+    let mut changed = false;
+    let mut legacy = false;
+    for (name, body) in [("pre-commit", pre_commit_body()), ("post-commit", post_commit_body())] {
+        let p = hooks.join(name);
+        let Ok(existing) = fs::read_to_string(&p) else { continue };
+        if !existing.contains(HOOK_MARKER) || existing == body {
+            continue;
+        }
+        changed = true;
+        legacy |= existing.contains("tsa record --staged") || existing.contains("tsa stamp");
+        if !dry_run {
+            if let Err(e) = fs::write(&p, &body) {
+                out.push(format!("warn: tsa hook {name} not updated: {e}"));
+                continue;
+            }
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = fs::set_permissions(&p, fs::Permissions::from_mode(0o755));
+            }
+        }
+    }
+    if !changed {
+        return out;
+    }
+    out.push(format!(
+        "tsa: {} hooks to the current commands (pre-commit: `elf tsa record`, post-commit: `elf tsa`)",
+        if dry_run { "would update" } else { "updated" }
+    ));
+    if legacy {
+        out.push("note: the previous tsa hooks called `tsa record --staged` and `tsa stamp`, which no longer exist — commits made after the elf binary was updated and before this `elf update` may lack hash records and timestamp tokens".into());
+        let since = match last_manifest_date(root) {
+            Some(d) => {
+                let n = git(root, &["rev-list", "--count", &format!("--after={d} 23:59:59"), "HEAD"])
+                    .map(|s| s.trim().to_string())
+                    .unwrap_or_else(|_| "?".into());
+                format!("last manifest {d}, {n} commit(s) after that day")
+            }
+            None => "no manifest yet".into(),
+        };
+        out.push(format!(
+            "note: {since} — if needed run `elf tsa record --all` (records the current state) and `elf tsa --all` (requests missing tokens)"
+        ));
+    }
+    out
+}
+
+/// 가장 최근 manifest 날짜(`<날짜>_manifest.json`).
+fn last_manifest_date(root: &Path) -> Option<String> {
+    fs::read_dir(root.join(TSA_DIR))
+        .ok()?
+        .flatten()
+        .filter_map(|e| e.file_name().to_string_lossy().strip_suffix("_manifest.json").map(String::from))
+        .max()
 }
 
 /// 훅 1개 설치: 부재 → 생성 / elf 마커 → 갱신(멱등) / 타 훅 → 비파괴: 손대지 않고 추가 안내.
@@ -209,8 +313,8 @@ fn remove_hook(dir: &Path, name: &str, r: &mut TsaReport) {
 // ── enable / disable / status ─────────────────────────────────────────────────
 
 /// `elf tsa enable` — 멱등: ① config on ② 증거 디렉토리 ③ 훅 2종(비파괴) ④ GPG 안내(비차단)
-/// ⑤ baseline: git 추적 전체 record + stamp 시도(과거 소급 증명은 원리적 불가 —
-/// "도입 시점까지의 존재" 기준선. 오프라인이면 stamp만 미뤄지고 `--backfill`로 보충).
+/// ⑤ baseline: git 추적 전체 record + 토큰 요청 시도(과거 소급 증명은 원리적 불가 —
+/// "도입 시점까지의 존재" 기준선. 오프라인이면 토큰만 미뤄지고 `elf tsa --all`로 보충).
 pub fn run_enable(root: &Path) -> Result<TsaReport, TsaError> {
     let mut r = TsaReport::default();
     git(root, &["rev-parse", "--show-toplevel"])
@@ -222,8 +326,8 @@ pub fn run_enable(root: &Path) -> Result<TsaReport, TsaError> {
     r.say(format!("evidence dir: {TSA_DIR}/ (append-only — never auto-deleted)"));
 
     let hooks = hooks_dir(root)?;
-    install_hook(&hooks, "pre-commit", &hook_body("record --staged", false), &mut r)?;
-    install_hook(&hooks, "post-commit", &hook_body("stamp", true), &mut r)?;
+    install_hook(&hooks, "pre-commit", &pre_commit_body(), &mut r)?;
+    install_hook(&hooks, "post-commit", &post_commit_body(), &mut r)?;
 
     // GPG는 git 소유 — 진단, 안내만 (차단 없음: manifest+TSA만으로도 무결성+시점은 성립)
     let gpg_on = git(root, &["config", "--get", "commit.gpgsign"])
@@ -244,7 +348,7 @@ pub fn run_enable(root: &Path) -> Result<TsaReport, TsaError> {
             r.lines.extend(st.lines);
             r.warnings += st.warnings;
         }
-        Err(e) => r.warn(format!("baseline stamp deferred ({e}) — run `elf tsa stamp --backfill` when online")),
+        Err(e) => r.warn(format!("baseline stamp deferred ({e}) — run `elf tsa --all` when online")),
     }
     r.say("enabled. Every commit now records hashes (pre-commit) and stamps the day's first commit (post-commit). Only a 32-byte digest ever leaves this machine.");
     Ok(r)
@@ -268,20 +372,19 @@ pub fn run_status(root: &Path) -> Result<TsaReport, TsaError> {
     let mut r = TsaReport::default();
     let enabled = is_enabled(root);
     r.say(format!("tsa: {}", if enabled { "enabled" } else { "disabled (opt-in — `elf tsa enable`)" }));
-    if let Ok(hooks) = hooks_dir(root) {
-        for name in ["pre-commit", "post-commit"] {
-            let state = match fs::read_to_string(hooks.join(name)) {
-                Ok(t) if t.contains(HOOK_MARKER) => "elf-tsa",
-                Ok(_) => "foreign (add the elf tsa line manually — see `elf tsa enable` output)",
-                Err(_) => "absent",
-            };
-            r.say(format!("hook {name}: {state}"));
-        }
+    for (name, state) in hook_states(root) {
+        let state = match state {
+            HookState::Current => "elf-tsa",
+            HookState::Outdated => "elf-tsa (outdated — run `elf update`)",
+            HookState::Foreign => "foreign (add the elf tsa line manually — see `elf tsa enable` output)",
+            HookState::Absent => "absent",
+        };
+        r.say(format!("hook {name}: {state}"));
     }
     let (manifests, stamped, unstamped) = evidence_counts(root);
     r.say(format!("evidence: {manifests} manifest(s), {stamped} stamped, {unstamped} unstamped"));
     if enabled && unstamped > 0 {
-        r.warn(format!("{unstamped} manifest(s) without a timestamp token — run `elf tsa stamp --backfill`"));
+        r.warn(format!("{unstamped} manifest(s) without a timestamp token — run `elf tsa --all`"));
     }
     Ok(r)
 }
@@ -437,10 +540,10 @@ fn sha256_file(p: &Path) -> Result<[u8; 32], TsaError> {
     Ok(h.finalize().into())
 }
 
-/// `elf tsa stamp [--backfill]` — .tsr 없는 manifest에 TSA 시점토큰 요청, 저장.
-/// 기본 = 당일 manifest만(훅 경로), backfill = 전체(오프라인 누락 소급 — Mastication 알려진 제약 해소).
+/// `elf tsa [--all]` — .tsr 없는 manifest에 TSA 시점토큰 요청, 저장.
+/// 기본 = 당일 manifest만(훅 경로), all = 토큰 없는 manifest 전부(오프라인 누락 소급 — Mastication 알려진 제약 해소).
 /// 저장 전 granted 판독 — 깨진 응답을 증거로 남기지 않음.
-pub fn run_stamp(root: &Path, backfill: bool) -> Result<TsaReport, TsaError> {
+pub fn run_stamp(root: &Path, all: bool) -> Result<TsaReport, TsaError> {
     let mut r = TsaReport::default();
     let dir = root.join(TSA_DIR);
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
@@ -449,7 +552,7 @@ pub fn run_stamp(root: &Path, backfill: bool) -> Result<TsaReport, TsaError> {
         for e in rd.flatten() {
             let name = e.file_name().to_string_lossy().into_owned();
             if let Some(date) = name.strip_suffix("_manifest.json") {
-                if !dir.join(format!("{date}.tsr")).is_file() && (backfill || date == today) {
+                if !dir.join(format!("{date}.tsr")).is_file() && (all || date == today) {
                     targets.push(date.to_string());
                 }
             }
@@ -474,7 +577,7 @@ pub fn run_stamp(root: &Path, backfill: bool) -> Result<TsaReport, TsaError> {
                 let _ = git(root, &["add", &format!("{TSA_DIR}/{date}.tsr")]);
             }
             Ok(_) => r.warn(format!("{date}: TSA response not granted — token discarded, retry later")),
-            Err(e) => r.warn(format!("{date}: {e} — retry with `elf tsa stamp --backfill` when online")),
+            Err(e) => r.warn(format!("{date}: {e} — retry with `elf tsa --all` when online")),
         }
     }
     Ok(r)
@@ -547,7 +650,7 @@ pub fn run_verify(root: &Path, file: Option<&str>, date: Option<&str>) -> Result
                 return Err(TsaError::Refuse(format!("no manifest for {d}")));
             }
             if !tpath.is_file() {
-                return Err(TsaError::Refuse(format!("no timestamp token for {d} — run `elf tsa stamp --backfill`")));
+                return Err(TsaError::Refuse(format!("no timestamp token for {d} — run `elf tsa --all`")));
             }
             let hash = sha256_file(&mpath)?;
             let tsr = fs::read(&tpath)?;
@@ -624,11 +727,15 @@ mod tests {
 
     #[test]
     fn hook_body_is_marker_owned_nonblocking() {
-        let b = hook_body("record --staged", false);
+        let b = pre_commit_body();
         assert!(b.contains(HOOK_MARKER));
+        assert!(b.contains("\"$ELF\" tsa record --quiet || true"));
+        assert!(!b.contains("--staged")); // 구 옵션 미사용
         assert!(b.contains("|| true")); // 커밋 비차단
         assert!(b.starts_with("#!/bin/sh\n"));
-        let bg = hook_body("stamp", true);
+        let bg = post_commit_body();
+        assert!(bg.contains("(\"$ELF\" tsa --quiet >/dev/null 2>&1 || true) &"));
+        assert!(!bg.contains("stamp")); // 구 하위 명령 미사용
         assert!(bg.contains(") &")); // TSA 지연이 커밋 UX 비침범
     }
 }

@@ -93,6 +93,11 @@ fn help_outputs_contain_no_internal_dev_markers() {
         vec!["update", "--help"],
         vec!["status", "--help"],
         vec!["self-update", "--help"],
+        vec!["self", "--help"],
+        vec!["self", "update", "--help"],
+        vec!["check", "--help"],
+        vec!["tsa", "--help"],
+        vec!["autoread", "--help"],
     ] {
         let out = Command::cargo_bin("elf").unwrap().args(&args).output().unwrap();
         let text = format!(

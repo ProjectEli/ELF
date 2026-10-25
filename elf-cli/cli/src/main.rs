@@ -1,6 +1,6 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use elf_cli::{
-    autoread, deprecate, doctor, embed, gallery, init, manifest, selfupdate, session, status, trial,
+    autoread, check, deprecate, doctor, embed, gallery, init, manifest, selfupdate, session, status, trial,
     tsa, update, validate,
 };
 
@@ -12,13 +12,14 @@ struct Cli {
     command: Commands,
 }
 
+// (주의: doc comment(`///`)는 help로 노출됨 — 내부 표기 금지, 회귀 테스트가 게이트. P011 t09)
 #[derive(Subcommand)]
 enum Commands {
     /// 새 ELF 프로젝트 스캐폴드 생성 / Scaffold an ELF project (생략 시 현재 폴더에 in-place)
     Init {
         /// 프로젝트 폴더 이름 (생략 시 현재 폴더 in-place) / project folder name (omit = in-place here)
         name: Option<String>,
-        /// 현재 폴더에 in-place 강제 / force in-place in the current directory
+        /// 현재 폴더에 만들면서 이름 지정 / init in the current folder under the given name (`--here <name>`)
         #[arg(long)]
         here: bool,
         /// 확인 프롬프트 생략 / skip the confirmation prompt
@@ -30,7 +31,7 @@ enum Commands {
         /// 기존 파일도 덮어씀 / overwrite existing files
         #[arg(long)]
         force: bool,
-        /// 모듈 preset / module preset (full | experimental | software | minimal | qa[exp] | general[exp])
+        /// preset: full | exp | sw | minimal | qa | general — 연구 preset = 이름과 같은 주 모듈 + paper (full = 전체, minimal = 없음); qa, general = 실험적 유형 / research presets = the module of the same name + paper; qa, general are experimental project types
         #[arg(long, default_value = "full", conflicts_with = "modules")]
         preset: String,
         /// custom 모듈 선택 / custom modules (쉼표 구분: hw,fab,sw,exp,paper) — preset 대신
@@ -44,7 +45,7 @@ enum Commands {
         lang: String,
     },
     /// 프로젝트의 ELF managed/hybrid 파일을 현 CLI 버전으로 갱신 / Update this project's ELF-managed files
-    /// (CLI 자체 갱신은 `elf self-update` 또는 `elf update --self`)
+    /// (elf 실행 파일 자체는 `elf self update` / for the binary itself)
     Update {
         /// 변경 없이 작업 목록만 출력 / dry-run (preview only)
         #[arg(long)]
@@ -52,12 +53,18 @@ enum Commands {
         /// 사용자 편집 무시 강제 갱신 / force overwrite (managed 덮어쓰기, hybrid 블록 교체)
         #[arg(long)]
         force: bool,
-        /// elf 바이너리 자체를 갱신 / update the elf binary (= self-update alias)
-        #[arg(long = "self", conflicts_with_all = ["dry_run", "force"])]
+        /// (구 형식) `elf self update`와 같음 / same as `elf self update`
+        #[arg(long = "self", hide = true, conflicts_with_all = ["dry_run", "force"])]
         update_self: bool,
     },
-    /// elf 바이너리 자체를 최신 릴리즈로 갱신 / Update the elf binary itself (프로젝트 파일은 `elf update`)
-    #[command(name = "self-update", alias = "selfupdate")]
+    /// elf 실행 파일 관리 / Manage the elf executable (update)
+    #[command(name = "self")]
+    SelfCmd {
+        #[command(subcommand)]
+        cmd: SelfCmd,
+    },
+    /// (구 이름) `elf self update`와 같음 / same as `elf self update`
+    #[command(name = "self-update", alias = "selfupdate", hide = true)]
     SelfUpdate,
     /// 세션 수명주기 / Session lifecycle (new / close / fix-headers)
     Session {
@@ -69,42 +76,54 @@ enum Commands {
         #[command(subcommand)]
         cmd: TrialCmd,
     },
-    // (주의: doc comment(`///`)는 help로 노출됨 — 내부 표기 금지, 회귀 테스트가 게이트. P011 t09)
-    /// 프로젝트 ELF 파일 상태 진단 / Diagnose managed-file drift (편집/누락 — 읽기전용/read-only)
+    /// 점검 / Check setup, ELF-managed files, and session logs (범위 생략 = 전체, 읽기전용/read-only; 문제 시 exit 4)
+    Check {
+        /// 범위 / scope: setup (설치, 설정), files (ELF 관리 파일), logs (세션 로그, Registry) — 생략 = 전체 요약
+        #[arg(value_enum)]
+        scope: Option<CheckScope>,
+    },
+    /// (구 이름) `elf check files` 상세 / managed-file status (alias)
+    #[command(hide = true)]
     Status {
-        /// 발견 시 exit 4 / exit 4 on findings — pre-commit/CI 게이트
+        /// 발견 시 exit 4 / exit 4 on findings
         #[arg(long)]
         check: bool,
     },
-    /// 세션/Registry/로그 정합 검사 / Validate session/registry/log consistency (읽기전용/read-only)
+    /// (구 이름) `elf check logs` / session-log consistency (alias)
+    #[command(hide = true)]
     Validate {
-        /// issue 발견 시 exit 4 / exit 4 on issues — pre-commit/CI 게이트
+        /// issue 발견 시 exit 4 / exit 4 on issues
         #[arg(long)]
         check: bool,
-        /// figure-embed 누락을 issue로 승격 / promote missing figure-embeds to issues
-        #[arg(long)]
-        strict: bool,
     },
     /// 6_Exp/64_Viz/ → 세션별 Figure 색인 `_gallery.md` 생성 / Generate the figure gallery index
     Gallery,
-    /// 환경+프로젝트 종합 진단 / Environment + project health check (읽기전용/read-only)
+    /// (구 이름) 환경 + 프로젝트 진단 / environment + project diagnosis (alias of the setup and files checks)
+    #[command(hide = true)]
     Doctor,
-    /// 연구 기록 시점인증 / Research-record timestamping (manifest + RFC 3161 TSA, opt-in)
+    /// 연구 기록 시점인증 / Research-record timestamping (manifest + RFC 3161 TSA, opt-in) — 하위 명령 없음 = 오늘 manifest의 시점 토큰 요청 / no subcommand = request today's timestamp token
+    #[command(args_conflicts_with_subcommands = true)]
     Tsa {
         #[command(subcommand)]
-        cmd: TsaCmd,
+        cmd: Option<TsaCmd>,
+        /// 토큰 없는 manifest 전부 / all unstamped manifests (오프라인 커밋 소급 보충)
+        #[arg(long)]
+        all: bool,
+        /// 출력 억제 / suppress output (훅용)
+        #[arg(long)]
+        quiet: bool,
     },
-    /// compact 후 거버넌스 자동 재독 / Governance digest re-injection after context reconstruction (기본 켬/default-on)
+    /// compact 후 거버넌스 자동 재독 / Governance digest re-injection after context reconstruction (기본 켬/default-on) — 하위 명령 없음 = digest 출력 / no subcommand = print the digest
     Autoread {
         #[command(subcommand)]
         cmd: Option<AutoreadCmd>,
     },
-    /// 폐기 이동, 복원, 목록 / Deprecate, restore, or list deprecated content (session logs, planning docs → `Deprecated/`)
+    /// 폐기 이동, 복원, 목록 / Deprecate or restore content (session logs, planning docs → `Deprecated/`); 인수 없음 = 목록 / no arguments = list
     #[command(args_conflicts_with_subcommands = true)]
     Deprecate {
         #[command(subcommand)]
         cmd: Option<DeprecateCmd>,
-        /// 대상 / target: S### | P### | project-relative path (omit with --restore)
+        /// 대상 / target: S### | P### | project-relative path (omit = list; omit with --restore)
         target: Option<String>,
         /// trial 단위 / move one trial (e.g. t03) — keeps the heading, leaves a move marker
         #[arg(long, value_name = "tNN")]
@@ -137,8 +156,25 @@ enum Commands {
 }
 
 #[derive(Subcommand)]
+enum SelfCmd {
+    /// elf 실행 파일을 최신 릴리즈로 갱신 / Update the elf binary to the latest release (프로젝트 파일은 `elf update`)
+    Update,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum CheckScope {
+    /// 설치, 설정 / CLI, install, git and hooks, autoread, experimental
+    Setup,
+    /// ELF 관리 파일 / managed files, .elf record, overlay, AGENTS link, tsa
+    Files,
+    /// 세션 로그, Registry / session logs, registry, figure embeds
+    Logs,
+}
+
+#[derive(Subcommand)]
 enum DeprecateCmd {
-    /// 목록 / List deprecated documents and blocks (walks `Deprecated/` folders; reports marker/block mismatches)
+    /// (구 이름) 목록 = 인수 없는 `elf deprecate` / list (same as `elf deprecate` with no arguments)
+    #[command(hide = true)]
     List,
     /// 영구 삭제(experimental, 기본 비활성) / Permanently remove a deprecated block or document (experimental; enable with "experimental": ["deprecate_purge"] in .elf/config.json)
     Purge {
@@ -158,8 +194,6 @@ enum AutoreadCmd {
     Disable,
     /// 상태 / Status (config, hooks, pending markers — 읽기전용/read-only)
     Status,
-    /// 대기 마커 해제 / Clear pending reconstruction markers
-    Ack,
     /// (내부) 하네스 훅 진입점 / harness hook entrypoint (stdin JSON)
     #[command(hide = true)]
     Hook {
@@ -176,23 +210,11 @@ enum TsaCmd {
     Disable,
     /// 상태 / Status (enabled, hooks, evidence counts — 읽기전용/read-only)
     Status,
-    /// 해시 기록 / Record file hashes into today's manifest (pre-commit 훅이 호출)
+    /// 해시 기록 / Record hashes of staged files into today's manifest (pre-commit 훅이 호출)
     Record {
-        /// staged 파일만 / staged files only (훅 기본)
-        #[arg(long, conflicts_with = "all")]
-        staged: bool,
         /// git 추적 전체 / all tracked files (baseline)
         #[arg(long)]
         all: bool,
-        /// 출력 억제 / suppress output (훅용)
-        #[arg(long)]
-        quiet: bool,
-    },
-    /// TSA 시점토큰 요청 / Request timestamp tokens for unstamped manifests (post-commit 훅이 호출)
-    Stamp {
-        /// 과거 누락분 전부 / all unstamped manifests (오프라인 커밋 소급 보충)
-        #[arg(long)]
-        backfill: bool,
         /// 출력 억제 / suppress output (훅용)
         #[arg(long)]
         quiet: bool,
@@ -251,7 +273,7 @@ fn main() {
     let banner_suppressed = matches!(cli.command, Commands::Autoread { .. })
         || matches!(
             cli.command,
-            Commands::Tsa { cmd: TsaCmd::Record { quiet: true, .. } | TsaCmd::Stamp { quiet: true, .. } }
+            Commands::Tsa { cmd: Some(TsaCmd::Record { quiet: true, .. }), .. } | Commands::Tsa { cmd: None, quiet: true, .. }
         );
     if !banner_suppressed {
         if let Ok(cwd) = std::env::current_dir() {
@@ -290,6 +312,12 @@ fn main() {
                 name.clone().expect("subfolder requires a name")
             };
             let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+            // 구 preset 이름(v2.25 이전) — 숨김 값 별칭
+            let preset = match preset.as_str() {
+                "experimental" => "exp".to_string(),
+                "software" => "sw".to_string(),
+                _ => preset,
+            };
             let label = match &modules {
                 Some(keys) => format!("custom({})", keys.join(",")),
                 None => preset.clone(),
@@ -376,6 +404,7 @@ fn main() {
                 }
             }
         }
+        Commands::SelfCmd { cmd: SelfCmd::Update } => do_self_update(),
         Commands::SelfUpdate => do_self_update(),
         Commands::Update { update_self: true, .. } => do_self_update(),
         Commands::Update { dry_run, force, update_self: false } => {
@@ -402,6 +431,20 @@ fn main() {
                     eprintln!("[elf] error: {e}");
                     std::process::exit(1);
                 }
+            }
+        }
+        Commands::Check { scope } => {
+            let cwd = std::env::current_dir().expect("cwd");
+            let env = doctor::DoctorEnv {
+                version: embed::version().to_string(),
+                receipt_present: doctor::probe_receipt(),
+            };
+            let code = match scope {
+                None => print_check_all(&cwd, &env),
+                Some(s) => print_check_scope(&cwd, &env, scope_of(s)),
+            };
+            if code != 0 {
+                std::process::exit(code);
             }
         }
         Commands::Status { check } => {
@@ -446,20 +489,16 @@ fn main() {
             }
             println!("[elf] doctor: {} warning(s)", report.warnings());
         }
-        Commands::Tsa { cmd } => {
+        Commands::Tsa { cmd, all, quiet } => {
             let cwd = std::env::current_dir().expect("cwd");
             let Some(root) = update::find_project_root(&cwd) else {
                 eprintln!("[elf] error: not an ELF project (no .elf/manifest.json upward from {})", cwd.display());
                 std::process::exit(1);
             };
-            let quiet = matches!(
-                cmd,
-                TsaCmd::Record { quiet: true, .. } | TsaCmd::Stamp { quiet: true, .. }
-            );
+            let quiet = matches!(cmd, Some(TsaCmd::Record { quiet: true, .. })) || (cmd.is_none() && quiet);
             // enabled 게이트: disable 후 타 훅에 수동 잔존한 호출 라인의 무해화 —
             // 훅 경로(quiet)는 침묵 성공, 직접 실행은 refuse 안내.
-            if matches!(cmd, TsaCmd::Record { .. } | TsaCmd::Stamp { .. }) && !tsa::is_enabled(&root)
-            {
+            if matches!(cmd, None | Some(TsaCmd::Record { .. })) && !tsa::is_enabled(&root) {
                 if quiet {
                     return;
                 }
@@ -467,15 +506,16 @@ fn main() {
                 std::process::exit(3);
             }
             let result = match cmd {
-                TsaCmd::Enable => tsa::run_enable(&root),
-                TsaCmd::Disable => tsa::run_disable(&root),
-                TsaCmd::Status => tsa::run_status(&root),
-                TsaCmd::Record { all, .. } => {
+                // 하위 명령 없음 = 시점 토큰 요청(기본 = 오늘 manifest, --all = 토큰 없는 manifest 전부)
+                None => tsa::run_stamp(&root, all),
+                Some(TsaCmd::Enable) => tsa::run_enable(&root),
+                Some(TsaCmd::Disable) => tsa::run_disable(&root),
+                Some(TsaCmd::Status) => tsa::run_status(&root),
+                Some(TsaCmd::Record { all, .. }) => {
                     let scope = if all { tsa::RecordScope::All } else { tsa::RecordScope::Staged };
                     tsa::run_record(&root, scope)
                 }
-                TsaCmd::Stamp { backfill, .. } => tsa::run_stamp(&root, backfill),
-                TsaCmd::Verify { file, date } => {
+                Some(TsaCmd::Verify { file, date }) => {
                     tsa::run_verify(&root, file.as_deref(), date.as_deref())
                 }
             };
@@ -520,16 +560,15 @@ fn main() {
                         );
                         std::process::exit(1);
                     };
-                    // 인수 없음 = 수동 digest (하네스 무관 fallback — 훅 없는 환경, 즉시 재정렬용)
+                    // 인수 없음 = 수동 digest (하네스 무관 fallback — 훅 없는 환경, 즉시 재정렬용) + 대기 마커 해제
                     let Some(cmd) = cmd else {
-                        print!("{}", autoread::build_digest(&root, "manual"));
+                        print!("{}", autoread::run_manual(&root));
                         return;
                     };
                     let result = match cmd {
                         AutoreadCmd::Enable => autoread::run_enable(&root),
                         AutoreadCmd::Disable => autoread::run_disable(&root),
                         AutoreadCmd::Status => autoread::run_status(&root),
-                        AutoreadCmd::Ack => autoread::run_ack(&root),
                         AutoreadCmd::Hook { .. } => unreachable!("hook handled above"),
                     };
                     match result {
@@ -564,8 +603,31 @@ fn main() {
                         deprecate::run_restore(&root, &id)
                     } else {
                         let Some(target) = target else {
-                            eprintln!("[elf] error: a target is required (S### | P### | path), or use --restore <ID> / `elf deprecate list`");
-                            std::process::exit(2);
+                            // 인수 없음 = 목록(읽기전용). 대상 없이 이동 옵션만 준 경우는 usage 오류.
+                            let bare = trial.is_none()
+                                && section.is_none()
+                                && !marked
+                                && lines.is_none()
+                                && expect.is_none()
+                                && replaced_by.is_none()
+                                && reason.is_none()
+                                && !dry_run;
+                            if !bare {
+                                eprintln!("[elf] error: a target is required (S### | P### | path), or use --restore <ID>");
+                                std::process::exit(2);
+                            }
+                            match deprecate::run_list(&root) {
+                                Ok(rep) => {
+                                    for l in &rep.lines {
+                                        println!("[elf] {l}");
+                                    }
+                                    return;
+                                }
+                                Err(e) => {
+                                    eprintln!("[elf] error: {e:?}");
+                                    std::process::exit(1);
+                                }
+                            }
                         };
                         let lines = match lines.as_deref() {
                             None => None,
@@ -631,9 +693,9 @@ fn main() {
                 }
             }
         }
-        Commands::Validate { check, strict } => {
+        Commands::Validate { check } => {
             let root = log_root_or_exit();
-            match validate::run_validate_opts(&root, strict) {
+            match validate::run_validate(&root) {
                 Ok(report) => {
                     for line in &report.lines {
                         println!("[elf] {line}");
@@ -830,5 +892,65 @@ fn do_self_update() {
             eprintln!("[elf] {e}");
             std::process::exit(1);
         }
+    }
+}
+
+fn scope_of(s: CheckScope) -> check::Scope {
+    match s {
+        CheckScope::Setup => check::Scope::Setup,
+        CheckScope::Files => check::Scope::Files,
+        CheckScope::Logs => check::Scope::Logs,
+    }
+}
+
+/// `elf check` — 세 범위 요약: 범위별 요약 1줄 + 문제와 경고 줄, 마지막에 합계. 반환 = 종료 코드.
+fn print_check_all(cwd: &std::path::Path, env: &doctor::DoctorEnv) -> i32 {
+    let (mut issues, mut warnings, mut escalated) = (0, 0, false);
+    for scope in [check::Scope::Setup, check::Scope::Files, check::Scope::Logs] {
+        let r = check::run_scope(cwd, env, scope);
+        if let Some(why) = &r.skipped {
+            println!("[elf] check {}: skipped — {why}", scope.name());
+            continue;
+        }
+        println!("[elf] check {}: {} issue(s), {} warning(s)", scope.name(), r.issues(), r.warnings());
+        for item in r.items.iter().filter(|i| i.is_finding()) {
+            println!("[elf]   {}", item.render());
+        }
+        if let Some(e) = &r.escalation {
+            println!("[elf]   {e}");
+            escalated = true;
+        }
+        issues += r.issues();
+        warnings += r.warnings();
+    }
+    println!("[elf] check: {issues} issue(s), {warnings} warning(s)");
+    if escalated {
+        5
+    } else if issues > 0 {
+        4
+    } else {
+        0
+    }
+}
+
+/// `elf check <scope>` — 그 범위의 전체 상세. 적용 불가 범위 = 오류(종료 1).
+fn print_check_scope(cwd: &std::path::Path, env: &doctor::DoctorEnv, scope: check::Scope) -> i32 {
+    let r = check::run_scope(cwd, env, scope);
+    if let Some(why) = &r.skipped {
+        eprintln!("[elf] error: check {}: {why}", scope.name());
+        return 1;
+    }
+    for item in &r.items {
+        println!("[elf] {}", item.render());
+    }
+    if let Some(e) = &r.escalation {
+        eprintln!("[elf] {e}");
+        return 5;
+    }
+    println!("[elf] check {}: {} issue(s), {} warning(s)", scope.name(), r.issues(), r.warnings());
+    if r.issues() > 0 {
+        4
+    } else {
+        0
     }
 }

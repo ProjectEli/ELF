@@ -1,4 +1,4 @@
-//! `elf self-update` — 바이너리 자체 갱신 (t06 stage 3, P011 §6.1).
+//! `elf self update` — 바이너리 자체 갱신 (t06 stage 3, P011 §6.1).
 //!
 //! axoupdater **라이브러리 모드**: 별도 updater 바이너리는 파일명 update 키워드로
 //! Windows UAC installer detection(권한 상승 요구)에 걸림 — S007 t04 실측.
@@ -14,7 +14,7 @@ pub fn run_self_update() -> Result<String, String> {
     let mut updater = AxoUpdater::new_for("elf-cli");
     updater.load_receipt().map_err(|e| {
         format!(
-            "install receipt를 찾지 못함 ({e}).\n  self-update는 인스톨러로 설치된 elf에서만 동작합니다. 수동 갱신:\n  {INSTALLER_HINT}"
+            "install receipt를 찾지 못함 ({e}).\n  self update는 인스톨러로 설치된 elf에서만 동작합니다. 수동 갱신:\n  {INSTALLER_HINT}"
         )
     })?;
 
@@ -25,6 +25,6 @@ pub fn run_self_update() -> Result<String, String> {
             env!("CARGO_PKG_VERSION")
         )),
         Ok(None) => Ok(format!("already up to date ({})", env!("CARGO_PKG_VERSION"))),
-        Err(e) => Err(format!("self-update 실패: {e}")),
+        Err(e) => Err(format!("self update 실패: {e}")),
     }
 }

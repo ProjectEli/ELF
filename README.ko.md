@@ -34,7 +34,7 @@ S012  목표: 파장별 SNR 비교
 | Registry | `2_Log/Wiki/Session_Registry.tsv` — 세션마다 1행(상태, 결론 1줄) |
 | Archive | 마감된 로그가 가는 곳(`2_Log/Archive/`). 종료된 유효 기록이며 에이전트도 읽을 수 있습니다 |
 | Deprecated | 폐기한 로그, 블록이 가는 곳(`2_Log/Deprecated/`). 읽을 수 있지만 현재 판단의 근거로는 쓰지 않습니다. `elf deprecate`로 옮기고 되돌립니다. 영구 삭제는 `elf deprecate purge`(experimental, 기본 비활성) |
-| validate | `elf validate` — 로그, Registry, 번호, cross-ref, figure embed, 절 구조의 정합 검사 |
+| check | `elf check` — 설치와 설정, 관리 파일, 로그(Registry, 번호, cross-ref, figure embed, 절 구조)의 읽기 전용 점검 |
 
 ## 핵심 원칙
 
@@ -42,7 +42,7 @@ S012  목표: 파장별 SNR 비교
 |---|---|
 | **Base-Delta** | 기준선은 한 번, 이후엔 바뀐 것만 기록합니다. 변경 하나가 trial, 목표 하나가 session — trial이 session으로, session이 프로젝트의 기록으로 쌓입니다. |
 | **가설이 먼저** | 실행 전에 가설, 예상을 적고 멈춥니다. 그래서 변경 하나가 실험 하나가 됩니다. |
-| **사람은 판단, 에이전트는 기록, 도구는 검증** | 같은 형식으로 쓰기 때문에 서로의 작업을 이어받고, `elf validate`가 누락을 검출합니다. |
+| **사람은 판단, 에이전트는 기록, 도구는 검증** | 같은 형식으로 쓰기 때문에 서로의 작업을 이어받고, `elf check`가 누락을 검출합니다. |
 | **전부 로컬에** | 마크다운과 폴더뿐입니다. 서버도 계정도 없이 git으로 관리하고, ELF 없이도 읽을 수 있습니다. 보안을 위해 에이전트의 공개 링크 게시는 원칙적으로 금지됩니다. |
 
 ## 실사용 장면
@@ -72,11 +72,11 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases
 단일 바이너리가 `~/.elf/bin`에 설치됩니다(Node, Python 불필요). 새 셸에서 `elf --version`으로 확인합니다.
 
 ```bash
-elf init MyProject --preset experimental   # 6_Exp + 7_Paper. 이름 없이 실행하면 현재 폴더에 생성
+elf init MyProject --preset exp   # 6_Exp + 7_Paper. 이름 없이 실행하면 현재 폴더에 생성
 cd MyProject
 ```
 
-`[elf] created MyProject (ELF v2.25.0, preset: experimental, lang: ko-KR)` — 폴더 구조와 함께 `AGENTS.md`(에이전트 공통 진입 규칙 요약), `2_Log/S001_log.md`(첫 세션 stub)가 생깁니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 별도 설정이 없습니다. Claude Code용 파일(`CLAUDE.md` 포인터, 훅 설정)도 함께 생성되며, 다른 에이전트에서는 무시해도 됩니다. 프로젝트 고유 규칙은 `0_Meta/ProjectRule.md`에 적습니다. 영어 응답, 영어 규칙 문서가 필요하면 `--lang en-US`(규칙 정본은 한국어, 영어본은 읽기용 companion).
+`[elf] created MyProject (ELF v2.26.0, preset: exp, lang: ko-KR)` — 폴더 구조와 함께 `AGENTS.md`(에이전트 공통 진입 규칙 요약), `2_Log/S001_log.md`(첫 세션 stub)가 생깁니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 별도 설정이 없습니다. Claude Code용 파일(`CLAUDE.md` 포인터, 훅 설정)도 함께 생성되며, 다른 에이전트에서는 무시해도 됩니다. 프로젝트 고유 규칙은 `0_Meta/ProjectRule.md`에 적습니다. 영어 응답, 영어 규칙 문서가 필요하면 `--lang en-US`(규칙 정본은 한국어, 영어본은 읽기용 companion).
 
 **2-A. 처음부터 — 아이디어 스케치부터 시작**
 
@@ -103,9 +103,9 @@ cd MyProject
 | 단계 | 명령 / 말하는 것 | 기록되는 것 | 사람이 하는 일 |
 |---|---|---|---|
 | 다음 변경 | "광자 수 1e9로 올려서 다시."(A) → `elf trial new "광자 수 1e9"` | `[elf] appended t02 to 2_Log/S001_log.md (S001)` — t02: base = t01, delta + 이유 → 정지 → 실행 → 기록. 직전 결과를 보고 반복합니다 | 실행 결정 |
-| 마감 | `elf validate` → `elf session close` | `[elf] ok: registry, logs, numbering, and cross-refs are consistent` → `[elf] closed S001 → 2_Log/Archive/S001_log.md (Status: Complete, registry updated)` | Registry 결론 1줄 확인 |
+| 마감 | `elf check logs` → `elf session close` | `[elf] check logs: 0 issue(s), 0 warning(s)` → `[elf] closed S001 → 2_Log/Archive/S001_log.md (Status: Complete, registry updated)` | Registry 결론 1줄 확인 |
 
-`elf validate`는 figure 누락, 비정본 절, Registry 불일치를 warning/issue로 보고하고, `elf session close`는 validate를 한 번 더 돌린 뒤 Archive로 옮기고 cross-ref 상대경로를 보정합니다. Handoff에 미완료가 남아 있으면 경고합니다.
+`elf check logs`는 figure 누락, 비정본 절, Registry 불일치를 warning/issue로 보고하고, `elf session close`는 같은 검사를 한 번 더 돌린 뒤 Archive로 옮기고 cross-ref 상대경로를 보정합니다. Handoff에 미완료가 남아 있으면 경고합니다.
 
 에이전트가 남기는 trial은 이런 모습입니다(A의 t02):
 
@@ -145,7 +145,7 @@ cd MyProject
 | Figure | `6_Exp/64_Viz/S001/S001_t02_SNR_ci.png` |
 ```
 
-에이전트 없이: `.elf/managed/templates/trialTemplate.md`를 로그에 붙여 직접 쓰고, `elf trial new`, `elf validate`, `elf session close`는 그대로 씁니다.
+에이전트 없이: `.elf/managed/templates/trialTemplate.md`를 로그에 붙여 직접 쓰고, `elf trial new`, `elf check`, `elf session close`는 그대로 씁니다.
 
 ## 작동 원리
 
@@ -153,8 +153,8 @@ cd MyProject
 |---|---|
 | `AGENTS.md` | 에이전트 진입 규칙 요약 — 같은 turn에 기록, 정본 우선(선례 모방 금지), 컨텍스트 재구성 후 Handoff 재독. 정본은 `.elf/managed/`(EliRule, LogConvention, AI_PARA_Framework), 프로젝트 규칙은 `0_Meta/ProjectRule.md` |
 | 실행 전 정지 | 가설, 예상은 실행 전에 확정합니다(LogConvention §5.1). 에이전트는 자동 실행 모드에서도 이 지점에서 멈춥니다 |
-| `elf validate` | Registry↔로그, 번호, cross-ref, figure embed 누락, trial 절 구조 검사. `session close`가 자동 실행 |
-| `elf autoread` | `elf autoread`(인수 없이) = 규칙 요약, 활성 세션 Handoff, validate 결과를 digest로 출력 — 컨텍스트가 재구성된 뒤 어느 에이전트에게든 다시 읽힙니다. Claude Code에서는 훅(`.claude/settings.json`)이 compaction, 재시작 뒤 첫 프롬프트에 자동 주입합니다(기본 on, `autoread_fulltext`로 규칙 전문 포함 가능) |
+| `elf check` | 설치와 설정(`setup`), 관리 파일(`files`), 로그(`logs`: Registry↔로그, 번호, cross-ref, figure embed 누락, trial 절 구조) 점검. 범위 생략 = 전체, issue 시 exit 4. `session close`가 logs 검사를 자동 실행 |
+| `elf autoread` | `elf autoread`(인수 없이) = 규칙 요약, 활성 세션 Handoff, 로그 점검 결과를 digest로 출력 — 컨텍스트가 재구성된 뒤 어느 에이전트에게든 다시 읽힙니다. Claude Code에서는 훅(`.claude/settings.json`)이 compaction, 재시작 뒤 첫 프롬프트에 자동 주입합니다(기본 on, `autoread_fulltext`로 규칙 전문 포함 가능) |
 | Handoff, Registry | Handoff = "유효 결론; 미완료; 참조" 1줄을 덮어쓰기로 유지, Registry key finding = 세션 결론 1줄 — 재개할 때 읽는 곳 |
 | one writer | 세션 로그 1개의 작성자는 하나(에이전트 또는 사람). 병렬 작업은 에이전트마다 세션을 열고, 관계는 헤더 `관련:`에 적습니다 |
 | Archive, Deprecated | `Archive/`는 종료된 유효 기록(읽기 허용), `Deprecated/`는 폐기한 기록(읽기 허용, 현재 근거 아님) — `AGENTS.md` 규칙. 폐기 여부는 사람이 결정하고 에이전트는 `elf deprecate`로 실행합니다(AI_PARA_Framework) |
@@ -166,27 +166,25 @@ cd MyProject
 
 | 명령 | 역할 |
 |---|---|
-| `elf init [name] [--preset …] [--modules …] [--lang …]` | 프로젝트 생성. 이름 없으면 현재 폴더에 in-place. preset `full`/`experimental`/`software`/`minimal`(실험적: `general`, `qa`) |
-| `elf session new <title>` / `close [S###]` / `fix-headers` | 세션 생성, 마감(validate → Archive 이동 → Registry, cross-ref 보정), 헤더 줄바꿈 수리 |
+| `elf init [name] [--preset …] [--modules …] [--lang …]` | 프로젝트 생성. 이름 없으면 현재 폴더에 in-place. preset `full`, `exp`, `sw`, `minimal`(연구 preset = 이름과 같은 주 모듈 + `paper`; 실험적: `general`, `qa`) |
+| `elf session new <title>` / `close [S###]` / `fix-headers` | 세션 생성, 마감(로그 점검 → Archive 이동 → Registry, cross-ref 보정), 헤더 줄바꿈 수리 |
 | `elf trial new [title]` | 활성 로그에 정본 trial stub 추가(`t##` 자동 번호) |
-| `elf deprecate <대상> [--trial tNN [--section 절]] [--marked] [--lines A-B --expect …]` / `--restore <ID>` / `list` / `purge <ID>` | 로그, 계획 문서의 전체 또는 일부를 `Deprecated/`로 옮기고(원 위치에 이동 표기 1줄) 되돌리며 목록을 봅니다. 산출물은 제자리 |
-| `elf validate [--check] [--strict]` | 정합 검사(읽기 전용). `--check` = issue 시 exit 4, `--strict` = embed 누락, 절 구조 경고도 issue로 |
+| `elf deprecate [대상] [--trial tNN [--section 절]] [--marked] [--lines A-B --expect …]` / `--restore <ID>` / `purge <ID>` | 로그, 계획 문서의 전체 또는 일부를 `Deprecated/`로 옮기고(원 위치에 이동 표기 1줄) 되돌립니다. 인수 없이 실행하면 폐기 목록. 산출물은 제자리 |
 | `elf gallery` | `6_Exp/64_Viz/`의 figure 색인 `_gallery.md` 생성 |
 | `elf autoread [enable\|disable\|status]` | 컨텍스트 재구성 후 규칙 재주입. 인수 없이 실행하면 digest 출력(모든 에이전트 공통); 훅 자동 주입은 Claude Code(기본 on) |
 | `elf update [--dry-run] [--force]` | 관리 파일을 설치된 CLI 버전으로 갱신 — 연구 데이터, 로그, 설정은 건드리지 않음 |
-| `elf status [--check]` | 관리 파일 상태 진단(읽기 전용). `--check` = 발견 시 exit 4 |
-| `elf doctor` | 환경, 프로젝트 종합 점검(읽기 전용) |
-| `elf tsa <sub>` | 선택: 커밋마다 파일 해시 manifest + RFC 3161 타임스탬프로 존재 시점을 증명. 기본 off, 외부로 전송되는 것은 manifest digest 32바이트뿐 |
-| `elf self-update` | `elf` 바이너리 갱신 |
+| `elf check [setup\|files\|logs]` | 읽기 전용 점검(범위 생략 = 세 범위 전체, 문제만 출력). issue 시 exit 4 — 팀, CI 게이트로 사용 |
+| `elf tsa [sub]` | 선택: 커밋마다 파일 해시 manifest + RFC 3161 타임스탬프로 존재 시점을 증명. 기본 off, 외부로 전송되는 것은 manifest digest 32바이트뿐 |
+| `elf self update` | `elf` 바이너리 갱신 |
 
 운영 시나리오:
 
 ```bash
-elf self-update          # 새 버전 반영 ① CLI 갱신
-elf status               # ② 무엇이 바뀌는지 진단
+elf self update          # 새 버전 반영 ① CLI 갱신
+elf check files          # ② 무엇이 바뀌는지 진단
 elf update --dry-run     # ③ 쓰기 없이 미리 보기
 elf update               # ④ 관리 파일만 교체 — "edited: … — kept; new version at ….elf-new"면 내 편집 보존, diff 후 병합(또는 --force로 정본 채택)
-elf status --check       # 팀/CI 게이트 — 발견 시 exit 4 (elf validate --check도 같은 방식)
+elf check                # 팀/CI 게이트 — issue 시 exit 4 (로그만은 elf check logs)
 ```
 
 `.gitignore`는 마커 블록(`# >>> ELF managed >>>` … `# <<< ELF managed <<<`)만 관리하고, 그 밖의 규칙은 보존됩니다.

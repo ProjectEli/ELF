@@ -244,7 +244,7 @@ pub fn hook_states(root: &Path) -> Vec<(String, bool)> {
         .collect()
 }
 
-// ── enable / disable / status / ack ───────────────────────────────────────────
+// ── enable / disable / status / manual ──────────────────────────────────────────
 
 /// `elf autoread enable` — 멱등: ① config `"autoread": true`(.elf에 기록 — 스위치 정본)
 /// ② Claude Code 훅 병합 ③ 안내. 프로젝트 단위(root 기준 — 프로젝트별 독립).
@@ -317,12 +317,29 @@ pub fn run_status(root: &Path) -> Result<AutoreadReport, AutoreadError> {
     Ok(r)
 }
 
-/// `elf autoread ack` — 대기 마커 전체 해제(수동).
-pub fn run_ack(root: &Path) -> Result<AutoreadReport, AutoreadError> {
-    let mut r = AutoreadReport::default();
-    let n = clear_markers(root);
-    r.say(format!("cleared {n} pending marker(s)"));
-    Ok(r)
+/// 현재 Claude Code 세션 ID — Bash, 훅 subprocess에 하네스가 설정(`CLAUDE_CODE_SESSION_ID`, 훅 JSON의
+/// `session_id`와 같음). 없으면 None(사람이 연 터미널, 다른 하네스) → 세션 구분 없는 현행 동작.
+pub fn current_session_id() -> Option<String> {
+    std::env::var("CLAUDE_CODE_SESSION_ID").ok().filter(|s| !s.trim().is_empty())
+}
+
+/// `elf autoread`(인수 없음) — digest 수동 출력 + 대기 마커 해제. digest가 이미 전달되었으므로
+/// 다음 프롬프트의 중복 주입과 배너 반복을 막음(구 `ack` 기능 흡수).
+pub fn run_manual(root: &Path) -> String {
+    run_manual_for(root, current_session_id().as_deref())
+}
+
+/// 세션 ID가 있으면 그 세션의 마커만, 없으면 전체 해제 — 다른 세션의 대기 주입을 지우지 않음(S041 t11).
+pub fn run_manual_for(root: &Path, session_id: Option<&str>) -> String {
+    let mut out = build_digest(root, "manual");
+    let n = match session_id {
+        Some(sid) => usize::from(fs::remove_file(marker_path(root, sid)).is_ok()),
+        None => clear_markers(root),
+    };
+    if n > 0 {
+        out.push_str(&format!("(pending reconstruction marker(s) cleared: {n})\n"));
+    }
+    out
 }
 
 // ── 마커 (`.elf/runtime/autoread/<session_id>`) ────────────────────────────────
@@ -430,15 +447,24 @@ pub fn run_hook(root: &Path, event: &str, stdin_json: &str) -> Option<String> {
     }
 }
 
-/// 배너 — 마커가 하나라도 대기 중이면 1행 반환. main이 (autoread hook, quiet 경로 제외)
+/// 배너 — 대기 마커가 있으면 1행 반환. main이 (autoread hook, quiet 경로 제외)
 /// 모든 명령 출력 선두에 부착: 프롬프트 미경유 경로(auto-compact 직후 연속 작업)의 보조 주입 채널.
 pub fn pending_banner(cwd: &Path) -> Option<String> {
+    pending_banner_for(cwd, current_session_id().as_deref())
+}
+
+/// 세션 ID가 있으면 그 세션의 마커가 있을 때만, 없으면 마커가 하나라도 있을 때 — 다른 세션의 재구성으로
+/// 배너가 뜨지 않게 함(S041 t11).
+pub fn pending_banner_for(cwd: &Path, session_id: Option<&str>) -> Option<String> {
     let root = crate::update::find_project_root(cwd)?;
     if !is_enabled(&root) {
         return None;
     }
-    let n = list_markers(&root).len();
-    if n == 0 {
+    let pending = match session_id {
+        Some(sid) => marker_path(&root, sid).is_file(),
+        None => !list_markers(&root).is_empty(),
+    };
+    if !pending {
         return None;
     }
     Some(
@@ -481,10 +507,10 @@ pub fn build_digest(root: &Path, source: &str) -> String {
 
     if let Ok(rep) = crate::validate::run_validate(root) {
         out.push_str(&format!(
-            "\nvalidate: {} issue(s), {} warning(s){}\n",
+            "\ncheck logs: {} issue(s), {} warning(s){}\n",
             rep.issues,
             rep.warnings,
-            if rep.issues > 0 { " — run `elf validate` and resolve" } else { "" }
+            if rep.issues > 0 { " — run `elf check logs` and resolve" } else { "" }
         ));
     }
 

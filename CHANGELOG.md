@@ -4,6 +4,51 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.26.0] - 2026-10-25
+
+### Changed
+- **Command names without metaphors, and fewer commands in `--help`.** Old names keep working
+  (hidden from help) unless listed under Removed.
+  - **`elf check [setup|files|logs]`** replaces `elf doctor`, `elf status`, and `elf validate`.
+    With no scope it runs all three and prints only problems: one summary line per scope, its
+    issue and warning lines, and a total. `setup` = CLI version, install receipt, git and hooks,
+    autoread, experimental features; `files` = managed files, the `.elf/` record, a leftover
+    `.claudeignore`, language companions, overlays, the `CLAUDE.md` pointer, tsa; `logs` =
+    session logs, registry, figure embeds, trial structure. Exit 4 on issues, 5 when the
+    registry cannot be parsed. A scope that does not apply is skipped, so a folder that keeps
+    `2_Log/` without `.elf/` still gets the logs checks. The old names keep their previous
+    output and exit codes.
+  - **`elf self update`** replaces `elf self-update` (`selfupdate` and `update --self` still work).
+    `elf self` alone prints help.
+  - **`elf tsa`** with no subcommand requests timestamp tokens (replaces `elf tsa stamp`);
+    **`--all`** replaces `--backfill`, matching `elf tsa record --all`.
+  - **`elf deprecate`** with no arguments lists deprecated content (`elf deprecate list` still works).
+  - **`elf autoread`** with no arguments prints the digest as before and now also clears the pending
+    reconstruction marker of the current Claude Code session (all markers outside Claude Code).
+- **autoread banner per session**: the reminder banner after a context reconstruction now appears
+  only in the session that was reconstructed, identified by `CLAUDE_CODE_SESSION_ID` (set by
+  Claude Code for Bash commands and hooks). Other sessions in the same project no longer see it,
+  and running `elf autoread` in one session no longer clears another session's pending digest.
+  Without that variable the previous behavior applies.
+  - **`elf init --preset`**: `experimental` → `exp`, `software` → `sw` (the old values are still
+    accepted). A research preset is the module of the same name plus `paper`. The `--here` help
+    text now says what it is for: initializing the current folder under a given name.
+- **tsa hooks**: `elf update` now rewrites the ELF-owned pre-commit and post-commit hooks to the
+  current commands (`elf tsa record`, `elf tsa`). Hooks written before 2.26 call commands that no
+  longer exist and fail silently (the hooks never block a commit), so run `elf update` right after
+  `elf self update` in projects that use tsa. When `elf update` replaces such hooks it prints the
+  last manifest date and the number of commits after that day; if commits were made in between,
+  run `elf tsa record --all` and `elf tsa --all`. `elf check files` warns about outdated or
+  missing tsa hooks.
+- The managed documents (AGENTS, LogConvention, EliRule, the `CLAUDE.md` pointer; KO and EN) refer
+  to `elf check logs` and `elf check files`. The autoread digest shows `check logs:` counts.
+
+### Removed
+- `elf validate --strict` — figure-embed gaps and trial-structure findings are warnings.
+- `elf autoread ack` — running `elf autoread` clears the pending marker.
+- `elf tsa stamp`, `--backfill`, and `elf tsa record --staged` (staged files remain the default of
+  `elf tsa record`). No aliases; see "tsa hooks" above.
+
 ## [2.25.0] - 2026-10-20
 
 ### Added

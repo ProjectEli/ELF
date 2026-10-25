@@ -899,7 +899,7 @@ fn review_items(
 }
 
 fn scoped_validate_warnings(root: &Path, sid: &str) -> Vec<String> {
-    let Ok(v) = validate::run_validate_opts(root, false) else { return Vec::new() };
+    let Ok(v) = validate::run_validate(root) else { return Vec::new() };
     let by_file = format!("{sid}_log.md");
     let by_id = format!("{sid}:");
     v.lines

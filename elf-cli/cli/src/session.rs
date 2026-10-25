@@ -125,25 +125,25 @@ pub fn next_number(nums: &[u32]) -> u32 {
     nums.iter().copied().max().map_or(1, |m| m + 1)
 }
 
-/// gap, 중복, 로그↔Registry 불일치 경고 (순수, 비차단). 상세 진단은 `elf validate`.
+/// gap, 중복, 로그↔Registry 불일치 경고 (순수, 비차단). 상세 진단은 `elf check logs`.
 pub fn number_warnings(log_nums: &[u32], reg_nums: &[u32]) -> Vec<String> {
     let mut w = Vec::new();
     let logs: BTreeSet<u32> = log_nums.iter().copied().collect();
     let regs: BTreeSet<u32> = reg_nums.iter().copied().collect();
     if logs.len() != log_nums.len() {
-        w.push("duplicate session log file numbers (run `elf validate`)".into());
+        w.push("duplicate session log file numbers (run `elf check logs`)".into());
     }
     for n in logs.difference(&regs) {
-        w.push(format!("S{n:03} log exists but not in registry (run `elf validate`)"));
+        w.push(format!("S{n:03} log exists but not in registry (run `elf check logs`)"));
     }
     for n in regs.difference(&logs) {
-        w.push(format!("S{n:03} in registry but no log file (run `elf validate`)"));
+        w.push(format!("S{n:03} in registry but no log file (run `elf check logs`)"));
     }
     let all: BTreeSet<u32> = logs.union(&regs).copied().collect();
     if let Some(&mx) = all.iter().max() {
         for n in 1..mx {
             if !all.contains(&n) {
-                w.push(format!("gap: S{n:03} missing (run `elf validate`)"));
+                w.push(format!("gap: S{n:03} missing (run `elf check logs`)"));
             }
         }
     }
@@ -222,7 +222,7 @@ pub fn run_session_new(root: &Path, opts: &SessionNewOptions) -> Result<SessionN
     // 세션 번호의 정본 = 로그 파일 index(2_Log/ + Archive/의 S###_log.md). Registry는 부차.
     // Registry 파싱은 번호 할당의 전제조건이 아니다 — 파싱 실패(merge 충돌 마커 등)해도
     // 파일 index로 번호를 낸다(멀티에이전트 Registry 손상 내성, S030). 실패는 경고로 노출하고
-    // 새 행은 raw append(손상부 보존, 데이터 무손실) → `elf validate`로 복구.
+    // 새 행은 raw append(손상부 보존, 데이터 무손실) → `elf check logs`로 복구.
     let log_nums = scan_log_numbers(root);
     let mut warnings = Vec::new();
     let reg_nums: Vec<u32> = match parse_registry(&reg_text) {
@@ -233,7 +233,7 @@ pub fn run_session_new(root: &Path, opts: &SessionNewOptions) -> Result<SessionN
         }
         Err(_) => {
             warnings.push(
-                "registry unparseable (merge conflict?) — numbering from log files only; new row appended as text, run `elf validate` to repair".into(),
+                "registry unparseable (merge conflict?) — numbering from log files only; new row appended as text, run `elf check logs` to repair".into(),
             );
             Vec::new()
         }
@@ -614,7 +614,7 @@ pub fn run_session_close(root: &Path, opts: &CloseOptions) -> Result<CloseResult
     // Archive 이동 후에는 구조 검사 범위에서 빠지므로 close 직전이 마지막 검증 기회.
     // 스코프 필터 = 전역, 타 세션 경고(소급 면제분 포함)가 close 절차에 섞이지 않게 함.
     // validate 자체가 실패(레지스트리 escalation 등)해도 close는 진행 — 그 문제는 별도 명령이 보고.
-    if let Ok(v) = crate::validate::run_validate_opts(root, false) {
+    if let Ok(v) = crate::validate::run_validate(root) {
         // 라인 형식 2종 커버: 구조 경고 = "S###_log.md: …" / figure-embed 경고 = "S###: figure …"
         // — 세션 표지는 (issue:/warn: 접두 뒤) 라인 머리에 옴. **접두 매칭**으로 본문 인용의
         // 오귀속(예: 타 로그의 broken cross-ref 대상 경로에 이 세션 파일명 등장)을 배제.

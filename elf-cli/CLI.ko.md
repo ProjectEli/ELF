@@ -20,7 +20,7 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/ProjectEli/ELF/rel
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.sh | sh
 ```
 
-바이너리가 `~/.elf/bin`에 설치되고 PATH에 등록됩니다. 새 셸을 열어 `elf --version`으로 확인하세요. 도구 자체 갱신은 `elf self-update`(또는 인스톨러 재실행).
+바이너리가 `~/.elf/bin`에 설치되고 PATH에 등록됩니다. 새 셸을 열어 `elf --version`으로 확인하세요. 도구 자체 갱신은 `elf self update`(또는 인스톨러 재실행).
 
 ## 명령 요약
 
@@ -28,18 +28,18 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases
 |------|------|
 | `elf init [이름]` | ELF 프로젝트 생성 (현재 폴더 또는 `./<이름>`) |
 | `elf update` | 현재 프로젝트의 managed 파일 갱신 |
-| `elf status` | managed 파일 drift 진단(읽기전용) |
-| `elf validate` | 세션/Registry/로그 정합 검사(읽기전용) |
+| `elf self update` | `elf` 바이너리 자체 갱신 |
 | `elf session new <제목>` | 다음 세션 로그 생성 + 등록 |
 | `elf session close [S###]` | 활성 세션 종료 → Archive 이동 + Registry 갱신 |
 | `elf session fix-headers` | 세션 로그 헤더 렌더링 보정 |
 | `elf trial new [제목]` | 활성 세션 로그에 정본 trial stub 추가 |
-| `elf deprecate <대상> …` | 세션 로그, 계획 문서의 전체 또는 일부를 `Deprecated/`로 이동, `--restore`, `list` |
+| `elf check [setup\|files\|logs]` | 설치와 설정, 관리 파일, 세션 로그 읽기전용 점검(범위 생략 = 전체, issue 시 exit 4) |
 | `elf gallery` | `6_Exp/64_Viz/`에서 Figure 색인 `_gallery.md` 생성 |
+| `elf tsa [서브]` | 연구 기록 시점인증, **opt-in**: 커밋별 해시 manifest + RFC 3161 토큰(서브명령 없음 = 오늘 토큰 요청) |
 | `elf autoread [서브]` | 컨텍스트 재구성 후 거버넌스 digest — 출력(모든 하네스); Claude Code 훅이 자동 주입(기본 켬) |
-| `elf tsa <sub>` | 연구 기록 시점인증, **opt-in**: 커밋별 해시 manifest + RFC 3161 토큰 |
-| `elf doctor` | 환경+프로젝트 종합 점검(읽기전용) |
-| `elf self-update` | `elf` 바이너리 자체 갱신 |
+| `elf deprecate [대상] …` | 세션 로그, 계획 문서의 전체 또는 일부를 `Deprecated/`로 이동, `--restore`; 인수 없음 = 목록 |
+
+2.26 이전 이름도 동작하며 `--help`에는 표시하지 않습니다: `elf doctor`, `elf status`, `elf validate`(→ `elf check`), `elf self-update`, `elf selfupdate`, `elf update --self`(→ `elf self update`), `elf deprecate list`.
 
 전역 플래그: `elf --version`, `elf --help`, `elf <명령> --help`.
 
@@ -51,11 +51,11 @@ ELF 프로젝트를 생성합니다. **이름을 생략하면 `elf init`은 현�
 
 | 플래그 | 기본값 | 의미 |
 |--------|--------|------|
-| `--here` | off | 이름을 줘도 현재 폴더에 in-place 강제(그 이름을 프로젝트명으로 사용) |
+| `--here` | off | 현재 폴더에 만들면서 이름 지정(`elf init --here <이름>`). 이름을 생략하면 원래 현재 폴더에 생성 |
 | `--yes` | off | in-place 확인 프롬프트 생략(스크립트/CI) |
 | `--dry-run` | off | 계획만 출력, 미기록 |
 | `--force` | off | 기존 파일도 덮어씀(기본은 사용자 것 유지) |
-| `--preset <p>` | `full` | 모듈 세트: `full` / `experimental` / `software` / `minimal`. 실험적 유형: **`qa`**(질문 아카이브, 연구 아님), **`general`**(목표지향 비연구) |
+| `--preset <p>` | `full` | 모듈 세트: `full`(전체 모듈) / `exp`(6_Exp + 7_Paper) / `sw`(5_SW + 7_Paper) / `minimal`(없음) — 연구 preset = 이름과 같은 주 모듈 + `paper`. 2.26 이전 이름(`experimental`, `software`)도 받습니다. 실험적 유형: **`qa`**(질문 아카이브, 연구 아님), **`general`**(목표지향 비연구) |
 | `--modules <목록>` | — | custom 모듈(쉼표): `hw,fab,sw,exp,paper`. `--preset`보다 우선 |
 | `--lang <언어>` | `ko-KR` | AI 에이전트 응답 언어, BCP-47 태그(`.elf/config.json`에 기록). 비한국어 태그(예: `en-US`)면 영어 **companion** 문서도 함께 배포 — 아래 note 참조 |
 
@@ -68,7 +68,7 @@ elf init                              # in-place: 현재 폴더에 ELF 도입
 elf init --here --preset general      # in-place, 목표지향 유형
 elf init . --yes                      # in-place, 프롬프트 없이(스크립트/CI)
 elf init NIRS_Probe                   # 하위폴더: ./NIRS_Probe/ 생성
-elf init NIRS_Probe --preset experimental --lang en-US
+elf init NIRS_Probe --preset exp --lang en-US
 elf init NIRS_Probe --modules hw,sw
 elf init my_questions --preset qa                          # experimental: Q&A bundle 아카이브 (카테고리 0개)
 elf init my_questions --preset qa --categories 일상질문,IT일반질문   # 카테고리 사전 생성
@@ -79,7 +79,7 @@ elf init my_questions --preset qa --categories 일상질문,IT일반질문   # �
 > `--lang`이면 ELF가 영어 **정보용 companion**(`.elf/managed/EliRule.en.md` 등)을 인간 독해용으로 추가
 > 배포하고, 사용자 소유 `README.md`, `ProjectRule.md`는 영어로 scaffold함. companion은 비operative
 > (`NOT OPERATIVE` 표기) — 규칙 커스터마이즈는 companion이 아니라 `ProjectRule.md`에 작성. `elf update`가
-> companion을 동기화, `elf doctor`가 i18n 상태 보고. 현재 영어(`en`)만 제공, 그 외 언어는 한국어 fallback.
+> companion을 동기화, `elf check files`가 i18n 상태 보고. 현재 영어(`en`)만 제공, 그 외 언어는 한국어 fallback.
 
 > **`qa` preset (experimental).** 연구 계층 대신 *질문 아카이브* 유형을 스캐폴드: 루트 `AGENTS.md`(운영 규칙 정본) + `CLAUDE.md`(로드용 포인터) + `templates/bundle_template.md` + `.elf/`. **기본은 카테고리 0개** — `CLAUDE.md` 규약대로 수요 기반 생성, 또는 `--categories a,b,c`로 사전 생성(각 `archive/` 동반). Q&A를 의미 단위 **bundle**로 기록(session/trial/figure 아님). `.elf/` 제어 영역 공유 + 자체 manifest(`manifest.qa.json`) → `elf update`로 규칙 전파. 연구 preset과 분리, 정비 중이라 변경 가능.
 
@@ -93,7 +93,6 @@ elf init my_questions --preset qa --categories 일상질문,IT일반질문   # �
 |--------|------|
 | `--dry-run` | 변경 없이 작업 목록만 출력 |
 | `--force` | 사용자 편집 managed 덮어쓰기 / hybrid 블록 교체 |
-| `--self` | 프로젝트가 아니라 `elf` 바이너리 자체 갱신(self-update의 alias) |
 
 파일 종류별 동작 → [파일 소유권](#파일-소유권) 참조.
 
@@ -104,7 +103,7 @@ elf init my_questions --preset qa --categories 일상질문,IT일반질문   # �
 고칠 때까지 `elf update`가 실행을 거부합니다 — 잘못된 정본 세트로 프로젝트가 갱신되는 것을 막는 보호입니다.
 
 ```bash
-elf status            # 무엇이 바뀔지 확인
+elf check files       # 무엇이 바뀔지 확인
 elf update --dry-run  # 작업 미리보기
 elf update            # 적용(기본 안전)
 ```
@@ -114,26 +113,28 @@ elf update            # 적용(기본 안전)
 > Releases 페이지에서 **v2.15.1** 설치 → 그 버전으로 `elf update` → `elf migrate` → 이후 최신 CLI로 복귀.
 > 상세: [CHANGELOG.md](../CHANGELOG.md)의 2.16.0 항목.
 
-### `elf status [--check]`
+### `elf check [setup|files|logs]`
 
-관리 파일 상태 진단(읽기전용). 각 파일을 `ok` / `outdated` / `missing` / `edited`로 보고하고, 버전 불일치, obsolete 항목도 표시. 보고 첫머리에 프로젝트의 `preset:` 라인(연구/qa/general — `elf update`와 동일 해석)을 표시하며, `config.json`↔stamp 모순은 경고로 보고하고 진단은 stamp 기준으로 계속합니다.
+세 범위의 읽기전용 점검. 범위를 생략하면 세 범위를 모두 실행하고 문제만 출력합니다 — 범위별 요약 1줄, 그 아래 issue와 warning 줄, 마지막에 합계. 범위를 지정하면 그 범위의 모든 항목을 `ok` / `info` / `warn` / `issue`로 출력합니다. 네트워크를 쓰지 않습니다.
 
-- `--check`: 발견 시 exit **4** — pre-commit 훅, CI 게이트로 사용.
+| 범위 | 검사 |
+|---|---|
+| `setup` | `elf` 버전과 install receipt(`elf self update` 가능 여부), git 저장소와 `pre-commit` 훅, autoread 상태와 `autoread_fulltext` 선언, `.elf/config.json`에서 켠 experimental 기능 |
+| `files` | `.elf/` stamp, version, baseline; 관리 파일별 `ok` / `outdated` / `missing` / `edited`(프로젝트의 `preset:` 줄 다음. `config.json`↔stamp 모순은 경고, 진단은 stamp 기준); 루트에 남은 `.claudeignore`(Claude Code에서 효과 없음, v2.24부터 ELF가 관리하지 않음 — 삭제 가능); 언어 companion; data overlay(`0_Meta/<이름>.project.md`: 제외 사유 누락, 비허용 대상 overlay); `CLAUDE.md` → `@AGENTS.md` 포인터, 포인터의 과다 내용, `*.elf-new` 대기 파일; tsa를 켠 경우(미제출 manifest, 훅 상태, GPG 서명, `openssl`) |
+| `logs` | 세션 기록 정합, 아래 |
 
-### `elf validate [--check] [--strict]`
+**`logs` 상세**: Registry ↔ 로그 파일(미등록 로그 / 로그 없는 Registry 행 — `2_Log/`, `Archive/`, `Deprecated/` 세 위치 대상), 세션 번호(중복 / gap), 활성 세션 복수, 로그 내 깨진 상대 `.md` cross-ref, **figure-embed 누락**(`6_Exp/64_Viz/S###/`에 그림이 있으나 해당 세션 로그 본문에 인라인 임베딩 안 됨 — 표에 경로만 기재한 것은 embed 아님; `Deprecated/S###_log.partial.md`로 옮긴 블록의 embed는 그 세션의 embed로 셈), **trial 구조**(활성 로그의 비정본 `###` 헤딩, 절 순서, `### 해석` 첫 줄 `예상 일치 정도` 규칙(이전 `가설 적중 여부` 줄도 인식), `### 관찰` 존재 시 Phase 1 절 누락). 구조 검사는 `Archive/` 제외(소급 정책 — 신규 작성분부터) + 형식의 안정 코어만 대상(내용 품질은 기계 검사 안 함).
 
-세션 기록(Registry, 로그) 정합을 검사(읽기전용): Registry ↔ 로그 파일(미등록 로그 / 로그 없는 Registry 행 — `2_Log/`, `Archive/`, `Deprecated/` 세 위치 대상), 세션 번호(중복 / gap), 활성 세션 복수, 로그 내 깨진 상대 `.md` cross-ref, **figure-embed 누락**(`6_Exp/64_Viz/S###/`에 그림이 있으나 해당 세션 로그 본문에 인라인 임베딩 안 됨 — 표에 경로만 기재한 것은 embed 아님; `Deprecated/S###_log.partial.md`로 옮긴 블록의 embed는 그 세션의 embed로 셈), **trial 구조**(활성 로그의 비정본 `###` 헤딩, 절 순서, `### 해석` 첫 줄 `예상 일치 정도` 규칙(이전 `가설 적중 여부` 줄도 인식), `### 관찰` 존재 시 Phase 1 절 누락). 구조 검사는 `Archive/` 제외(소급 정책 — 신규 작성분부터) + 형식의 안정 코어만 대상(내용 품질은 기계 검사 안 함).
-
-- **issue**(Registry/로그 불일치, 번호 중복, 깨진 링크) vs **warning**(번호 gap, 활성 복수, figure-embed 누락, trial 구조) — issue만 게이트.
-- `--check`: issue 발견 시 exit **4** — pre-commit/CI 게이트.
-- `--strict`: figure-embed 누락, trial 구조 발견을 warning→issue로 승격(→ `--check`가 게이트).
+- **issue** vs **warning**: issue = Registry/로그 불일치, 번호 중복, 깨진 링크, `elf update`를 기다리는 관리 파일(`outdated`, `missing`)과 사용자가 편집한 관리 파일(`edited`, 마커 부재). 그 외(번호 gap, 활성 세션 복수, figure-embed 누락, trial 구조, 버전 불일치, overlay 형식, 훅 상태)는 warning.
+- 종료 코드: issue가 있으면 **4**(pre-commit 훅, CI 게이트로 사용), warning만 있으면 **0**, Registry 파싱 불가면 **5**(escalation — "문제 발견"과 "검사 불능"을 구분).
+- 적용되지 않는 범위는 건너뜀: `.elf/`가 없으면(ELF 프로젝트 밖, `2_Log/`만 쓰는 폴더) `files`는 건너뛰고 `logs`는 실행. 적용되지 않는 범위를 직접 지정하면 exit **1**.
 - 의도적 비임베딩(SI, 본문에 넣지 않는 figure)은 로그에 `<!-- noembed: filename.png -->` 주석으로 제외.
-- Registry 자체가 파싱 불가면 exit **5**(escalation) — "문제 발견"과 "검사 불능"을 구분.
+- 2.26 이전 이름도 동작합니다(`--help`에는 표시하지 않음, 기존 출력과 종료 코드 유지): `elf doctor`(setup, files 항목), `elf status [--check]`(관리 파일), `elf validate [--check]`(logs). `validate --strict`는 2.26에서 삭제 — figure-embed 누락과 trial 구조 발견은 warning.
 
 ```bash
-elf validate                   # 보고 (figure-embed 누락은 warning)
-elf validate --check            # issue 시 exit 4 (CI 게이트)
-elf validate --check --strict   # figure-embed 누락도 게이트
+elf check          # 전체 범위, 문제만
+elf check logs     # 세션 로그 상세 — figure 생성 trial 직후, 세션 종료 전
+elf check files    # 관리 파일 상세 — `elf update`가 바꿀 내용
 ```
 
 ### `elf session new <제목>`
@@ -152,7 +153,7 @@ elf session new "Wavelength Optimization"
 
 세션을 종료합니다: 헤더 `Status`를 `Complete`로, 로그를 `2_Log/Archive/`로 이동(파일명 그대로 — 폴더 위치가 곧 상태), Registry 행 갱신, 로그 안 상대 링크 재계산(`../`로 시작하는 링크와 `Wiki/`, `Archive/`, `Deprecated/`로 시작하는 링크). id 생략 시 유일한 활성 세션을 자동 선택하며, 활성 세션이 여럿이면 목록을 보여주고 하나를 지정하도록 요구합니다.
 
-Archive 이동 전에 `elf validate`를 자동 실행하여 **닫는 세션 스코프의 발견**(figure 미embed, trial 구조 경고)을 보고합니다 — 비차단이지만, 로그가 `Archive/`로 이동해 활성 구조 검사 범위를 벗어나기 전 마지막 확인 지점입니다.
+Archive 이동 전에 `elf check logs` 검사를 자동 실행하여 **닫는 세션 스코프의 발견**(figure 미embed, trial 구조 경고)을 보고합니다 — 비차단이지만, 로그가 `Archive/`로 이동해 활성 구조 검사 범위를 벗어나기 전 마지막 확인 지점입니다.
 
 | 플래그 | 의미 |
 |------|------|
@@ -184,7 +185,7 @@ elf trial new --session S007     # 활성 복수 — 대상 지정
 
 명령이 존재하는 이유: 에이전트(와 사람)는 직전 trial의 모양을 모방합니다. `elf trial new`는 모방 대상을 정본으로 유지합니다 — stub이 항상 *설치된* 템플릿 버전에서 나오므로, drift된 선례가 전파되지 않습니다. 오류: 활성 세션 없음 → exit 1(`elf session new`로 시작); `--session` 없이 활성 복수 → exit 1 + 목록 안내.
 
-### `elf deprecate <대상> [단위] [옵션]`, `--restore <ID>`, `list`, `purge <ID>`
+### `elf deprecate [대상] [단위] [옵션]`, `--restore <ID>`, `purge <ID>`
 
 세션 로그, 계획 문서의 전체 또는 일부를 **폐기** 상태로 옮깁니다 — 삭제가 아니라 같은 폴더의 `Deprecated/`(대기 영역)로 이동. 읽을 수 있으나 현재 판단의 근거로 쓰지 않는 기록입니다. 폐기 여부는 사용자가 결정하고, 에이전트는 지시, 승인 후 실행합니다(`AGENTS.md`). 산출물(스크립트, 데이터, figure)은 제자리에 두고 문서만 옮깁니다. 영구 삭제는 그 뒤 `purge`(experimental, 기본 비활성)로 사용자가 결정합니다.
 
@@ -198,8 +199,8 @@ elf trial new --session S007     # 활성 복수 — 대상 지정
 | `--replaced-by <값>`, `--reason <값>` | 표기 줄, YAML에 기록 |
 | `--dry-run` | 변경 없이 출력만 |
 | `--restore <ID>` | 블록(`S012-D01`) 또는 문서(`S012`, `P007`, 경로)를 원 위치로 되돌림. 복원 뒤 그 문서 범위의 validate, 링크 확인 결과를 경고로 출력(거부하지 않음) |
-| `list` | `2_Log/Deprecated/`, `1_Concept/12_Planning/Deprecated/`를 순회해 문서, 블록 목록과 이동 표기↔블록 불일치를 보고 |
-| `purge <ID> [--dry-run]` | **experimental, 기본 비활성**: `Deprecated/`의 블록(`S012-D01`) 또는 문서(`S012`, `P007`)를 영구 삭제. 블록은 부분 파일에서 지우고 원 위치 표기를 `> **Deprecated** → purged (ID · 단위 · 날짜 · purged: 날짜)`로 바꿈(번호 보존, ID 재사용 없음), 문서는 파일을 지우고 Registry Status를 `Purged`로. `--restore`는 거부, 복구는 git 이력. 활성 = `.elf/config.json`에 `"experimental": ["deprecate_purge"]`(사용자가 직접 편집, `elf doctor`가 Info로 표시) |
+| *(인수 없음)* | 폐기 목록. 실행할 때마다 `2_Log/Deprecated/`, `1_Concept/12_Planning/Deprecated/`를 읽어 만듦(목록 파일은 두지 않음): 문서, 블록마다 1줄(ID, 날짜, 단위, replaced_by, reason, 위치), purge된 블록, 합계, 이동 표기↔블록 불일치는 `warn:` 줄. 문서 전체를 `purge`하면 목록에 나오지 않음(purge한 세션 로그는 Registry에 `Purged`로 남음). 이전 형식 `elf deprecate list`도 동작 |
+| `purge <ID> [--dry-run]` | **experimental, 기본 비활성**: `Deprecated/`의 블록(`S012-D01`) 또는 문서(`S012`, `P007`)를 영구 삭제. 블록은 부분 파일에서 지우고 원 위치 표기를 `> **Deprecated** → purged (ID · 단위 · 날짜 · purged: 날짜)`로 바꿈(번호 보존, ID 재사용 없음), 문서는 파일을 지우고 Registry Status를 `Purged`로. `--restore`는 거부, 복구는 git 이력. 활성 = `.elf/config.json`에 `"experimental": ["deprecate_purge"]`(사용자가 직접 편집, `elf check setup`이 Info로 표시) |
 
 - 부분 파일: 블록마다 `## tNN:` 헤딩 사본 + `> **Deprecated**: 날짜 · ID · 단위 …` 1줄 + 원문(`<!-- deprecated:begin ID -->` … `<!-- deprecated:end ID -->`). 옮긴 내용의 상대 링크(figure 포함)는 폴더 기준으로 다시 계산되어 미리보기에서 그대로 보입니다. ID = `S012-D01`처럼 문서별 일련번호.
 - 원 위치 이동 표기: `> **Deprecated** → [Deprecated/S012_log.partial.md](Deprecated/S012_log.partial.md) (S012-D01 · t03 · 2026-10-08 · replaced_by: S015 t02)`. 세션 종료 시 `elf session close`가 이 링크를 Archive 기준으로 재계산합니다.
@@ -215,7 +216,7 @@ elf deprecate S012 --trial t03 --replaced-by "S015 t02" --reason "측정 조건 
 elf deprecate S014 --reason "조건 설정 오류"      # 세션 전체 → 2_Log/Deprecated/S014_log.md, Registry Status Deprecated
 elf deprecate P007 --marked --reason "범위 축소"   # 계획 문서의 표시 블록
 elf deprecate --restore S012-D01                  # 블록 복원
-elf deprecate list
+elf deprecate                                     # 폐기 목록
 elf deprecate purge S012-D01                      # experimental, 기본 비활성 — config experimental 배열에 deprecate_purge가 있을 때만
 ```
 
@@ -230,19 +231,18 @@ elf gallery
 
 ### `elf autoread [서브명령]`
 
-컨텍스트 재구성 후 거버넌스 재주입. AI 코딩 세션의 컨텍스트가 compaction, 재개, 초기화되면 에이전트는 손실된 요약에서 이어가고, 프로젝트 규칙은 컨텍스트에서 누락됩니다. `elf autoread`는 이를 되돌리는 **digest**를 출력합니다 — `AGENTS.md`의 상시 의무 절, 활성 세션 헤더(Handoff, 절단), 현재 `elf validate` 집계, 그리고 요약이 아니라 규칙 전문에 따라 행동하라는 마무리 지시. 서브명령 없이 실행하면 digest를 stdout으로 출력합니다 — 어떤 에이전트 하네스에서도 쓸 수 있습니다(다음 프롬프트에 붙여 넣거나 파이프).
+컨텍스트 재구성 후 거버넌스 재주입. AI 코딩 세션의 컨텍스트가 compaction, 재개, 초기화되면 에이전트는 손실된 요약에서 이어가고, 프로젝트 규칙은 컨텍스트에서 누락됩니다. `elf autoread`는 이를 되돌리는 **digest**를 출력합니다 — `AGENTS.md`의 상시 의무 절, 활성 세션 헤더(Handoff, 절단), 현재 `elf check logs` 집계, 그리고 요약이 아니라 규칙 전문에 따라 행동하라는 마무리 지시. 서브명령 없이 실행하면 digest를 stdout으로 출력합니다 — 어떤 에이전트 하네스에서도 쓸 수 있습니다(다음 프롬프트에 붙여 넣거나 파이프).
 
-**Claude Code 연동(자동).** `elf init`, `elf update`가 `.claude/settings.json`에 최소 훅 항목 2개를 유지합니다(파일은 미추적, 병합 시 다른 설정은 보존): `SessionStart` 훅이 `.elf/runtime/`에 세션 단위 마커를 기록하고(이 시점엔 주입 없음), `UserPromptSubmit` 훅이 다음 프롬프트에 digest를 주입합니다. 그 프롬프트가 오기 전까지는 모든 `elf` 명령이 1줄 리마인더 배너를 출력합니다(대체 채널). 훅 경로는 엄격히 fail-open — 내부 오류는 exit 0, 무출력으로 끝나며 세션을 막지 않습니다. `.gitignore` 관리 블록이 `.elf/runtime/`을 제외합니다.
+**Claude Code 연동(자동).** `elf init`, `elf update`가 `.claude/settings.json`에 최소 훅 항목 2개를 유지합니다(파일은 미추적, 병합 시 다른 설정은 보존): `SessionStart` 훅이 `.elf/runtime/`에 세션 단위 마커를 기록하고(이 시점엔 주입 없음), `UserPromptSubmit` 훅이 다음 프롬프트에 digest를 주입합니다. 그 프롬프트가 오기 전까지는 그 세션에서 실행한 모든 `elf` 명령이 1줄 리마인더 배너를 출력합니다(대체 채널. 세션은 Claude Code가 Bash 명령과 훅에 설정하는 `CLAUDE_CODE_SESSION_ID`로 구분 — 같은 프로젝트의 다른 세션에는 영향 없음). 훅 경로는 엄격히 fail-open — 내부 오류는 exit 0, 무출력으로 끝나며 세션을 막지 않습니다. `.gitignore` 관리 블록이 `.elf/runtime/`을 제외합니다.
 
 | 서브명령 | 효과 |
 |---|---|
-| *(없음)* | digest 출력(모든 하네스) |
+| *(없음)* | digest 출력(모든 하네스), 현재 Claude Code 세션의 대기 마커 해제(Claude Code 밖에서는 전체 해제) |
 | `enable` | `.elf/config.json`에 `"autoread": true` + Claude Code 훅 항목 — 멱등, 프로젝트 단위. 키가 없으면 켬 |
 | `disable` | `"autoread": false` — 훅 항목은 남되 no-op |
 | `status` | config, 훅 설치 상태, `autoread_fulltext` 선언(ok / missing / unsafe), 대기 마커 — 읽기전용 |
-| `ack` | 대기 중인 재구성 마커를 수동 해제 |
 
-**`autoread_fulltext`(opt-in).** `.elf/config.json`의 `autoread_fulltext` 배열에 루트 기준 상대경로(예: 로그 규약)를 적으면, 재구성 후 digest가 그 파일들을 원문 그대로 포함해 요약된 규칙이 확실히 컨텍스트로 돌아옵니다. 프로젝트 트리를 벗어나는 경로는 거부, 파일당 24k자 상한(초과 시 안내와 함께 절단), 없거나 안전하지 않은 항목은 1줄 안내로 대체됩니다. 스위치(`autoread`)와 목록은 별개 키입니다. `elf doctor`가 autoread 상태를 보고하고, 가리키는 곳이 없는 선언을 경고합니다.
+**`autoread_fulltext`(opt-in).** `.elf/config.json`의 `autoread_fulltext` 배열에 루트 기준 상대경로(예: 로그 규약)를 적으면, 재구성 후 digest가 그 파일들을 원문 그대로 포함해 요약된 규칙이 확실히 컨텍스트로 돌아옵니다. 프로젝트 트리를 벗어나는 경로는 거부, 파일당 24k자 상한(초과 시 안내와 함께 절단), 없거나 안전하지 않은 항목은 1줄 안내로 대체됩니다. 스위치(`autoread`)와 목록은 별개 키입니다. `elf check setup`이 autoread 상태를 보고하고, 가리키는 곳이 없는 선언을 경고합니다.
 
 ```bash
 elf autoread              # 지금 digest 출력
@@ -252,54 +252,35 @@ elf autoread disable      # 프로젝트 단위 끔 (훅은 no-op으로 잔존)
 
 > 2.19 미만의 `elf` 바이너리로 설치된 훅을 실행하지 마세요: 알 수 없는 서브명령에 exit 2를 반환하고, Claude Code는 이를 프롬프트 제출 시 차단 훅 오류로 처리합니다. 일반 설치, 갱신은 영향 없음 — 훅 설치 후 `elf`를 다운그레이드하는 경우만 피하면 됩니다.
 
-### `elf tsa <서브명령>` (opt-in)
+### `elf tsa [서브명령]` (opt-in)
 
 연구 기록 시점인증 — "이 내용이 이 시점에 존재했음"의 증명. 켜두면 커밋마다 파일 해시가 일일 manifest(`0_Meta/tsa/YYYY-MM-DD_manifest.json`, pre-commit 훅)에 기록되고, 당일 첫 커밋이 TSA에 RFC 3161 시점토큰을 요청해 `.tsr`로 저장합니다(post-commit 훅). 기본 off — enable 전에는 아무것도 실행되지 않으며, 필요 없는 연구자는 무시해도 됩니다.
 
-**프라이버시**: 외부로 나가는 것은 manifest 파일의 sha256 해시 32바이트 1건뿐 — 파일 내용, 파일명은 전송되지 않습니다. **저작자 계층**(GPG 커밋 서명)은 이 명령이 아니라 git 소유(선택 사항) — `elf tsa enable`과 `elf doctor`가 설정 방법을 안내합니다.
+**프라이버시**: 외부로 나가는 것은 manifest 파일의 sha256 해시 32바이트 1건뿐 — 파일 내용, 파일명은 전송되지 않습니다. **저작자 계층**(GPG 커밋 서명)은 이 명령이 아니라 git 소유(선택 사항) — `elf tsa enable`과 `elf check files`가 설정 방법을 안내합니다.
 
 | 서브명령 | 효과 |
 |---|---|
+| *(없음)* `[--all] [--quiet]` | 미제출 manifest에 시점 토큰 요청(기본 당일만; `--all` = 토큰 없는 manifest 전부 — 오프라인 커밋 소급 보충). post-commit 훅이 호출. granted가 아닌 응답은 증거로 저장하지 않음 |
 | `enable` | 멱등 설치: `.elf/config.json`에 `"tsa": true`, `0_Meta/tsa/` 생성, 훅 2종 **비파괴** 설치(기존 타 훅은 건드리지 않고 수동 추가 줄 안내), GPG 안내 출력, 이어서 **baseline 기록**(추적 전체 기록+stamp). 과거 시점의 소급 증명은 원리적으로 불가 — baseline은 "도입 시점까지 존재했음"의 기준선 |
 | `disable` | config off + elf 마커 훅만 제거(타 훅 보존). **`0_Meta/tsa/` 증거는 절대 삭제하지 않음** — 재enable 시 이어서 누적 |
 | `status` | 활성 상태, 훅 소유, 증거 수, 미제출 manifest(읽기전용) |
-| `record --staged\|--all [--quiet]` | staged(훅 경로) 또는 추적 전체(baseline)를 당일 manifest에 해시 기록 — 원시 바이트 sha256, 중복 skip; manifest 자신은 auto-stage(같은 커밋에 포함) |
-| `stamp [--backfill] [--quiet]` | 미제출 manifest에 토큰 요청(기본 당일만; `--backfill` = 전체 — 오프라인 커밋 소급 보충). granted가 아닌 응답은 증거로 저장하지 않음 |
+| `record [--all] [--quiet]` | staged 파일(기본, pre-commit 훅 경로) 또는 추적 전체(`--all`, baseline)를 당일 manifest에 해시 기록 — 원시 바이트 sha256, 중복 skip; manifest 자신은 auto-stage(같은 커밋에 포함) |
 | `verify <파일>` | 파일의 현재 sha256을 전체 manifest에서 탐색 — "이 내용이 언제 존재했나" |
 | `verify --date <D>` | manifest↔토큰 경량 검증(granted, messageImprint 대조, genTime) + 엄밀 서명 체인 검증용 `openssl ts -verify` 명령 안내(드문 경로 — 분쟁, 감사) |
 
-기본값: DigiCert 무료 공개 TSA(`http://timestamp.digicert.com`, 계정, 크리덴셜 불요; `.elf/config.json`의 `"tsaUrl"`로 교체). git 필수 — 커밋이 기록 단위. 훅은 커밋을 절대 막지 않음(stamp는 백그라운드, 실패분은 `--backfill`로). `stamp` 외 전부 오프라인 동작.
+기본값: DigiCert 무료 공개 TSA(`http://timestamp.digicert.com`, 계정, 크리덴셜 불요; `.elf/config.json`의 `"tsaUrl"`로 교체). git 필수 — 커밋이 기록 단위. 훅은 커밋을 절대 막지 않음(토큰 요청은 백그라운드, 실패분은 나중에 `elf tsa --all`로 보충). 토큰 요청 외 전부 오프라인 동작. `elf update`는 ELF 소유 tsa 훅을 현재 명령으로 다시 씁니다 — 2.26 이전에 설치된 훅을 바꿀 때는 마지막 manifest 날짜와 그 뒤 커밋 수를 출력해, 각 프로젝트가 `elf tsa record --all`, `elf tsa --all` 실행 여부를 판단하게 합니다.
 
 ```bash
 elf tsa enable            # 프로젝트당 1회 — 이후 훅+baseline
 git commit …              # 기록, 시점인증 자동
 elf tsa verify paper.md   # 이 내용의 존재 이력
-elf tsa stamp --backfill  # 오프라인 기간 후 소급
+elf tsa --all             # 오프라인 기간 후 소급
 elf tsa disable           # 기록 중지; 증거는 잔존
 ```
 
-### `elf self-update`
+### `elf self update`
 
-`elf` 바이너리 자체를 최신 릴리즈로 갱신합니다. 인스톨러로 설치된 경우 동작(install receipt 사용), 아니면 인스톨러 명령을 안내. `elf update --self`로도 호출 가능.
-
-### `elf doctor`
-
-종합 점검(읽기전용). 각 항목을 `OK` / `WARN` / `INFO`로 보고:
-
-- **환경** — `elf` 버전, install receipt 유무(self-update 가능 여부)
-- **프로젝트**(프로젝트 내일 때) — `.elf/` stamp 파싱, version이 CLI와 일치, baseline 존재
-- **managed 파일** — `elf status` 요약(pending / conflict)
-- **`.claudeignore`** — 루트에 있으면 안내(Claude Code에서 효과 없음, v2.24부터 ELF가 배포, 관리하지 않음 — 삭제 가능)
-- **overlay** — 활성 data overlay(`0_Meta/<이름>.project.md`), 제외 사유 누락, 비허용 대상 overlay
-- **agent entry** — `CLAUDE.md`가 `@AGENTS.md`를 로드하는지(포인터 줄 부재 시 경고 — Claude Code가 규칙을 로드하지 못함), 포인터에 과다 콘텐츠, `AGENTS.md.elf-new`/`CLAUDE.md.elf-new` 대기 여부
-- **tsa**(enable된 경우만) — 미제출 manifest, GPG 서명 상태, `openssl` 존재(엄밀 체인 검증에만 필요)
-- **git** — 저장소, `pre-commit` 훅 존재
-
-프로젝트 밖에서도 동작(환경 검사만). 네트워크를 쓰지 않으며 항상 exit **0**.
-
-```bash
-elf doctor
-```
+`elf` 바이너리 자체를 최신 릴리즈로 갱신합니다. 인스톨러로 설치된 경우 동작(install receipt 사용), 아니면 인스톨러 명령을 안내. `elf self`만 실행하면 help를 보여 주므로 실수로 바이너리가 교체되지 않습니다. 이전 형식 `elf self-update`, `elf selfupdate`, `elf update --self`도 동작합니다.
 
 ## Exit code
 
@@ -309,7 +290,7 @@ elf doctor
 | 1 | 실행 오류(I/O, ELF 프로젝트 아님 등) |
 | 2 | usage 오류(잘못된 플래그, 인자) |
 | 3 | 거부(예: 대상이 이미 존재) |
-| 4 | `--check` 발견 있음(게이트 신호, 실제 오류와 구분) |
+| 4 | `elf check` issue 발견(이전 이름 `status`, `validate`의 `--check` 포함) — 게이트 신호, 실제 오류와 구분 |
 | 5 | **escalation** — 사람/에이전트 판단 필요(아래 참조) |
 
 ## Escalation (exit 5)
@@ -335,7 +316,7 @@ agent-action: fix the line to match the schema, then re-run (this tool will not 
 | **Managed** | `.elf/managed/`(`EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`, companion), 루트 `.editorconfig`, `AGENTS.md` | 새 버전으로 교체. 편집한 경우 **보존**하고 새 버전을 `<파일>.elf-new`로 생성(`--force`로 덮어쓰기) |
 | **사용자 소유** | `0_Meta/`(`ProjectRule.md`, `<이름>.project.md` overlay), `Session_Registry.tsv`, `README.md`, 모든 연구 데이터, 로그 | **절대 미접근** |
 | **Hybrid** | `.gitignore` | 마커 블록(`# >>> ELF managed >>>` … `# <<< ELF managed <<<`)만 교체, 블록 밖 사용자 규칙은 보존 |
-| **Pointer** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(`.elf-new` 병기도 없음) — 수제 `CLAUDE.md`는 온전히 사용자 것. ELF 규칙 로드는 `@AGENTS.md` 1줄을 직접 추가; 연결 여부는 `elf doctor`가 점검 |
+| **Pointer** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(`.elf-new` 병기도 없음) — 수제 `CLAUDE.md`는 온전히 사용자 것. ELF 규칙 로드는 `@AGENTS.md` 1줄을 직접 추가; 연결 여부는 `elf check files`가 점검 |
 
 프로젝트 규칙은 managed 파일을 고치는 대신 `ProjectRule.md`(사용자 소유)에 작성하세요 — 그러면 update 충돌이 없습니다. data 파일(`LLMcliche.md`, `highIFjournals.md`)의 항목 추가, 제외, 재정의는 **project overlay** `0_Meta/<이름>.project.md`로 선언합니다(사용자 소유; 유효 규칙 = base ⊕ overlay; 제외는 사유 필수 — EliRule §2.7).
 
