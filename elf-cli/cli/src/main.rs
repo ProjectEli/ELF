@@ -31,7 +31,7 @@ enum Commands {
         /// 기존 파일도 덮어씀 / overwrite existing files
         #[arg(long)]
         force: bool,
-        /// preset: full | exp | sw | minimal | qa | general — 연구 preset = 이름과 같은 주 모듈 + paper (full = 전체, minimal = 없음); qa, general = 실험적 유형 / research presets = the module of the same name + paper; qa, general are experimental project types
+        /// preset: full | exp | sw | minimal | qa — 연구 preset = 이름과 같은 주 모듈 + paper (full = 전체, minimal = 없음); qa = 질문 아카이브 / research presets = the module of the same name + paper; qa = question archive
         #[arg(long, default_value = "full", conflicts_with = "modules")]
         preset: String,
         /// custom 모듈 선택 / custom modules (쉼표 구분: hw,fab,sw,exp,paper) — preset 대신

@@ -4,6 +4,30 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.27.0] - 2026-10-25
+
+### Changed
+- **`qa` is a regular preset** (no longer experimental). A qa project now has
+  `0_Meta/ProjectRule.md`, a file you own (never touched by `elf update`) for project rules and
+  egress relaxations; it overrides `AGENTS.md` on conflict. The qa `AGENTS.md` says so, and egress
+  relaxations are declared there (otherwise decided case by case). The qa `README.md` template now
+  names `AGENTS.md` as the canonical rules (`CLAUDE.md` is the loader pointer). Existing qa projects
+  get the new `AGENTS.md` through `elf update`; `README.md` and `ProjectRule.md` are created only by
+  `elf init`, so add `0_Meta/ProjectRule.md` by hand if you want one.
+- **Tier name `seed` → `user`** in the manifests (files you own: `0_Meta/ProjectRule.md`,
+  `README.md`, the registry). `elf check files` and `elf update` print `user:` lines. Existing
+  project stamps with `seed` are still read.
+- **`elf check logs` warns about unfilled trial templates**: a trial whose title is still
+  `[작업 제목]`, or whose Phase 1 section (목표, 조건, 가설, 예상) still holds only the template text.
+  Phase 2 sections are not checked (they stay as template text until Phase 2), and `Archive/` is
+  exempt.
+
+### Removed
+- **The `general` preset** — `minimal` covers the same use. `elf init --preset general` is refused
+  as an unknown preset. In an existing general project, `elf update` converts it to `minimal`
+  (research lineage) and says so: the ELF-managed rule files take the research versions, your own
+  files are untouched. Run `elf update --dry-run` first to see the conversion.
+
 ## [2.26.0] - 2026-10-25
 
 ### Changed

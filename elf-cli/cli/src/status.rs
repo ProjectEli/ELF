@@ -80,6 +80,12 @@ pub fn run_status_parts(root: &Path, with_version_tsa: bool) -> Result<StatusRep
             report.push(LineKind::Info, format!("preset: {kind}"));
             kind
         }
+        Ok((kind, update::KindSource::RemovedGeneral)) => {
+            report.warn(
+                "preset: general was removed in ELF 2.27 — run `elf update` to convert this project to `minimal` (research lineage); diagnosing as research".into(),
+            );
+            kind
+        }
         Ok((kind, update::KindSource::Inferred)) => {
             report.push(LineKind::Info, format!(
                 "preset: {kind} (inferred from stamp — `elf update` records it to .elf/config.json)"
@@ -144,7 +150,7 @@ pub fn run_status_parts(root: &Path, with_version_tsa: bool) -> Result<StatusRep
 fn classify(root: &Path, action: &UpdateAction, new_m: &Manifest, report: &mut StatusReport) {
     match action {
         UpdateAction::NoChange { dest } => report.push(LineKind::Ok, format!("ok: {dest}")),
-        UpdateAction::SkipSeed { dest } => report.push(LineKind::Info, format!("seed: {dest}")),
+        UpdateAction::SkipUser { dest } => report.push(LineKind::Info, format!("user: {dest}")),
         UpdateAction::KeepPointer { dest } => report.push(
             LineKind::Info,
             format!("pointer (user content, kept): {dest} (`elf check files` checks @AGENTS.md)"),

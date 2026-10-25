@@ -4,7 +4,7 @@
 //! - managed 편집본 → 덮어쓰지 않고 경고 + `<dest>.elf-new` 산출 (`--force`로만 덮어씀)
 //! - hybrid → 마커블록만 교체, 사용자 영역 보존. 블록 편집/마커 부재 시 보수적 기본동작
 //!   (interactive 질의, update_policy 저장은 2차 — S007 §4.1)
-//! - seed/instance → 절대 미접근
+//! - user tier(사용자 소유)/instance → 절대 미접근
 //! - 블록 편집 감지 기준 = `.elf/baseline/<dest>` (init/update가 기록하는 배포본 사본)
 
 use std::fs;
@@ -114,6 +114,8 @@ pub(crate) enum KindSource {
     Config,
     /// config 미기재 → stamp src 시그니처로 추론
     Inferred,
+    /// 삭제된 general preset 프로젝트(config `general` 또는 stamp에 `templates/general/`) → 연구 계보 minimal로 전환
+    RemovedGeneral,
 }
 
 /// 프로젝트 계보 해석 (S026 t02) — 판정 전부 결정적(no-LLM: 문자열 매핑 + enum 비교):
@@ -125,7 +127,11 @@ pub(crate) fn resolve_kind(
     stamp: &Manifest,
 ) -> Result<(manifest::Kind, KindSource), UpdateError> {
     let sig = stamp.src_signature();
-    match read_config_preset(root) {
+    let config = read_config_preset(root);
+    if config.as_deref() == Some(manifest::REMOVED_GENERAL) || stamp.has_removed_general_src() {
+        return Ok((manifest::Kind::Research, KindSource::RemovedGeneral));
+    }
+    match config {
         Some(p) => {
             let kind = manifest::kind_from_preset(&p);
             if kind != sig {
@@ -140,11 +146,15 @@ pub(crate) fn resolve_kind(
 /// 추론된 preset을 config.json에 영속화(자동 복구 — 다음 실행부터 config 직독).
 /// 실패는 무해(다음 실행이 재추론)라 조용히 무시. dry-run에서는 호출하지 않는다.
 fn repair_config_preset(root: &Path, kind: manifest::Kind) {
+    write_config_preset(root, kind.as_str());
+}
+
+fn write_config_preset(root: &Path, preset: &str) {
     let p = root.join(".elf").join("config.json");
     let Ok(text) = fs::read_to_string(&p) else { return };
     let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&text) else { return };
     let Some(obj) = v.as_object_mut() else { return };
-    obj.insert("preset".into(), serde_json::Value::String(kind.as_str().into()));
+    obj.insert("preset".into(), serde_json::Value::String(preset.into()));
     let Ok(mut out) = serde_json::to_string_pretty(&v) else { return };
     out.push('\n');
     let _ = fs::write(&p, out);
@@ -168,6 +178,15 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
     let mut report = UpdateReport::default();
     match kind_source {
         KindSource::Config => report.note(format!("preset: {kind}")),
+        KindSource::RemovedGeneral => {
+            if opts.dry_run {
+                report.note("preset: general was removed in ELF 2.27 — this update would convert the project to `minimal` (research lineage)".into());
+            } else {
+                write_config_preset(root, "minimal");
+                report.note("preset: general was removed in ELF 2.27 — converted this project to `minimal` (research lineage; recorded to .elf/config.json)".into());
+            }
+            report.note("note: ELF-managed rule files (.elf/managed/, AGENTS.md) take the research versions below; files you own (0_Meta/ProjectRule.md, README.md, logs) are untouched — review ProjectRule for rules that relied on the general versions".into());
+        }
         KindSource::Inferred => {
             if opts.dry_run {
                 report.note(format!(
@@ -254,8 +273,8 @@ fn apply(
         UpdateAction::NoChange { dest } => {
             report.note(format!("up-to-date: {dest}"));
         }
-        UpdateAction::SkipSeed { dest } => {
-            report.note(format!("seed (untouched): {dest}"));
+        UpdateAction::SkipUser { dest } => {
+            report.note(format!("user (untouched): {dest}"));
         }
         UpdateAction::KeepPointer { dest } => {
             // t06: 기존 파일 절대 불변경 + 공지 — `.elf-new` 병기도 하지 않음(1줄 병합은 사용자 몫)

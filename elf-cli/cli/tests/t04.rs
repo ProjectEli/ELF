@@ -118,21 +118,68 @@ fn qa_project_update_keeps_qa_identity() {
     assert_eq!(stamp, embed::MANIFEST_QA_JSON);
 }
 
+/// v2.27 general preset 삭제: 기존 general 프로젝트는 update가 연구 계보 minimal로 전환하고 안내.
 #[test]
-fn general_project_update_keeps_general_identity() {
+fn removed_general_project_is_converted_to_minimal_on_update() {
     let tmp = tempdir().unwrap();
-    let root = new_project_preset(tmp.path(), "G", "general");
-    let elirule_before = fs::read(root.join(".elf/managed/EliRule.md")).unwrap();
+    let root = new_project_preset(tmp.path(), "G", "minimal");
+    // v2.26 이전 general 프로젝트 재현: config preset general + stamp src `templates/general/`,
+    // EliRule = general판 내용(stamp 해시와 일치 = 사용자 미편집)
+    let general_eli = "# EliRule (general)\n";
+    fs::write(root.join(".elf/managed/EliRule.md"), general_eli).unwrap();
+    let stamp_path = root.join(".elf/manifest.json");
+    let mut stamp: serde_json::Value = serde_json::from_str(&fs::read_to_string(&stamp_path).unwrap()).unwrap();
+    for e in stamp["files"].as_array_mut().unwrap() {
+        if e["dest"] == ".elf/managed/EliRule.md" {
+            e["src"] = "templates/general/EliRule.md".into();
+            e["sha256"] = elf_cli::hash::sha256_lf(general_eli.as_bytes()).into();
+        }
+    }
+    fs::write(&stamp_path, serde_json::to_string_pretty(&stamp).unwrap()).unwrap();
+    set_config_preset(&root, Some("general"));
+    let config_preset = |root: &Path| -> String {
+        let v: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(root.join(".elf/config.json")).unwrap()).unwrap();
+        v["preset"].as_str().unwrap_or("").to_string()
+    };
 
-    let report = run_update(&root, &plain()).unwrap();
-    assert_eq!(report.changed, 0, "fresh general tree must be no-op: {:?}", report.lines);
-    assert!(report.lines.iter().any(|l| l.contains("preset: general")), "{:?}", report.lines);
-    // general판 EliRule이 연구판으로 교체되지 않음
-    assert_eq!(fs::read(root.join(".elf/managed/EliRule.md")).unwrap(), elirule_before);
-    // 연구 전용(highIFjournals) 미창조
-    assert!(!root.join(".elf/managed/highIFjournals.md").exists());
-    let stamp = fs::read_to_string(root.join(".elf/manifest.json")).unwrap();
-    assert_eq!(stamp, embed::MANIFEST_GENERAL_JSON);
+    // status: 경고 + 연구 계보로 진단(EliRule = 갱신 대기)
+    let s = elf_cli::status::run_status(&root).unwrap();
+    assert!(s.lines.iter().any(|l| l.contains("general was removed")), "{:?}", s.lines);
+    assert!(s.pending >= 1, "{:?}", s.lines);
+
+    // dry-run: 전환 예고만, config 불변
+    let r = run_update(&root, &UpdateOptions { dry_run: true, force: false }).unwrap();
+    assert!(r.lines.iter().any(|l| l.contains("would convert the project to `minimal`")), "{:?}", r.lines);
+    assert_eq!(config_preset(&root), "general");
+
+    // 실행: config = minimal, EliRule = 연구판, stamp = 연구 manifest, 사용자 소유 파일 불변
+    let pr_before = fs::read(root.join("0_Meta/ProjectRule.md")).unwrap();
+    let r = run_update(&root, &plain()).unwrap();
+    assert!(r.lines.iter().any(|l| l.contains("converted this project to `minimal`")), "{:?}", r.lines);
+    assert_eq!(config_preset(&root), "minimal");
+    let eli = fs::read_to_string(root.join(".elf/managed/EliRule.md")).unwrap();
+    assert_ne!(eli, general_eli);
+    assert_eq!(fs::read_to_string(&stamp_path).unwrap(), embed::MANIFEST_JSON);
+    assert_eq!(fs::read(root.join("0_Meta/ProjectRule.md")).unwrap(), pr_before);
+
+    // 두 번째 update: 전환 안내 없음
+    let r = run_update(&root, &plain()).unwrap();
+    assert!(!r.lines.iter().any(|l| l.contains("general was removed")), "{:?}", r.lines);
+}
+
+/// config에 preset이 없어도 stamp의 `templates/general/` src로 전환 대상을 판정.
+#[test]
+fn removed_general_detected_from_stamp_without_config_preset() {
+    let tmp = tempdir().unwrap();
+    let root = new_project_preset(tmp.path(), "G2", "minimal");
+    let stamp_path = root.join(".elf/manifest.json");
+    let mut stamp: serde_json::Value = serde_json::from_str(&fs::read_to_string(&stamp_path).unwrap()).unwrap();
+    stamp["files"][0]["src"] = "templates/general/AGENTS.md".into();
+    fs::write(&stamp_path, serde_json::to_string_pretty(&stamp).unwrap()).unwrap();
+    set_config_preset(&root, None);
+    let r = run_update(&root, &plain()).unwrap();
+    assert!(r.lines.iter().any(|l| l.contains("converted this project to `minimal`")), "{:?}", r.lines);
 }
 
 #[test]
@@ -217,10 +264,10 @@ fn pre215_leftovers_warn_but_are_left_untouched() {
 
 #[test]
 fn project_rule_in_0meta_is_not_flagged_as_leftover() {
-    // 0_Meta/ProjectRule.md는 seed(정당 상주) — 잔재 감지 대상 아님
+    // 0_Meta/ProjectRule.md는 user tier(정당 상주) — 잔재 감지 대상 아님
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
-    assert!(root.join("0_Meta/ProjectRule.md").is_file(), "seed 전제");
+    assert!(root.join("0_Meta/ProjectRule.md").is_file(), "user tier 전제");
     let report = run_update(&root, &plain()).unwrap();
     assert!(!report.lines.iter().any(|l| l.contains("pre-2.15 legacy rule files remain")), "{:?}", report.lines);
 }
@@ -287,10 +334,10 @@ fn managed_missing_is_restored() {
     );
 }
 
-// ── 행렬: seed / instance ───────────────────────────────────
+// ── 행렬: user / instance ───────────────────────────────────
 
 #[test]
-fn seed_and_instance_are_never_touched() {
+fn user_tier_and_instance_are_never_touched() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
     fs::write(root.join("0_Meta/ProjectRule.md"), b"customized by user\n").unwrap();

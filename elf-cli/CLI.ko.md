@@ -55,7 +55,7 @@ ELF 프로젝트를 생성합니다. **이름을 생략하면 `elf init`은 현�
 | `--yes` | off | in-place 확인 프롬프트 생략(스크립트/CI) |
 | `--dry-run` | off | 계획만 출력, 미기록 |
 | `--force` | off | 기존 파일도 덮어씀(기본은 사용자 것 유지) |
-| `--preset <p>` | `full` | 모듈 세트: `full`(전체 모듈) / `exp`(6_Exp + 7_Paper) / `sw`(5_SW + 7_Paper) / `minimal`(없음) — 연구 preset = 이름과 같은 주 모듈 + `paper`. 2.26 이전 이름(`experimental`, `software`)도 받습니다. 실험적 유형: **`qa`**(질문 아카이브, 연구 아님), **`general`**(목표지향 비연구) |
+| `--preset <p>` | `full` | 모듈 세트: `full`(전체 모듈) / `exp`(6_Exp + 7_Paper) / `sw`(5_SW + 7_Paper) / `minimal`(없음) — 연구 preset = 이름과 같은 주 모듈 + `paper`. 2.26 이전 이름(`experimental`, `software`)도 받습니다. **`qa`** = 질문 아카이브 유형(연구 아님). `general` preset은 2.27에서 삭제 — `minimal` 사용 |
 | `--modules <목록>` | — | custom 모듈(쉼표): `hw,fab,sw,exp,paper`. `--preset`보다 우선 |
 | `--lang <언어>` | `ko-KR` | AI 에이전트 응답 언어, BCP-47 태그(`.elf/config.json`에 기록). 비한국어 태그(예: `en-US`)면 영어 **companion** 문서도 함께 배포 — 아래 note 참조 |
 
@@ -65,12 +65,12 @@ Core 폴더(`0_Meta`–`2_Log`)는 항상 생성, 모듈 폴더(`3_HW`–`7_Pape
 
 ```bash
 elf init                              # in-place: 현재 폴더에 ELF 도입
-elf init --here --preset general      # in-place, 목표지향 유형
+elf init --here MyTool --preset minimal   # in-place, 이름 지정, core 폴더만
 elf init . --yes                      # in-place, 프롬프트 없이(스크립트/CI)
 elf init NIRS_Probe                   # 하위폴더: ./NIRS_Probe/ 생성
 elf init NIRS_Probe --preset exp --lang en-US
 elf init NIRS_Probe --modules hw,sw
-elf init my_questions --preset qa                          # experimental: Q&A bundle 아카이브 (카테고리 0개)
+elf init my_questions --preset qa                          # Q&A bundle 아카이브 (카테고리 0개)
 elf init my_questions --preset qa --categories 일상질문,IT일반질문   # 카테고리 사전 생성
 ```
 
@@ -81,9 +81,9 @@ elf init my_questions --preset qa --categories 일상질문,IT일반질문   # �
 > (`NOT OPERATIVE` 표기) — 규칙 커스터마이즈는 companion이 아니라 `ProjectRule.md`에 작성. `elf update`가
 > companion을 동기화, `elf check files`가 i18n 상태 보고. 현재 영어(`en`)만 제공, 그 외 언어는 한국어 fallback.
 
-> **`qa` preset (experimental).** 연구 계층 대신 *질문 아카이브* 유형을 스캐폴드: 루트 `AGENTS.md`(운영 규칙 정본) + `CLAUDE.md`(로드용 포인터) + `templates/bundle_template.md` + `.elf/`. **기본은 카테고리 0개** — `CLAUDE.md` 규약대로 수요 기반 생성, 또는 `--categories a,b,c`로 사전 생성(각 `archive/` 동반). Q&A를 의미 단위 **bundle**로 기록(session/trial/figure 아님). `.elf/` 제어 영역 공유 + 자체 manifest(`manifest.qa.json`) → `elf update`로 규칙 전파. 연구 preset과 분리, 정비 중이라 변경 가능.
+> **`qa` preset.** 연구 계층 대신 *질문 아카이브* 유형을 스캐폴드: 루트 `AGENTS.md`(운영 규칙 정본) + `CLAUDE.md`(로드용 포인터) + `0_Meta/ProjectRule.md`(이 프로젝트만의 규칙과 외부 반출 완화 선언 — `elf update`가 바꾸지 않음, `AGENTS.md`와 충돌하면 우선) + `templates/bundle_template.md` + `.elf/`. **기본은 카테고리 0개** — `AGENTS.md` 규약대로 수요 기반 생성, 또는 `--categories a,b,c`로 사전 생성(각 `archive/` 동반). Q&A를 의미 단위 **bundle**로 기록(session/trial/figure 아님). `.elf/` 제어 영역 공유 + 자체 manifest(`manifest.qa.json`) → `elf update`로 규칙 전파. 연구 preset과 분리.
 
-> **`general` preset (experimental).** *목표지향 비연구* 프로젝트(도구 개발, 제안서, 학습, 구축)를 스캐폴드 — 연구 preset처럼 session/trial base-delta 로깅, 단 학술 레이어 제외(`6_Exp`/`7_Paper`/figure/sim/문헌 없음). 중립 managed 파일은 연구 preset과 공유하고 general 전용 `EliRule`/`LogConvention`을 자체 manifest(`manifest.general.json`)로 추가. trial 형식 기본 5-section, 프로젝트별 `ProjectRule.md`에서 override. 연구와 분리, 정비 중이라 변경 가능.
+> **`general` preset(2.27에서 삭제).** 같은 용도는 `minimal`(core 폴더만)로 대체합니다. `elf init --preset general`은 미지 preset으로 거부됩니다. 기존 general 프로젝트에서 `elf update`를 실행하면 `minimal`(연구 계보)로 전환합니다: ELF 관리 규칙 파일은 연구판으로 바뀌고, 사용자 소유 파일(`0_Meta/ProjectRule.md`, `README.md`, 로그)은 그대로이며, 출력에 전환 사실을 안내합니다(`--dry-run`으로 먼저 확인 가능).
 
 ### `elf update`
 
@@ -96,7 +96,7 @@ elf init my_questions --preset qa --categories 일상질문,IT일반질문   # �
 
 파일 종류별 동작 → [파일 소유권](#파일-소유권) 참조.
 
-갱신은 **preset 인식**: 프로젝트 유형(연구 / `qa` / `general`)을 `.elf/config.json`의
+갱신은 **preset 인식**: 프로젝트 유형(연구 / `qa`)을 `.elf/config.json`의
 `"preset"` 필드(`elf init`이 기록)에서 읽어, 해당 유형의 정본 세트로 계획, re-stamp 합니다.
 2.16.2 이전에 생성된 프로젝트에는 이 필드가 없으며 — 프로젝트 자신의 stamp(`.elf/manifest.json`)에서
 추론해 첫 비-dry-run 갱신 때 기록합니다. `config.json`과 stamp가 서로 모순되면 `"preset"` 필드를

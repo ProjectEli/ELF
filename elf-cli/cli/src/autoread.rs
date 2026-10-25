@@ -566,7 +566,7 @@ fn append_fulltext(root: &Path, out: &mut String) -> bool {
 }
 
 /// 루트 `AGENTS.md`의 상시 의무 절(`## 상시 의무`(KO) / `## Standing duties`(EN)) 추출 —
-/// 헤딩 라인 다음부터 다음 `## ` 전까지. 관리 파일이라 구조 안정(root/general 동일 헤딩).
+/// 헤딩 라인 다음부터 다음 `## ` 전까지. 관리 파일이라 구조 안정(root, qa 각자 정본).
 fn agents_duties(root: &Path) -> Option<String> {
     let text = fs::read_to_string(root.join("AGENTS.md")).ok()?;
     let mut in_section = false;

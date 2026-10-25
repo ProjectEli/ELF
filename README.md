@@ -76,7 +76,7 @@ elf init MyProject --preset exp --lang en-US   # 6_Exp + 7_Paper. With no name, 
 cd MyProject
 ```
 
-`[elf] created MyProject (ELF v2.26.0, preset: exp, lang: en-US)` — along with the folder structure you get `AGENTS.md` (the shared entry digest for agents) and `2_Log/S001_log.md` (the first session stub). The agent starts by reading `AGENTS.md`, so nothing else needs to be set up. Claude Code files (`CLAUDE.md` pointer, hook settings) are created too; other agents can ignore them. Project-specific rules go in `0_Meta/ProjectRule.md`. `--lang en-US` sets the agent's response language and deploys English companions of the rule documents (the operative rules are Korean; the English copies are for reading, and log section headings are bilingual, e.g. `### 목표 (Goal)`).
+`[elf] created MyProject (ELF v2.27.0, preset: exp, lang: en-US)` — along with the folder structure you get `AGENTS.md` (the shared entry digest for agents) and `2_Log/S001_log.md` (the first session stub). The agent starts by reading `AGENTS.md`, so nothing else needs to be set up. Claude Code files (`CLAUDE.md` pointer, hook settings) are created too; other agents can ignore them. Project-specific rules go in `0_Meta/ProjectRule.md`. `--lang en-US` sets the agent's response language and deploys English companions of the rule documents (the operative rules are Korean; the English copies are for reading, and log section headings are bilingual, e.g. `### 목표 (Goal)`).
 
 **2-A. From scratch — start from an idea sketch**
 
@@ -166,7 +166,7 @@ Without an agent: paste `.elf/managed/templates/trialTemplate.md` into the log a
 
 | Command | Role |
 |---|---|
-| `elf init [name] [--preset …] [--modules …] [--lang …]` | Create a project. With no name, in place in the current folder. Presets `full`, `exp`, `sw`, `minimal` (a research preset = the module of the same name + `paper`; experimental: `general`, `qa`) |
+| `elf init [name] [--preset …] [--modules …] [--lang …]` | Create a project. With no name, in place in the current folder. Presets `full`, `exp`, `sw`, `minimal` (a research preset = the module of the same name + `paper`), and `qa` (question archive) |
 | `elf session new <title>` / `close [S###]` / `fix-headers` | Create a session, close it (log checks → move to Archive → registry and cross-ref fix-up), repair header line breaks |
 | `elf trial new [title]` | Append the canonical trial stub to the active log (auto-numbered `t##`) |
 | `elf deprecate [target] [--trial tNN [--section name]] [--marked] [--lines A-B --expect …]` / `--restore <ID>` / `purge <ID>` | Move all or part of a log or planning document to `Deprecated/` (a one-line move marker stays behind) or restore it. With no arguments, lists what is deprecated. Outputs stay in place |

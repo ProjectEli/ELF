@@ -94,8 +94,8 @@ pub enum UpdateAction {
     CreateMissing { dest: String },
     /// managed 사용자 편집(current ∉ {stamp, new}) → 무경고 덮어쓰기 금지: 경고 + .elf-new (t04)
     Conflict { dest: String },
-    /// seed tier — update 절대 미접근 (부재여도 미접근)
-    SkipSeed { dest: String },
+    /// user tier(사용자 소유) — update 절대 미접근 (부재여도 미접근)
+    SkipUser { dest: String },
     /// pointer tier — 존재하면 내용 무관 불변경(생성은 부재 시 CreateMissing 경로)
     KeepPointer { dest: String },
     /// hybrid — 마커블록만 교체(마커 부재/블록 편집의 세부 분기는 t04가 내용 기반 처리)
@@ -116,7 +116,7 @@ pub fn plan_update(new_m: &Manifest, stamp: &Manifest, current: &CurrentState) -
     for e in &new_m.files {
         let cur = current.get(e.dest.as_str()).cloned().flatten();
         let action = match e.tier {
-            Tier::Seed => UpdateAction::SkipSeed { dest: e.dest.clone() },
+            Tier::User => UpdateAction::SkipUser { dest: e.dest.clone() },
             // pointer: 부재 → 생성 / 정본과 동일 → 최신 / 그 외(사용자 내용) → 불변경(공지만)
             Tier::Pointer => match cur {
                 None => UpdateAction::CreateMissing { dest: e.dest.clone() },
@@ -149,11 +149,11 @@ pub fn plan_update(new_m: &Manifest, stamp: &Manifest, current: &CurrentState) -
     }
 
     // 새 manifest에서 사라진 항목: 삭제는 자동 수행하지 않음 (P009 §7 삭제/원자성).
-    // seed는 제외 — 사용자 소유 콘텐츠라 "obsolete" 경고가 사용자 콘텐츠 삭제를 유도할 위험
-    // (ELF가 seeding을 중단했을 뿐, 사용자가 할 일 없음). pointer도 동일(생성 후 사용자 소유 승계).
+    // user tier는 제외 — 사용자 소유 콘텐츠라 "obsolete" 경고가 사용자 콘텐츠 삭제를 유도할 위험
+    // (ELF가 배포를 중단했을 뿐, 사용자가 할 일 없음). pointer도 동일(생성 후 사용자 소유 승계).
     let new_dests: BTreeSet<&str> = new_m.files.iter().map(|e| e.dest.as_str()).collect();
     for e in &stamp.files {
-        if e.tier != Tier::Seed && e.tier != Tier::Pointer && !new_dests.contains(e.dest.as_str()) {
+        if e.tier != Tier::User && e.tier != Tier::Pointer && !new_dests.contains(e.dest.as_str()) {
             out.push(UpdateAction::Obsolete { dest: e.dest.clone() });
         }
     }
@@ -281,12 +281,12 @@ mod tests {
         );
     }
 
-    // ── seed / hybrid ──────────────────────────────────
+    // ── user / hybrid ──────────────────────────────────
 
     #[test]
-    fn seed_is_skipped_in_all_states() {
-        let new_m = manifest(vec![entry("templates/s.md", "0_Meta/s.md", Tier::Seed, "new")]);
-        let stamp = manifest(vec![entry("templates/s.md", "0_Meta/s.md", Tier::Seed, "old")]);
+    fn user_tier_is_skipped_in_all_states() {
+        let new_m = manifest(vec![entry("templates/s.md", "0_Meta/s.md", Tier::User, "new")]);
+        let stamp = manifest(vec![entry("templates/s.md", "0_Meta/s.md", Tier::User, "old")]);
         for c in [
             cur(&[("0_Meta/s.md", Some("old"))]),
             cur(&[("0_Meta/s.md", Some("user"))]),
@@ -294,7 +294,7 @@ mod tests {
         ] {
             assert_eq!(
                 plan_update(&new_m, &stamp, &c),
-                vec![UpdateAction::SkipSeed { dest: "0_Meta/s.md".into() }]
+                vec![UpdateAction::SkipUser { dest: "0_Meta/s.md".into() }]
             );
         }
     }
@@ -303,7 +303,7 @@ mod tests {
     fn pointer_missing_creates_existing_kept_latest_nochange() {
         let new_m = manifest(vec![entry("templates/root/CLAUDE.md", "CLAUDE.md", Tier::Pointer, "ptr")]);
         let stamp = manifest(vec![entry("templates/root/CLAUDE.md", "CLAUDE.md", Tier::Pointer, "old-ptr")]);
-        // 부재 → 생성 (update에서도 — seed와의 차이 핵심)
+        // 부재 → 생성 (update에서도 — user tier와의 차이 핵심)
         assert_eq!(
             plan_update(&new_m, &stamp, &cur(&[])),
             vec![UpdateAction::CreateMissing { dest: "CLAUDE.md".into() }]
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn stamp_only_pointer_is_not_flagged_obsolete() {
-        // pointer = 생성 후 사용자 소유 승계 — seeding 중단 시 경고 대상 아님
+        // pointer = 생성 후 사용자 소유 승계 — 배포 중단 시 경고 대상 아님
         let new_m = manifest(vec![]);
         let stamp = manifest(vec![entry("templates/root/CLAUDE.md", "CLAUDE.md", Tier::Pointer, "ptr")]);
         assert_eq!(plan_update(&new_m, &stamp, &cur(&[("CLAUDE.md", Some("ptr"))])), vec![]);
@@ -365,10 +365,10 @@ mod tests {
     }
 
     #[test]
-    fn stamp_only_seed_is_not_flagged_obsolete() {
-        // seed = 사용자 소유 — ELF가 seeding을 멈춰도 사용자에게 경고할 일이 아님
+    fn stamp_only_user_file_is_not_flagged_obsolete() {
+        // user tier = 사용자 소유 — ELF가 배포를 멈춰도 사용자에게 경고할 일이 아님
         let new_m = manifest(vec![]);
-        let stamp = manifest(vec![entry("templates/p.md", "0_Meta/ProjectRule.md", Tier::Seed, "old")]);
+        let stamp = manifest(vec![entry("templates/p.md", "0_Meta/ProjectRule.md", Tier::User, "old")]);
         assert_eq!(
             plan_update(&new_m, &stamp, &cur(&[("0_Meta/ProjectRule.md", Some("user"))])),
             vec![]
@@ -381,12 +381,12 @@ mod tests {
     fn plan_init_covers_all_files_in_manifest_order() {
         let m = manifest(vec![
             entry("templates/a.md", "0_Meta/a.md", Tier::Managed, "x"),
-            entry("templates/b.md", "0_Meta/b.md", Tier::Seed, "y"),
+            entry("templates/b.md", "0_Meta/b.md", Tier::User, "y"),
         ]);
         let plan = plan_init(&m);
         assert_eq!(plan.len(), 2);
         assert_eq!(plan[0].dest, "0_Meta/a.md");
-        assert_eq!(plan[1].tier, Tier::Seed);
+        assert_eq!(plan[1].tier, Tier::User);
     }
 
     // ── dirs (scaffold 데이터화) ───────────────────────

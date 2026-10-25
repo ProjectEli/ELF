@@ -350,3 +350,47 @@ fn figure_embedded_in_partial_file_counts_for_the_session() {
     let r = run_validate(&root).unwrap();
     assert!(!r.lines.iter().any(|l| l.contains("figure 'a.png'")), "{:?}", r.lines);
 }
+
+// ── 빈 틀 경고 (v2.27) ──────────────────────────────
+
+fn trial_tpl() -> &'static str {
+    elf_cli::embed::TEMPLATES.get_file("log/trialTemplate.md").unwrap().contents_utf8().unwrap()
+}
+
+#[test]
+fn unfilled_title_and_phase1_template_are_flagged() {
+    use elf_cli::validate::unfilled_template_findings;
+    // 제목 없이 `elf trial new`를 실행한 직후의 stub 그대로
+    let stub = trial_tpl().replace("t{NN}", "t01").replace("S{NNN}", "S001");
+    let f = unfilled_template_findings(&stub, trial_tpl());
+    assert!(f.iter().any(|x| x.contains("t01: title is still the template placeholder")), "{f:?}");
+    for k in ["목표", "조건", "가설", "예상"] {
+        assert!(f.iter().any(|x| x.contains(&format!("'### {k}' still holds only the template text"))), "{k}: {f:?}");
+    }
+    // Phase 2 절(관찰, 해석, 교훈, 생성 파일)은 대상 아님
+    for k in ["관찰", "해석", "교훈", "생성 파일"] {
+        assert!(!f.iter().any(|x| x.contains(&format!("'### {k}'"))), "{k}: {f:?}");
+    }
+}
+
+#[test]
+fn filled_sections_and_leftover_hint_lines_are_not_flagged() {
+    use elf_cli::validate::unfilled_template_findings;
+    let log = "## t01: 실제 제목\n\n### 목표 (Goal)\n- 실제 목표\n\n### 조건 (Conditions)\n- 파라미터 A = 1\n- [반복 개선(delta) trial이면: base = 직전 trial, delta = 변경점 + 변경 이유(직전 시도 문제)]\n\n### 가설 (Hypothesis)\n- 가설 1\n\n### 예상 (Prediction)\n- 예상 1\n";
+    let f = unfilled_template_findings(log, trial_tpl());
+    assert!(f.is_empty(), "{f:?}");
+}
+
+#[test]
+fn unfilled_trial_warns_in_check_logs_but_archive_is_exempt() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    let log = root.join("2_Log/S001_log.md");
+    let stub = trial_tpl().replace("t{NN}", "t01").replace("S{NNN}", "S001");
+    let t = fs::read_to_string(&log).unwrap();
+    fs::write(&log, format!("{t}\n{stub}")).unwrap();
+    let r = run_validate(&root).unwrap();
+    assert_eq!(r.issues, 0, "{:?}", r.lines);
+    assert!(r.lines.iter().any(|l| l.starts_with("warn: S001_log.md: t01: title is still")), "{:?}", r.lines);
+}
+

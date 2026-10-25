@@ -55,7 +55,7 @@ Scaffold an ELF project. **With no name, `elf init` initializes the current fold
 | `--yes` | off | Skip the in-place confirmation prompt (for scripts/CI) |
 | `--dry-run` | off | Preview the plan; write nothing |
 | `--force` | off | Overwrite existing files (default keeps yours) |
-| `--preset <p>` | `full` | Module set: `full` (all modules) / `exp` (6_Exp + 7_Paper) / `sw` (5_SW + 7_Paper) / `minimal` (none) — a research preset is the module of the same name plus `paper`; the names before 2.26 (`experimental`, `software`) are still accepted. Experimental project types: **`qa`** (question-archive, not research), **`general`** (goal-driven non-research) |
+| `--preset <p>` | `full` | Module set: `full` (all modules) / `exp` (6_Exp + 7_Paper) / `sw` (5_SW + 7_Paper) / `minimal` (none) — a research preset is the module of the same name plus `paper`; the names before 2.26 (`experimental`, `software`) are still accepted. **`qa`** = question-archive project type (not research). The `general` preset was removed in 2.27 — use `minimal` |
 | `--modules <list>` | — | Custom modules (comma-separated): `hw,fab,sw,exp,paper`. Overrides `--preset` |
 | `--lang <lang>` | `ko-KR` | AI agent response language, BCP-47 tag (written to `.elf/config.json`). For a non-Korean tag (e.g. `en-US`), English **companion** docs are also deployed — see note below |
 
@@ -65,12 +65,12 @@ Core folders (`0_Meta`–`2_Log`) are always created; module folders (`3_HW`–`
 
 ```bash
 elf init                              # in-place: adopt ELF into the current folder
-elf init --here --preset general      # in-place, goal-driven project type
+elf init --here MyTool --preset minimal   # in-place under a given name, core folders only
 elf init . --yes                      # in-place, no prompt (scripts/CI)
 elf init NIRS_Probe                   # subfolder: create ./NIRS_Probe/
 elf init NIRS_Probe --preset exp --lang en-US
 elf init NIRS_Probe --modules hw,sw
-elf init my_questions --preset qa                          # experimental: Q&A bundle archive (no categories)
+elf init my_questions --preset qa                          # Q&A bundle archive (no categories)
 elf init my_questions --preset qa --categories Daily,ITGeneral   # pre-create categories
 ```
 
@@ -84,9 +84,9 @@ elf init my_questions --preset qa --categories Daily,ITGeneral   # pre-create ca
 > `elf check files` reports i18n status. English (`en`) is provided today; other languages fall
 > back to Korean.
 
-> **`qa` preset (experimental).** Scaffolds a *question-archive* project type instead of the research hierarchy: a root `AGENTS.md` (operational rules) + `CLAUDE.md` (loader pointer), `templates/bundle_template.md`, and `.elf/`. **No categories are pre-created by default** — create them on demand per `CLAUDE.md`, or pre-create with `--categories a,b,c` (each gets an `archive/`). Q&A is captured as semantic **bundles** (not sessions/trials/figures). Shares the `.elf/` control area with its own manifest (`manifest.qa.json`), so `elf update` propagates the convention. Separated from the research preset; subject to change while it is being refined.
+> **`qa` preset.** Scaffolds a *question-archive* project type instead of the research hierarchy: a root `AGENTS.md` (operational rules) + `CLAUDE.md` (loader pointer), `0_Meta/ProjectRule.md` (your project rules and egress relaxations — never touched by `elf update`; it overrides `AGENTS.md` on conflict), `templates/bundle_template.md`, and `.elf/`. **No categories are pre-created by default** — create them on demand per `AGENTS.md`, or pre-create with `--categories a,b,c` (each gets an `archive/`). Q&A is captured as semantic **bundles** (not sessions/trials/figures). Shares the `.elf/` control area with its own manifest (`manifest.qa.json`), so `elf update` propagates the convention. Kept separate from the research preset.
 
-> **`general` preset (experimental).** Scaffolds a *goal-driven non-research* project (tool development, proposal, learning, build) — session/trial base-delta logging like the research preset, minus the academic layer (no `6_Exp`/`7_Paper`/figures/sim/literature). Shares the neutral managed files with the research preset and adds general-specific `EliRule`/`LogConvention` via its own manifest (`manifest.general.json`). Trial format defaults to the 5-section template; override per project in `ProjectRule.md`. Separated from research; subject to change while being refined.
+> **`general` preset (removed in 2.27).** `minimal` covers the same use (core folders only). `elf init --preset general` is refused as an unknown preset. In an existing general project, `elf update` converts it to `minimal` (research lineage): the ELF-managed rule files take the research versions, your own files (`0_Meta/ProjectRule.md`, `README.md`, logs) are untouched, and the output says so (`--dry-run` shows it first).
 
 ### `elf update`
 
@@ -99,7 +99,7 @@ Update the ELF-managed files in the current project to the installed CLI version
 
 Behavior per file type → see [File ownership](#file-ownership).
 
-Updates are **preset-aware**: the project type (research / `qa` / `general`) is read from the
+Updates are **preset-aware**: the project type (research / `qa`) is read from the
 `"preset"` field in `.elf/config.json` (recorded by `elf init`) and the matching template set
 is used for planning and re-stamping. Projects initialized before 2.16.2 have no such field —
 the preset is then inferred from the project's own stamp (`.elf/manifest.json`) and recorded

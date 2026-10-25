@@ -283,6 +283,84 @@ pub fn trial_structure_findings(content: &str) -> Vec<String> {
     out
 }
 
+/// 내장 정본 trialTemplate(빌드 시 embed — 테스트가 존재 보증).
+fn trial_template() -> &'static str {
+    crate::embed::TEMPLATES
+        .get_file("log/trialTemplate.md")
+        .and_then(|f| f.contents_utf8())
+        .unwrap_or("")
+}
+
+/// Phase 1 절 — 실행 전에 채워야 하는 절(Phase 2 절은 Phase 2 대기 trial에 템플릿 문구가 정상적으로 남음).
+const PHASE1_SECTIONS: [&str; 4] = ["목표", "조건", "가설", "예상"];
+/// trialTemplate 제목 placeholder (`elf trial new`를 제목 없이 실행하면 남음).
+const TITLE_PLACEHOLDER: &str = "[작업 제목]";
+
+/// 절 키 → 그 절의 비어 있지 않은 줄들(trim). 줄 단위 상태 기계 — `## `에서 trial 경계.
+fn section_lines(body: &[&str]) -> Vec<(String, Vec<String>)> {
+    let mut out: Vec<(String, Vec<String>)> = Vec::new();
+    for line in body {
+        let l = line.trim_end_matches('\r');
+        if let Some(key) = section_key(l) {
+            out.push((key.to_string(), Vec::new()));
+        } else if let Some((_, lines)) = out.last_mut()
+            && !l.trim().is_empty()
+        {
+            lines.push(l.trim().to_string());
+        }
+    }
+    out
+}
+
+/// 빈 틀 발견 사항(순수) — 활성 로그의 trial 중 (1) 제목이 `[작업 제목]` (2) Phase 1 절의 내용이
+/// 정본 trialTemplate의 같은 절 문구로만 이루어진 경우. 판정 = 템플릿 줄과 정확히 일치(결정적).
+/// 템플릿 문구가 일부 남아도 사용자가 쓴 줄이 있으면 채운 것으로 봄(안내 줄 잔존은 경고 대상 아님).
+pub fn unfilled_template_findings(content: &str, template: &str) -> Vec<String> {
+    let tpl_lines: Vec<&str> = template.lines().collect();
+    let tpl: Vec<(String, Vec<String>)> = section_lines(&tpl_lines);
+    let tpl_of = |key: &str| -> Option<&Vec<String>> { tpl.iter().find(|(k, _)| k == key).map(|(_, v)| v) };
+
+    let mut out = Vec::new();
+    let lines: Vec<&str> = content.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        let l = lines[i].trim_end_matches('\r');
+        let Some(rest) = l.strip_prefix("## ") else {
+            i += 1;
+            continue;
+        };
+        let is_trial = rest.starts_with('t')
+            && rest[1..].chars().take_while(|c| c.is_ascii_digit()).count() > 0
+            && rest[1..].trim_start_matches(|c: char| c.is_ascii_digit()).starts_with(':');
+        let start = i + 1;
+        let mut end = start;
+        while end < lines.len() && !lines[end].starts_with("## ") {
+            end += 1;
+        }
+        if is_trial {
+            let id: String = rest.chars().take_while(|c| *c != ':').collect();
+            let title = rest.split_once(':').map(|(_, x)| x.trim()).unwrap_or("");
+            if title == TITLE_PLACEHOLDER {
+                out.push(format!("{id}: title is still the template placeholder '{TITLE_PLACEHOLDER}' — give the trial a title"));
+            }
+            for (key, body) in section_lines(&lines[start..end]) {
+                if !PHASE1_SECTIONS.contains(&key.as_str()) || body.is_empty() {
+                    continue;
+                }
+                if let Some(tl) = tpl_of(&key)
+                    && body.iter().all(|x| tl.contains(x))
+                {
+                    out.push(format!(
+                        "{id}: '### {key}' still holds only the template text — fill it in before execution (LogConvention §5.1)"
+                    ));
+                }
+            }
+        }
+        i = end;
+    }
+    out
+}
+
 // ── FS 실행기 ──────────────────────────────────────────────────
 
 /// dir의 `S###_log.md` → (번호, 경로), 번호 오름차순.
@@ -433,6 +511,10 @@ pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
         let fname = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
         for f in trial_structure_findings(&content) {
             structure_hit = true;
+            report.warn(format!("{fname}: {f}"));
+        }
+        // ⑦ 빈 틀 — 제목 placeholder, Phase 1 절이 템플릿 문구만 담은 trial(활성 로그만)
+        for f in unfilled_template_findings(&content, trial_template()) {
             report.warn(format!("{fname}: {f}"));
         }
     }

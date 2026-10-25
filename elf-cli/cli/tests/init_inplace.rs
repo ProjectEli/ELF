@@ -1,5 +1,5 @@
 //! P018/S015: in-place init (`run_init_ex` in_place=true) — 비파괴 배치 검증.
-//! 기존 폴더를 제자리 ELF화하되 사용자 파일을 절대 덮어쓰지 않음(seed skip / managed, hybrid .elf-new).
+//! 기존 폴더를 제자리 ELF화하되 사용자 파일을 절대 덮어쓰지 않음(user skip / managed, hybrid .elf-new).
 
 use elf_cli::init::{run_init_ex, InitError, InitOptions};
 use std::fs;
@@ -56,7 +56,7 @@ fn in_place_existing_gitignore_kept_elf_new_written() {
 }
 
 #[test]
-fn in_place_existing_seed_readme_skipped_no_elf_new() {
+fn in_place_existing_user_readme_skipped_no_elf_new() {
     let tmp = tempdir().unwrap();
     fs::write(tmp.path().join("README.md"), b"# My existing readme").unwrap();
 
@@ -64,7 +64,7 @@ fn in_place_existing_seed_readme_skipped_no_elf_new() {
 
     assert_eq!(fs::read(tmp.path().join("README.md")).unwrap(), b"# My existing readme");
     assert!(r.skipped.iter().any(|s| s == "README.md"));
-    assert!(!tmp.path().join("README.md.elf-new").exists()); // seed는 .elf-new 안 함
+    assert!(!tmp.path().join("README.md.elf-new").exists()); // user tier는 .elf-new 안 함
 }
 
 #[test]
@@ -87,11 +87,11 @@ fn in_place_dry_run_writes_nothing() {
 }
 
 #[test]
-fn in_place_force_overwrites_existing_seed() {
+fn in_place_force_overwrites_existing_user_file() {
     let tmp = tempdir().unwrap();
     fs::write(tmp.path().join("README.md"), b"old").unwrap();
     run_init_ex(tmp.path(), &opts("Proj"), true, false, true).unwrap();
     let readme = fs::read_to_string(tmp.path().join("README.md")).unwrap();
-    assert_ne!(readme, "old"); // force → ELF seed로 교체
+    assert_ne!(readme, "old"); // force → ELF user tier 파일로 교체
     assert!(readme.contains("Proj"));
 }

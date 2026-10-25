@@ -76,7 +76,7 @@ elf init MyProject --preset exp   # 6_Exp + 7_Paper. 이름 없이 실행하면 
 cd MyProject
 ```
 
-`[elf] created MyProject (ELF v2.26.0, preset: exp, lang: ko-KR)` — 폴더 구조와 함께 `AGENTS.md`(에이전트 공통 진입 규칙 요약), `2_Log/S001_log.md`(첫 세션 stub)가 생깁니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 별도 설정이 없습니다. Claude Code용 파일(`CLAUDE.md` 포인터, 훅 설정)도 함께 생성되며, 다른 에이전트에서는 무시해도 됩니다. 프로젝트 고유 규칙은 `0_Meta/ProjectRule.md`에 적습니다. 영어 응답, 영어 규칙 문서가 필요하면 `--lang en-US`(규칙 정본은 한국어, 영어본은 읽기용 companion).
+`[elf] created MyProject (ELF v2.27.0, preset: exp, lang: ko-KR)` — 폴더 구조와 함께 `AGENTS.md`(에이전트 공통 진입 규칙 요약), `2_Log/S001_log.md`(첫 세션 stub)가 생깁니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 별도 설정이 없습니다. Claude Code용 파일(`CLAUDE.md` 포인터, 훅 설정)도 함께 생성되며, 다른 에이전트에서는 무시해도 됩니다. 프로젝트 고유 규칙은 `0_Meta/ProjectRule.md`에 적습니다. 영어 응답, 영어 규칙 문서가 필요하면 `--lang en-US`(규칙 정본은 한국어, 영어본은 읽기용 companion).
 
 **2-A. 처음부터 — 아이디어 스케치부터 시작**
 
@@ -166,7 +166,7 @@ cd MyProject
 
 | 명령 | 역할 |
 |---|---|
-| `elf init [name] [--preset …] [--modules …] [--lang …]` | 프로젝트 생성. 이름 없으면 현재 폴더에 in-place. preset `full`, `exp`, `sw`, `minimal`(연구 preset = 이름과 같은 주 모듈 + `paper`; 실험적: `general`, `qa`) |
+| `elf init [name] [--preset …] [--modules …] [--lang …]` | 프로젝트 생성. 이름 없으면 현재 폴더에 in-place. preset `full`, `exp`, `sw`, `minimal`(연구 preset = 이름과 같은 주 모듈 + `paper`), `qa`(질문 아카이브) |
 | `elf session new <title>` / `close [S###]` / `fix-headers` | 세션 생성, 마감(로그 점검 → Archive 이동 → Registry, cross-ref 보정), 헤더 줄바꿈 수리 |
 | `elf trial new [title]` | 활성 로그에 정본 trial stub 추가(`t##` 자동 번호) |
 | `elf deprecate [대상] [--trial tNN [--section 절]] [--marked] [--lines A-B --expect …]` / `--restore <ID>` / `purge <ID>` | 로그, 계획 문서의 전체 또는 일부를 `Deprecated/`로 옮기고(원 위치에 이동 표기 1줄) 되돌립니다. 인수 없이 실행하면 폐기 목록. 산출물은 제자리 |

@@ -1,12 +1,13 @@
 {
   "schema": "elf-manifest/1",
   "generated": "2026-06-15",
-  "note": "ELF QA preset(experimental) 배포 명세 — 질문 아카이브 유형. 연구 manifest(manifest.json)와 분리(isolation). src=elf-cli 상대, dest=프로젝트 루트 상대. `elf init <name> --preset qa`가 이 명세로 배포·.elf stamp. sha256=원본 LF 바이트 해시(hash::sha256_lf). dest = managed 레이아웃 기준.",
+  "note": "ELF QA preset 배포 명세 — 질문 아카이브 유형. 연구 manifest(manifest.json)와 분리(isolation). src=elf-cli 상대, dest=프로젝트 루트 상대. `elf init <name> --preset qa`가 이 명세로 배포·.elf stamp. sha256=원본 LF 바이트 해시(hash::sha256_lf). dest = managed 레이아웃 기준.",
   "files": [
-    { "src": "templates/qa/AGENTS.md",          "dest": "AGENTS.md",                   "tier": "managed", "sha256": "7d8c996b1e97fc7f8e3213de9eee6307ba5d5943c50133a366b69acfb90c65ac" },
+    { "src": "templates/qa/AGENTS.md",          "dest": "AGENTS.md",                   "tier": "managed", "sha256": "eaef7e8a81037e090e20659a3727e49369811f5111c9b85e6215303cdb82303a" },
     { "src": "templates/qa/CLAUDE.md",          "dest": "CLAUDE.md",                   "tier": "managed", "sha256": "d7297fec2565679f26c8bec23edc2d530845a1970a4266e231ed90d4c1f1048b" },
     { "src": "templates/qa/bundle_template.md", "dest": ".elf/managed/templates/bundle_template.md", "tier": "managed", "sha256": "1a69cd0fe2d6bd315b982a4fefd6dc75db47276f53b805e3c05e27b8e5011ca9" },
-    { "src": "templates/qa/README.md",          "dest": "README.md",                   "tier": "seed",    "sha256": "33ad2faff08a283555a1f6d060e7cdc6b959b8aadfbc0fd78a877fd9d3a779a1" }
+    { "src": "templates/qa/README.md",          "dest": "README.md",                   "tier": "user",    "sha256": "e1862d1a16e4b6a27e7227c574536a92352d7714894538e2fa12d533bc5d9242" },
+    { "src": "templates/qa/ProjectRule.md",     "dest": "0_Meta/ProjectRule.md",       "tier": "user",    "sha256": "7eb40438febaf56ce0e7bf986a69eecf091114cb09028137f478173b04b9cc21" }
   ],
   "dirs": {
     "core": [],

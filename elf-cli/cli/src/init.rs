@@ -2,7 +2,7 @@
 //! 순수 planner(plan_dirs/plan_init)를 소비해 FS에 반영하는 executor.
 //!
 //! 불변식 (S007 t02 재점검 §1): **managed/hybrid는 placeholder 치환 금지** — embed 정본
-//! 바이트 그대로 배치해야 stamp 해시 비교(update 편집감지)가 성립한다. 치환은 seed에만 허용.
+//! 바이트 그대로 배치해야 stamp 해시 비교(update 편집감지)가 성립한다. 치환은 user tier에만 허용.
 //!
 //! 모드 (P018): `run_init`(subfolder, 기존) = `parent/<name>` 신규. `run_init_ex`(in_place) =
 //! `parent`(cwd) 제자리 비파괴 — 기존 파일 미덮어쓰기(누락분만; managed/hybrid 충돌은 `<dest>.elf-new`).
@@ -108,7 +108,7 @@ pub fn run_init_ex(
         return Err(InitError::TargetExists(target));
     }
 
-    // preset에 따라 계보 manifest 선택 — qa=질문 아카이브, general=목표지향 비연구, 그 외=연구
+    // preset에 따라 계보 manifest 선택 — qa=질문 아카이브, 그 외=연구(general은 v2.27 삭제 — 미지 preset으로 거부)
     let kind = manifest::kind_from_preset(&opts.preset);
     let base = manifest::embedded_kind(kind);
     // 프로젝트 언어로 배포 entry 해석 (P016 §9)
@@ -127,7 +127,14 @@ pub fn run_init_ex(
         }
         None => plan::plan_dirs(&m, &opts.preset),
     }
-    .map_err(InitError::Plan)?;
+    // 연구 manifest의 preset 목록에는 qa가 없음(별도 manifest) — 미지 preset 안내에 함께 표기
+    .map_err(|e| {
+        InitError::Plan(if kind == manifest::Kind::Research && e.starts_with("unknown preset") {
+            format!("{e}, or qa (question archive)")
+        } else {
+            e
+        })
+    })?;
 
     for d in &dir_plan {
         let p = target.join(&d.path);
@@ -179,7 +186,7 @@ pub fn run_init_ex(
         place_empty(&target, "LICENSE", force, dry_run, &mut report)?;
     }
 
-    // 3. manifest 파일 배치 — 하이브리드 충돌(seed skip / managed, hybrid `.elf-new`)
+    // 3. manifest 파일 배치 — 하이브리드 충돌(user skip / managed, hybrid `.elf-new`)
     for a in plan::plan_init(&m) {
         let rel = a
             .src
@@ -192,8 +199,8 @@ pub fn run_init_ex(
 
         if dest.exists() && !force {
             match a.tier {
-                // seed, pointer: 기존 파일 유지(불변경). pointer는 `.elf-new` 병기도 없음 (t06)
-                Tier::Seed | Tier::Pointer => report.skipped.push(a.dest.clone()),
+                // user, pointer: 기존 파일 유지(불변경). pointer는 `.elf-new` 병기도 없음 (t06)
+                Tier::User | Tier::Pointer => report.skipped.push(a.dest.clone()),
                 Tier::Managed | Tier::Hybrid => {
                     if !dry_run {
                         let newp = elf_new_path(&dest);
@@ -215,9 +222,9 @@ pub fn run_init_ex(
             match a.tier {
                 // pointer도 정본 바이트 그대로 (placeholder 없음 — sha 비교 성립 유지)
                 Tier::Managed | Tier::Hybrid | Tier::Pointer => fs::write(&dest, file.contents())?,
-                Tier::Seed => {
-                    let text = file.contents_utf8().expect("seed templates must be UTF-8");
-                    fs::write(&dest, substitute_seed(&a.dest, text, opts))?;
+                Tier::User => {
+                    let text = file.contents_utf8().expect("user-tier templates must be UTF-8");
+                    fs::write(&dest, substitute_user(&a.dest, text, opts))?;
                 }
             }
         }
@@ -324,9 +331,9 @@ fn elf_new_path(dest: &Path) -> PathBuf {
     PathBuf::from(s)
 }
 
-/// seed 전용 placeholder 치환 (dest 기준 — 토큰이 파일별 역사적 상이).
+/// user tier 전용 placeholder 치환 (dest 기준 — 토큰이 파일별 역사적 상이).
 /// 토큰 통일, 데이터화는 manifest schema 확장 시 재검토 (S007 §5).
-fn substitute_seed(dest: &str, text: &str, o: &InitOptions) -> String {
+fn substitute_user(dest: &str, text: &str, o: &InitOptions) -> String {
     match dest {
         "0_Meta/ProjectRule.md" => text
             .replace("[프로젝트명]", &o.name)
@@ -336,6 +343,6 @@ fn substitute_seed(dest: &str, text: &str, o: &InitOptions) -> String {
             .replace("PLACEHOLDER_PROJECT_NAME", &o.name)
             .replace("PLACEHOLDER_DATE", &o.date),
         "2_Log/Wiki/Session_Registry.tsv" => text.replace("YYYY-MM-DD", &o.date),
-        _ => text.to_string(), // 그 외 seed: 치환 없음
+        _ => text.to_string(), // 그 외 user tier: 치환 없음
     }
 }

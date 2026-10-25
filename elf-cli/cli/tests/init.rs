@@ -56,7 +56,7 @@ fn managed_and_hybrid_are_byte_identical_to_embed() {
 
     // 배포된 lang view 기준 (ko = base만; en companion은 ko 프로젝트에 미배포) — P016
     for e in &manifest::embedded().for_lang(&o.lang).files {
-        if e.tier == manifest::Tier::Seed {
+        if e.tier == manifest::Tier::User {
             continue;
         }
         let rel = e.src.strip_prefix("templates/").unwrap();
@@ -67,7 +67,7 @@ fn managed_and_hybrid_are_byte_identical_to_embed() {
 }
 
 #[test]
-fn seed_substitution_applied_and_no_placeholders_remain() {
+fn user_tier_substitution_applied_and_no_placeholders_remain() {
     let tmp = tempdir().unwrap();
     let target = run_init(tmp.path(), &opts("MyProj")).unwrap();
 
@@ -84,7 +84,7 @@ fn seed_substitution_applied_and_no_placeholders_remain() {
     assert!(!registry.contains("YYYY-MM-DD"));
 }
 
-/// P016: `--lang en` → KO operative 정본 유지 + EN companion 동반 + seed는 EN variant로 대체
+/// P016: `--lang en` → KO operative 정본 유지 + EN companion 동반 + user tier는 EN variant로 대체
 #[test]
 fn en_init_deploys_companions_and_variants() {
     let tmp = tempdir().unwrap();
@@ -102,7 +102,7 @@ fn en_init_deploys_companions_and_variants() {
         assert!(target.join(format!(".elf/managed/{c}.en.md")).is_file(), "missing companion: {c}");
     }
 
-    // seed variant: README.md = EN 내용(base 대체) + placeholder 치환
+    // user tier variant: README.md = EN 내용(base 대체) + placeholder 치환
     let readme = std::fs::read_to_string(target.join("README.md")).unwrap();
     assert!(readme.contains("Project Overview"), "README should be EN variant");
     assert!(!readme.contains("프로젝트 개요"), "README should not be KO base");
@@ -186,13 +186,15 @@ fn qa_preset_creates_question_archive_and_skips_research() {
     o.preset = "qa".into();
     let target = run_init(tmp.path(), &o).unwrap();
 
-    // qa 유형 콘텐츠 — 규칙은 루트 CLAUDE.md(LLM 자동 로드)
-    assert!(target.join("CLAUDE.md").is_file());
+    // qa 유형 콘텐츠 — 규칙 정본 = 루트 AGENTS.md(CLAUDE.md는 포인터), 프로젝트 규칙 = 0_Meta/ProjectRule.md
+    assert!(target.join("AGENTS.md").is_file() && target.join("CLAUDE.md").is_file());
     assert!(target.join(".elf/managed/templates/bundle_template.md").is_file());
-    assert!(!target.join("0_Meta").exists(), "qa는 0_Meta 미사용");
+    // 0_Meta는 사용자 소유 규칙 파일 1개만(v2.27 — 연구 전용 파일 없음)
+    let meta: Vec<_> = std::fs::read_dir(target.join("0_Meta")).unwrap().flatten().map(|e| e.file_name()).collect();
+    assert_eq!(meta, vec![std::ffi::OsString::from("ProjectRule.md")], "qa 0_Meta = ProjectRule만");
     // 기본 = 카테고리 0개 (수요 기반 생성 — CLAUDE.md 규약)
     assert!(!target.join("일상질문").exists(), "기본 qa는 사전 카테고리 없음");
-    // seed README 치환 (qa도 공용 seed 경로)
+    // user tier README 치환 (qa도 공용 user tier 경로)
     let readme = std::fs::read_to_string(target.join("README.md")).unwrap();
     assert!(readme.contains("MyQA") && !readme.contains("PLACEHOLDER_"));
 
@@ -233,38 +235,35 @@ fn qa_categories_flag_pre_creates_folders() {
     assert!(!target.join("LLMHowto").exists(), "미지정 카테고리는 미생성");
 }
 
+/// general preset은 v2.27에서 삭제(별칭 없음) — 미지 preset으로 거부.
 #[test]
-fn general_preset_scaffolds_neutral_project() {
+fn general_preset_is_rejected_as_unknown() {
     let tmp = tempdir().unwrap();
     let mut o = opts("MyGen");
     o.preset = "general".into();
-    let target = run_init(tmp.path(), &o).unwrap();
+    match run_init(tmp.path(), &o) {
+        Err(InitError::Plan(m)) => assert!(m.contains("unknown preset: general"), "{m}"),
+        other => panic!("expected Plan error, got {other:?}"),
+    }
+    assert!(!tmp.path().join("MyGen").exists(), "거부 시 폴더 미생성");
+}
 
-    // general 전용 EliRule/LogConvention + 공유 AI_PARA, Registry
-    assert!(target.join(".elf/managed/EliRule.md").is_file());
-    assert!(target.join(".elf/managed/LogConvention.md").is_file());
-    assert!(target.join(".elf/managed/AI_PARA_Framework.md").is_file());
-    assert!(target.join("2_Log/Wiki/Session_Registry.tsv").is_file());
-    // general EliRule = 학술 제외(외부 문헌 검색, highIFjournals 부재) + general 명시
-    let eli = std::fs::read_to_string(target.join(".elf/managed/EliRule.md")).unwrap();
-    assert!(eli.contains("general"));
-    assert!(!eli.contains("highIFjournals") && !eli.contains("외부 문헌 검색"));
-    assert!(!target.join(".elf/managed/highIFjournals.md").exists());
-    // general은 세션 사용 → S001 생성 (qa와 차이)
-    assert!(target.join("2_Log/S001_log.md").is_file());
-    // 학술 폴더 미생성
-    assert!(!target.join("6_Exp").exists());
-    assert!(!target.join("7_Paper").exists());
-    assert!(!target.join("1_Concept/11_Literature").exists());
-    // 공유 spine 템플릿
-    assert!(target.join(".elf/managed/templates/sessionTemplate.md").is_file());
-    // general 전용 README (seed 치환)
+/// qa = 정식 preset(v2.27): 사용자 소유 규칙 파일 `0_Meta/ProjectRule.md` 생성(이름, 날짜 치환),
+/// README와 AGENTS가 규칙 정본(AGENTS.md)과 ProjectRule을 안내.
+#[test]
+fn qa_preset_creates_project_rule_and_current_readme() {
+    let tmp = tempdir().unwrap();
+    let mut o = opts("MyQa");
+    o.preset = "qa".into();
+    let target = run_init(tmp.path(), &o).unwrap();
+    let pr = std::fs::read_to_string(target.join("0_Meta/ProjectRule.md")).unwrap();
+    assert!(pr.contains("ProjectRule: MyQa") && pr.contains("2026-06-12"), "{pr}");
+    assert!(pr.contains("## 3. 외부 반출 완화"));
     let readme = std::fs::read_to_string(target.join("README.md")).unwrap();
-    assert!(readme.contains("MyGen") && readme.contains("general") && !readme.contains("PLACEHOLDER_"));
-    // .elf stamp = general manifest
-    let stamp = std::fs::read_to_string(target.join(".elf/manifest.json")).unwrap();
-    assert_eq!(stamp, embed::MANIFEST_GENERAL_JSON);
-    assert!(manifest::parse(&stamp).is_ok());
+    assert!(readme.contains("`AGENTS.md`") && readme.contains("0_Meta/ProjectRule.md"), "{readme}");
+    assert!(!readme.contains("experimental") && !readme.contains("운영 규칙은 루트 `CLAUDE.md`"), "{readme}");
+    let agents = std::fs::read_to_string(target.join("AGENTS.md")).unwrap();
+    assert!(agents.contains("0_Meta/ProjectRule.md") && !agents.contains("experimental"));
 }
 
 #[test]
