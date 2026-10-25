@@ -132,6 +132,17 @@ pub fn kind_from_preset(preset: &str) -> Kind {
     }
 }
 
+/// 연구 계보 preset의 현행 이름 — 미지정 또는 계보 이름(`research`)은 `full`(미지정 연구 preset = full,
+/// 사용자 결정 2026-10-25), 구 이름은 현행 이름(experimental → exp, software → sw). qa와 그 밖의 값은 그대로.
+pub fn normalize_preset(preset: Option<&str>) -> String {
+    match preset {
+        None | Some("research") => "full".into(),
+        Some("experimental") => "exp".into(),
+        Some("software") => "sw".into(),
+        Some(p) => p.into(),
+    }
+}
+
 /// 계보별 embedded 정본 manifest.
 pub fn embedded_kind(kind: Kind) -> Manifest {
     match kind {

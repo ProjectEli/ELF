@@ -75,6 +75,8 @@ pub struct InitReport {
     pub skipped: Vec<String>,
     /// managed/hybrid 충돌 → `<dest>.elf-new`로 병기한 dest
     pub elf_new: Vec<String>,
+    /// 제자리 도입 안내(기존 config 보존, S001 미생성 등)
+    pub notes: Vec<String>,
 }
 
 /// `parent/<name>`(subfolder) 에 ELF 프로젝트를 생성하고 경로를 반환 (기존 호출 호환).
@@ -107,6 +109,9 @@ pub fn run_init_ex(
     } else if target.exists() {
         return Err(InitError::TargetExists(target));
     }
+
+    // 제자리 도입 전에 세션 기록 유무를 판정(이후 배치하는 Registry 템플릿의 예시 행과 구분 — S042 t04)
+    let had_session_records = in_place && crate::session::has_session_records(&target);
 
     // preset에 따라 계보 manifest 선택 — qa=질문 아카이브, 그 외=연구(general은 v2.27 삭제 — 미지 preset으로 거부)
     let kind = manifest::kind_from_preset(&opts.preset);
@@ -231,12 +236,15 @@ pub fn run_init_ex(
         report.created.push(a.dest.clone());
     }
 
-    // 4. 파생 instance: 2_Log/S001_log.md — 연구 preset 전용, 부재 시만
+    // 4. 파생 instance: 2_Log/S001_log.md — 연구 preset 전용, 부재 시만. 제자리 도입에서 세션 기록
+    //    (2_Log, Archive, Deprecated의 로그 또는 Registry 행)이 이미 있으면 만들지 않음 — 번호 중복 방지(S042 t04).
     if opts.preset != "qa" {
         let rel = "2_Log/S001_log.md";
         let dest = target.join(rel);
         if dest.exists() && !force {
             report.skipped.push(rel.into());
+        } else if had_session_records && !dest.exists() {
+            report.notes.push(format!("{rel} not created — this folder already has session records"));
         } else {
             if !dry_run {
                 let session_tpl = embed::TEMPLATES
@@ -259,13 +267,33 @@ pub fn run_init_ex(
         let elf_dir = target.join(".elf");
         fs::create_dir_all(&elf_dir)?;
         // preset = 계보 정체성 영속화 — update/status가 이 값으로 정본 세트를 선택 (S026).
-        let config = serde_json::json!({
-            "name": opts.name,
-            "lang": opts.lang,
-            "preset": opts.preset,
-            "created": opts.date,
-        });
-        let mut config_text = serde_json::to_string_pretty(&config).expect("config serializes");
+        // 제자리 도입: 기존 config의 키(created, tsa, autoread 등)를 보존하고 name, lang, preset만 설정(S042 t04).
+        // `--modules` = preset `custom` + `modules` 목록(실제 모듈과 표기 일치).
+        let mut config = match fs::read_to_string(elf_dir.join("config.json"))
+            .ok()
+            .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        {
+            Some(serde_json::Value::Object(m)) if in_place => {
+                report.notes.push(".elf/config.json: existing keys kept (created, other settings)".into());
+                m
+            }
+            _ => serde_json::Map::new(),
+        };
+        config.insert("name".into(), opts.name.clone().into());
+        config.insert("lang".into(), opts.lang.clone().into());
+        match &opts.modules {
+            Some(keys) => {
+                config.insert("preset".into(), "custom".into());
+                config.insert("modules".into(), serde_json::json!(keys));
+            }
+            None => {
+                config.insert("preset".into(), opts.preset.clone().into());
+                config.remove("modules");
+            }
+        }
+        config.entry("created").or_insert_with(|| opts.date.clone().into());
+        let mut config_text =
+            serde_json::to_string_pretty(&serde_json::Value::Object(config)).expect("config serializes");
         config_text.push('\n');
         fs::write(elf_dir.join("config.json"), config_text)?;
         fs::write(elf_dir.join("version"), format!("{}\n", embed::version()))?;

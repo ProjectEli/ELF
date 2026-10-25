@@ -4,6 +4,26 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.27.1] - 2026-10-25
+
+### Fixed
+- **Adopting an old ELF folder in place** (`.elf/` present but no `.elf/manifest.json`, where
+  `elf update` refuses): `elf init` in that folder now keeps the existing `.elf/config.json` keys
+  (`created` included) instead of rewriting the file, uses the preset, language and name already
+  in it when `--preset`, `--lang` or a name is not given, and does not create `2_Log/S001_log.md`
+  when the folder already has session records (previously a new S001 could duplicate an archived
+  one).
+- **Old rule copies in `0_Meta/`**: when the current rules are in `.elf/managed/`, `elf update`
+  and `elf check files` now say the copies are not read and can be deleted after moving any
+  project-specific edits into `ProjectRule.md` (previously they pointed to the v2.15.1 upgrade path,
+  which applies only to the old layout).
+- **Preset line**: `elf update` and `elf check files` show the preset with its lineage, e.g.
+  `preset: minimal (research lineage)`, instead of the lineage alone (`preset: research`). A research
+  project whose preset is unset or recorded as `research` is treated as `full`, and `elf update`
+  records `full`.
+- **`elf init --modules …`** records `"preset": "custom"` and the module list in `.elf/config.json`
+  (previously `full` was recorded whatever the modules were).
+
 ## [2.27.0] - 2026-10-25
 
 ### Changed

@@ -185,6 +185,16 @@ impl From<io::Error> for SessionError {
     }
 }
 
+/// 세션 기록이 이미 있는가 — `LOG_DIRS`의 S###_log.md 또는 Registry 데이터 행(제자리 init의 S001 생성 판정).
+pub fn has_session_records(root: &Path) -> bool {
+    if !scan_log_numbers(root).is_empty() {
+        return true;
+    }
+    fs::read_to_string(root.join(REGISTRY_REL))
+        .map(|t| t.lines().skip(1).any(|l| !l.trim().is_empty()))
+        .unwrap_or(false)
+}
+
 /// `LOG_DIRS`(루트, Archive, Deprecated)의 S###_log.md 번호 수집 — 부분 폐기 파일(`*.partial.md`)은 이름이 달라 제외.
 fn scan_log_numbers(root: &Path) -> Vec<u32> {
     let mut nums = Vec::new();

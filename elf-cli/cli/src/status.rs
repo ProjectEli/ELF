@@ -77,7 +77,19 @@ pub fn run_status_parts(root: &Path, with_version_tsa: bool) -> Result<StatusRep
     // 모순도 중단 대신 경고 + stamp 시그니처(실물과 정합한 쪽) 기준으로 진단 계속.
     let kind = match update::resolve_kind(root, &stamp_full) {
         Ok((kind, update::KindSource::Config)) => {
-            report.push(LineKind::Info, format!("preset: {kind}"));
+            let cfg = update::read_config_preset(root);
+            let line = if kind == manifest::Kind::Qa {
+                "preset: qa".to_string()
+            } else {
+                let eff = manifest::normalize_preset(cfg.as_deref());
+                match cfg {
+                    Some(c) if c != eff => format!(
+                        "preset: {eff} (research lineage; .elf/config.json says `{c}` — `elf update` records `{eff}`)"
+                    ),
+                    _ => format!("preset: {eff} (research lineage)"),
+                }
+            };
+            report.push(LineKind::Info, line);
             kind
         }
         Ok((kind, update::KindSource::RemovedGeneral)) => {
@@ -88,7 +100,8 @@ pub fn run_status_parts(root: &Path, with_version_tsa: bool) -> Result<StatusRep
         }
         Ok((kind, update::KindSource::Inferred)) => {
             report.push(LineKind::Info, format!(
-                "preset: {kind} (inferred from stamp — `elf update` records it to .elf/config.json)"
+                "preset: {} (inferred from stamp — `elf update` records it to .elf/config.json)",
+                if kind == manifest::Kind::Qa { "qa" } else { "full" }
             ));
             kind
         }

@@ -121,6 +121,10 @@ pub fn files_checks(root: &Path, env: &DoctorEnv) -> DoctorReport {
     check_overlay(root, &mut r);
     check_l2(root, &mut r);
     check_tsa(root, &mut r);
+    let leftovers = update::legacy_rule_copies(root);
+    if !leftovers.is_empty() {
+        r.add(Health::Warn, "0_Meta", update::legacy_copies_message(root, &leftovers));
+    }
     r
 }
 

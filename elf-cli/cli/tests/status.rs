@@ -43,7 +43,7 @@ fn clean_project_has_no_findings_and_is_readonly() {
     let r = run_status(&root).unwrap();
     assert_eq!(r.findings(), 0, "{:?}", r.lines);
     assert!(r.lines.iter().any(|l| l.contains("project = CLI")));
-    assert!(r.lines.iter().any(|l| l.contains("preset: research")), "{:?}", r.lines);
+    assert!(r.lines.iter().any(|l| l == "preset: minimal (research lineage)"), "{:?}", r.lines);
     // 읽기전용 보장: stamp 무변경
     assert_eq!(fs::read(root.join(".elf/manifest.json")).unwrap(), before);
 }

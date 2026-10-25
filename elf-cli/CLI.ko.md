@@ -56,12 +56,12 @@ ELF 프로젝트를 생성합니다. **이름을 생략하면 `elf init`은 현�
 | `--dry-run` | off | 계획만 출력, 미기록 |
 | `--force` | off | 기존 파일도 덮어씀(기본은 사용자 것 유지) |
 | `--preset <p>` | `full` | 모듈 세트: `full`(전체 모듈) / `exp`(6_Exp + 7_Paper) / `sw`(5_SW + 7_Paper) / `minimal`(없음) — 연구 preset = 이름과 같은 주 모듈 + `paper`. 2.26 이전 이름(`experimental`, `software`)도 받습니다. **`qa`** = 질문 아카이브 유형(연구 아님). `general` preset은 2.27에서 삭제 — `minimal` 사용 |
-| `--modules <목록>` | — | custom 모듈(쉼표): `hw,fab,sw,exp,paper`. `--preset`보다 우선 |
+| `--modules <목록>` | — | custom 모듈(쉼표): `hw,fab,sw,exp,paper`. `--preset`보다 우선. `.elf/config.json`에 `"preset": "custom"`과 모듈 목록으로 기록 |
 | `--lang <언어>` | `ko-KR` | AI 에이전트 응답 언어, BCP-47 태그(`.elf/config.json`에 기록). 비한국어 태그(예: `en-US`)면 영어 **companion** 문서도 함께 배포 — 아래 note 참조 |
 
 Core 폴더(`0_Meta`–`2_Log`)는 항상 생성, 모듈 폴더(`3_HW`–`7_Paper`)는 preset/`--modules`에 따라 추가. ELF 관리 규칙 payload(규칙+로그 형식 stub)는 `.elf/managed/`에 배포되고, `0_Meta/`는 사용자 소유 파일(`ProjectRule.md`, data overlay)만 둡니다.
 
-**In-place(이름 생략)**는 기존 폴더에 ELF를 **아무것도 덮어쓰지 않고** 도입합니다: 누락된 ELF 파일만 추가하고 사용자 파일은 유지하며, 충돌하는 ELF managed 파일은 `<파일>.elf-new`로 병기합니다(사용자 `.gitignore`, `README` 등은 절대 미클로버). 폴더가 비어있지 않으면 경로를 echo하는 확인 1회를 거치고, 프로젝트명은 폴더명으로 기본 설정됩니다. 이미 ELF 프로젝트(`.elf/` 존재)면 exit 3로 거부 — `elf update`를 사용하세요. 이름(하위폴더) 형식은 `./<이름>`이 이미 있으면 종전대로 exit 3 거부.
+**In-place(이름 생략)**는 기존 폴더에 ELF를 **아무것도 덮어쓰지 않고** 도입합니다: 누락된 ELF 파일만 추가하고 사용자 파일은 유지하며, 충돌하는 ELF managed 파일은 `<파일>.elf-new`로 병기합니다(사용자 `.gitignore`, `README` 등은 절대 미클로버). 폴더가 비어있지 않으면 경로를 echo하는 확인 1회를 거치고, 프로젝트명은 폴더명으로 기본 설정됩니다. 이미 ELF 프로젝트(`.elf/manifest.json` 존재)면 exit 3로 거부 — `elf update`를 사용하세요. `.elf/`는 있으나 `.elf/manifest.json`이 없는 구버전 ELF 폴더(`elf update`가 거부)도 같은 방식으로 도입합니다: 기존 `.elf/config.json`의 키(`created` 포함)를 보존하고, `--preset`, `--lang`, 이름은 그 안의 값을 기본으로 쓰며, 이미 세션 기록이 있으면 `2_Log/S001_log.md`를 만들지 않습니다. 도입 뒤 남은 조치는 `elf check files`가 알려 줍니다: `0_Meta/`의 구 규칙 사본(현행 규칙은 `.elf/managed/` — 프로젝트 고유 수정은 `ProjectRule.md`로 옮긴 뒤 삭제), `@AGENTS.md` 줄이 없는 `CLAUDE.md`, ELF 블록이 없는 `.gitignore`(`elf update --force`가 맨 위에 넣고 사용자 줄은 유지). 이름(하위폴더) 형식은 `./<이름>`이 이미 있으면 종전대로 exit 3 거부.
 
 ```bash
 elf init                              # in-place: 현재 폴더에 ELF 도입
@@ -100,7 +100,7 @@ elf init my_questions --preset qa --categories 일상질문,IT일반질문   # �
 `"preset"` 필드(`elf init`이 기록)에서 읽어, 해당 유형의 정본 세트로 계획, re-stamp 합니다.
 2.16.2 이전에 생성된 프로젝트에는 이 필드가 없으며 — 프로젝트 자신의 stamp(`.elf/manifest.json`)에서
 추론해 첫 비-dry-run 갱신 때 기록합니다. `config.json`과 stamp가 서로 모순되면 `"preset"` 필드를
-고칠 때까지 `elf update`가 실행을 거부합니다 — 잘못된 정본 세트로 프로젝트가 갱신되는 것을 막는 보호입니다.
+고칠 때까지 `elf update`가 실행을 거부합니다 — 잘못된 정본 세트로 프로젝트가 갱신되는 것을 막는 보호입니다. 첫 줄은 preset과 계보를 함께 보입니다(예: `preset: minimal (research lineage)`). 연구 계보에서 preset이 없거나 `research`로 기록된 프로젝트는 `full`로 보고, `elf update`가 `full`을 기록합니다.
 
 ```bash
 elf check files       # 무엇이 바뀔지 확인

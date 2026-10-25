@@ -240,26 +240,47 @@ fn preset_mismatch_refuses_update_untouched() {
 fn pre215_leftovers_warn_but_are_left_untouched() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
-    // 미이전 프로젝트 재현: legacy 규칙명이 0_Meta에 잔존
-    fs::write(root.join("0_Meta/EliRule.md"), b"legacy leftover\n").unwrap();
-    fs::write(root.join("0_Meta/LLMcliche.md"), b"legacy leftover\n").unwrap();
+    // 현행 배치(.elf/managed/에 정본) + 0_Meta에 구 규칙 사본 잔존 — 구버전 폴더를 제자리 도입한 뒤의 상태
+    fs::write(root.join("0_Meta/EliRule.md"), b"legacy leftover
+").unwrap();
+    fs::write(root.join("0_Meta/LLMcliche.md"), b"legacy leftover
+").unwrap();
 
     let report = run_update(&root, &plain()).unwrap();
     let warn = report
         .lines
         .iter()
-        .find(|l| l.contains("pre-2.15 legacy rule files remain"))
-        .expect("잔재 경고 출력");
+        .find(|l| l.contains("old rule copies remain"))
+        .expect("구 사본 경고 출력");
     assert!(warn.contains("0_Meta/EliRule.md") && warn.contains("0_Meta/LLMcliche.md"));
-    assert!(warn.contains("v2.15.1") && warn.contains("elf migrate"), "2단계 경로 안내: {warn}");
+    // v2.27.1: 현행 배치에서는 v2.15.1 경로가 아니라 검토 후 삭제 안내
+    assert!(warn.contains("current rules are in .elf/managed/") && warn.contains("then delete them"), "{warn}");
+    assert!(!warn.contains("v2.15.1"), "{warn}");
     assert!(report.warnings >= 1);
     // 비접촉 보장: 잔재 무변경, .elf-new 병기 없음, update는 정상 진행
-    assert_eq!(fs::read(root.join("0_Meta/EliRule.md")).unwrap(), b"legacy leftover\n");
+    assert_eq!(fs::read(root.join("0_Meta/EliRule.md")).unwrap(), b"legacy leftover
+");
     assert!(!root.join("0_Meta/EliRule.md.elf-new").exists());
     assert_eq!(report.conflicts, 0, "{:?}", report.lines);
-    // dry-run에도 동일 안내
+    // dry-run에도 동일 안내, check files에도 경고
     let dry = run_update(&root, &UpdateOptions { dry_run: true, force: false }).unwrap();
-    assert!(dry.lines.iter().any(|l| l.contains("pre-2.15 legacy rule files remain")));
+    assert!(dry.lines.iter().any(|l| l.contains("old rule copies remain")));
+    let env = elf_cli::doctor::DoctorEnv { version: embed::version().to_string(), receipt_present: false };
+    let files = elf_cli::check::run_scope(&root, &env, elf_cli::check::Scope::Files);
+    assert!(files.items.iter().any(|i| i.text.starts_with("0_Meta: old rule copies remain")), "{:?}", files.items);
+}
+
+/// 구 배치(.elf/managed/ 정본 없음)에서는 종전 안내(v2.15.1 경로) 유지.
+#[test]
+fn legacy_layout_keeps_two_step_upgrade_message() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path(), "P");
+    fs::write(root.join("0_Meta/EliRule.md"), b"legacy
+").unwrap();
+    fs::remove_file(root.join(".elf/managed/EliRule.md")).unwrap();
+    let dry = run_update(&root, &UpdateOptions { dry_run: true, force: false }).unwrap();
+    let warn = dry.lines.iter().find(|l| l.contains("pre-2.15 legacy rule files remain")).expect("구 배치 안내");
+    assert!(warn.contains("v2.15.1") && warn.contains("elf migrate"), "{warn}");
 }
 
 #[test]
@@ -482,3 +503,43 @@ fn git_unborn_repo_warns_missing_baseline() {
     let report = run_update(&root, &plain()).unwrap();
     assert!(report.lines.iter().any(|l| l.contains("no git commit yet")), "{:?}", report.lines);
 }
+
+// ── preset 표시와 정규화 (v2.27.1 — 미지정 연구 preset = full) ───────────────
+
+#[test]
+fn research_lineage_name_in_config_is_recorded_as_full() {
+    let tmp = tempdir().unwrap();
+    let root = new_project_preset(tmp.path(), "R", "minimal");
+    set_config_preset(&root, Some("research")); // 구 update가 추론 결과로 기록하던 값
+    let s = elf_cli::status::run_status(&root).unwrap();
+    assert!(s.lines.iter().any(|l| l.contains("preset: full (research lineage; .elf/config.json says `research`")), "{:?}", s.lines);
+    let r = run_update(&root, &plain()).unwrap();
+    assert!(r.lines.iter().any(|l| l.contains("preset: full (research lineage; recorded `full`")), "{:?}", r.lines);
+    let v: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(root.join(".elf/config.json")).unwrap()).unwrap();
+    assert_eq!(v["preset"], "full");
+    // 다음 update는 그대로 표시만
+    let r = run_update(&root, &plain()).unwrap();
+    assert!(r.lines.iter().any(|l| l == "preset: full (research lineage)"), "{:?}", r.lines);
+}
+
+#[test]
+fn inferred_research_preset_is_recorded_as_full() {
+    let tmp = tempdir().unwrap();
+    let root = new_project_preset(tmp.path(), "R2", "minimal");
+    set_config_preset(&root, None);
+    let r = run_update(&root, &plain()).unwrap();
+    assert!(r.lines.iter().any(|l| l.contains("preset: full (inferred from stamp — recorded")), "{:?}", r.lines);
+    let v: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(root.join(".elf/config.json")).unwrap()).unwrap();
+    assert_eq!(v["preset"], "full");
+}
+
+#[test]
+fn config_preset_is_shown_with_lineage() {
+    let tmp = tempdir().unwrap();
+    let root = new_project_preset(tmp.path(), "R3", "minimal");
+    let r = run_update(&root, &plain()).unwrap();
+    assert!(r.lines.iter().any(|l| l == "preset: minimal (research lineage)"), "{:?}", r.lines);
+}
+

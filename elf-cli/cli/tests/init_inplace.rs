@@ -95,3 +95,77 @@ fn in_place_force_overwrites_existing_user_file() {
     assert_ne!(readme, "old"); // force → ELF user tier 파일로 교체
     assert!(readme.contains("Proj"));
 }
+
+// ── manifest 없는 구버전 폴더의 제자리 도입 (v2.27.1) ─────────────────────────
+
+/// 구버전 생성기 폴더 재현: `.elf/`에 config.json과 version만, 세션 기록은 Archive에만.
+fn old_folder(root: &std::path::Path) {
+    fs::create_dir_all(root.join(".elf")).unwrap();
+    fs::write(
+        root.join(".elf/config.json"),
+        "{\n  \"name\": \"OldProj\",\n  \"lang\": \"한국어\",\n  \"created\": \"2026-06-12\",\n  \"tsa\": true\n}\n",
+    )
+    .unwrap();
+    fs::write(root.join(".elf/version"), "v2.4.2\n").unwrap();
+    fs::create_dir_all(root.join("2_Log/Archive")).unwrap();
+    fs::write(root.join("2_Log/Archive/S001_log.md"), "# S001: first\n").unwrap();
+}
+
+#[test]
+fn in_place_adopt_keeps_existing_config_keys() {
+    let tmp = tempdir().unwrap();
+    old_folder(tmp.path());
+    run_init_ex(tmp.path(), &opts("OldProj"), true, false, false).unwrap();
+    let cfg: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(tmp.path().join(".elf/config.json")).unwrap()).unwrap();
+    assert_eq!(cfg["created"], "2026-06-12", "생성일 보존");
+    assert_eq!(cfg["tsa"], true, "그 밖의 키 보존");
+    assert_eq!(cfg["preset"], "full");
+    assert!(tmp.path().join(".elf/manifest.json").is_file());
+}
+
+#[test]
+fn in_place_adopt_does_not_create_duplicate_s001() {
+    let tmp = tempdir().unwrap();
+    old_folder(tmp.path());
+    let r = run_init_ex(tmp.path(), &opts("OldProj"), true, false, false).unwrap();
+    assert!(!tmp.path().join("2_Log/S001_log.md").exists(), "Archive에 S001이 있으면 새로 만들지 않음");
+    assert!(r.notes.iter().any(|s| s.contains("already has session records")), "{:?}", r.notes);
+}
+
+/// e2e: `--preset`, `--lang`을 주지 않으면 기존 config 값을 씀(구 lang 표기도 그대로).
+#[test]
+fn e2e_in_place_adopt_uses_existing_preset_and_lang() {
+    let tmp = tempdir().unwrap();
+    old_folder(tmp.path());
+    let cfg_path = tmp.path().join(".elf/config.json");
+    let mut v: serde_json::Value = serde_json::from_str(&fs::read_to_string(&cfg_path).unwrap()).unwrap();
+    v["preset"] = "experimental".into();
+    fs::write(&cfg_path, serde_json::to_string_pretty(&v).unwrap()).unwrap();
+    assert_cmd::Command::cargo_bin("elf")
+        .unwrap()
+        .args(["init", "--yes"])
+        .current_dir(tmp.path())
+        .assert()
+        .success();
+    let cfg: serde_json::Value = serde_json::from_str(&fs::read_to_string(&cfg_path).unwrap()).unwrap();
+    assert_eq!(cfg["preset"], "exp", "기존 preset(구 이름) → 현행 이름");
+    assert_eq!(cfg["lang"], "한국어", "기존 lang 유지");
+    assert_eq!(cfg["name"], "OldProj", "기존 name 유지");
+    assert_eq!(cfg["created"], "2026-06-12");
+    assert!(tmp.path().join("6_Exp").is_dir() && !tmp.path().join("3_HW").exists(), "exp 모듈로 도입");
+}
+
+/// `--modules` = config `preset: custom` + `modules` 목록(실제 모듈과 표기 일치).
+#[test]
+fn modules_are_recorded_as_custom_preset() {
+    let tmp = tempdir().unwrap();
+    let mut o = opts("Mod");
+    o.modules = Some(vec!["sw".into()]);
+    run_init_ex(tmp.path(), &o, true, false, false).unwrap();
+    let cfg: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(tmp.path().join(".elf/config.json")).unwrap()).unwrap();
+    assert_eq!(cfg["preset"], "custom");
+    assert_eq!(cfg["modules"], serde_json::json!(["sw"]));
+}
+

@@ -144,9 +144,18 @@ pub(crate) fn resolve_kind(
 }
 
 /// 추론된 preset을 config.json에 영속화(자동 복구 — 다음 실행부터 config 직독).
+/// 연구 계보는 미지정 연구 preset = `full`로 기록(계보 이름 `research`를 preset으로 쓰지 않음).
 /// 실패는 무해(다음 실행이 재추론)라 조용히 무시. dry-run에서는 호출하지 않는다.
 fn repair_config_preset(root: &Path, kind: manifest::Kind) {
-    write_config_preset(root, kind.as_str());
+    write_config_preset(root, &inferred_preset(kind));
+}
+
+/// 추론 시 기록할 preset 이름 — qa = `qa`, 연구 = `full`.
+fn inferred_preset(kind: manifest::Kind) -> String {
+    match kind {
+        manifest::Kind::Qa => "qa".into(),
+        manifest::Kind::Research => manifest::normalize_preset(None),
+    }
 }
 
 fn write_config_preset(root: &Path, preset: &str) {
@@ -177,7 +186,25 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
 
     let mut report = UpdateReport::default();
     match kind_source {
-        KindSource::Config => report.note(format!("preset: {kind}")),
+        KindSource::Config => {
+            let cfg = read_config_preset(root);
+            if kind == manifest::Kind::Qa {
+                report.note("preset: qa".into());
+            } else {
+                let eff = manifest::normalize_preset(cfg.as_deref());
+                if cfg.as_deref() != Some(eff.as_str()) {
+                    let was = cfg.unwrap_or_default();
+                    if opts.dry_run {
+                        report.note(format!("preset: {eff} (research lineage; .elf/config.json says `{was}` — would record `{eff}`)"));
+                    } else {
+                        write_config_preset(root, &eff);
+                        report.note(format!("preset: {eff} (research lineage; recorded `{eff}` to .elf/config.json — was `{was}`)"));
+                    }
+                } else {
+                    report.note(format!("preset: {eff} (research lineage)"));
+                }
+            }
+        }
         KindSource::RemovedGeneral => {
             if opts.dry_run {
                 report.note("preset: general was removed in ELF 2.27 — this update would convert the project to `minimal` (research lineage)".into());
@@ -190,12 +217,14 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
         KindSource::Inferred => {
             if opts.dry_run {
                 report.note(format!(
-                    "preset: {kind} (inferred from stamp — would record to .elf/config.json)"
+                    "preset: {} (inferred from stamp — would record to .elf/config.json)",
+                    inferred_preset(kind)
                 ));
             } else {
                 repair_config_preset(root, kind);
                 report.note(format!(
-                    "preset: {kind} (inferred from stamp — recorded to .elf/config.json)"
+                    "preset: {} (inferred from stamp — recorded to .elf/config.json)",
+                    inferred_preset(kind)
                 ));
             }
         }
@@ -482,7 +511,8 @@ pub(crate) fn read_baseline_block(root: &Path, dest: &str) -> Option<String> {
 /// `.elf/managed/`에 새 사본이 생기고 구 파일은 참조 없는 파일로 남는다. managed 규칙명이
 /// `0_Meta/`에 남아 있으면 그 상태이므로 2단계 업그레이드 경로를 경고로 안내한다.
 /// (감지 대상 = 규칙 5종 고정명 — `0_Meta/`는 사용자 영역이라 동명 파일은 잔재 외 비개연.)
-fn warn_if_legacy_leftovers(root: &Path, report: &mut UpdateReport) {
+/// `0_Meta/`에 남은 구 규칙 사본(pre-2.15 배치) — update 경고와 `check files` 공용.
+pub(crate) fn legacy_rule_copies(root: &Path) -> Vec<String> {
     const LEGACY_RULE_NAMES: [&str; 5] = [
         "EliRule.md",
         "LogConvention.md",
@@ -490,16 +520,33 @@ fn warn_if_legacy_leftovers(root: &Path, report: &mut UpdateReport) {
         "highIFjournals.md",
         "LLMcliche.md",
     ];
-    let leftovers: Vec<String> = LEGACY_RULE_NAMES
+    LEGACY_RULE_NAMES
         .iter()
         .filter(|n| root.join("0_Meta").join(n).is_file())
         .map(|n| format!("0_Meta/{n}"))
-        .collect();
-    if !leftovers.is_empty() {
-        report.warn(format!(
+        .collect()
+}
+
+/// 현행 배치(`.elf/managed/`에 정본)에서 구 사본에 대한 안내 — 읽히지 않는 사본이므로 검토 후 삭제.
+pub(crate) fn legacy_copies_message(root: &Path, leftovers: &[String]) -> String {
+    if root.join(".elf").join("managed").join("EliRule.md").is_file() {
+        format!(
+            "old rule copies remain ({}) — the current rules are in .elf/managed/ and these copies are not read; move any project-specific edits into 0_Meta/ProjectRule.md, then delete them",
+            leftovers.join(", ")
+        )
+    } else {
+        format!(
             "pre-2.15 legacy rule files remain ({}) — this CLI no longer reads or migrates the legacy layout. Upgrade path: install v2.15.1 from the Releases page, run `elf update` then `elf migrate` there, then return to the latest CLI (see CHANGELOG 2.16.0). These files are left untouched.",
             leftovers.join(", ")
-        ));
+        )
+    }
+}
+
+fn warn_if_legacy_leftovers(root: &Path, report: &mut UpdateReport) {
+    let leftovers = legacy_rule_copies(root);
+    if !leftovers.is_empty() {
+        let msg = legacy_copies_message(root, &leftovers);
+        report.warn(msg);
     }
 }
 

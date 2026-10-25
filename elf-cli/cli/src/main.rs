@@ -32,17 +32,18 @@ enum Commands {
         #[arg(long)]
         force: bool,
         /// preset: full | exp | sw | minimal | qa — 연구 preset = 이름과 같은 주 모듈 + paper (full = 전체, minimal = 없음); qa = 질문 아카이브 / research presets = the module of the same name + paper; qa = question archive
-        #[arg(long, default_value = "full", conflicts_with = "modules")]
-        preset: String,
+        /// (생략 시 full — 기존 ELF 폴더에 제자리 실행하면 그 config의 preset / omit = full, or the existing config's preset in place)
+        #[arg(long, conflicts_with = "modules")]
+        preset: Option<String>,
         /// custom 모듈 선택 / custom modules (쉼표 구분: hw,fab,sw,exp,paper) — preset 대신
         #[arg(long, value_delimiter = ',')]
         modules: Option<Vec<String>>,
         /// (qa preset) 사전 생성 카테고리 / pre-create categories (쉼표 구분) — 기본 0개(수요 기반)
         #[arg(long, value_delimiter = ',')]
         categories: Option<Vec<String>>,
-        /// 프로젝트 언어 / project language (AI 응답 언어 — .elf/config.json)
-        #[arg(long, default_value = "ko-KR")]
-        lang: String,
+        /// 프로젝트 언어 / project language (AI 응답 언어 — .elf/config.json; 생략 시 ko-KR 또는 기존 config 값 / omit = ko-KR, or the existing config's value in place)
+        #[arg(long)]
+        lang: Option<String>,
     },
     /// 프로젝트의 ELF managed/hybrid 파일을 현 CLI 버전으로 갱신 / Update this project's ELF-managed files
     /// (elf 실행 파일 자체는 `elf self update` / for the binary itself)
@@ -298,26 +299,40 @@ fn main() {
             // mode: 무명, `--here`, `.` → 현재 폴더 in-place (P018 name-presence)
             let dot = name.as_deref() == Some(".");
             let in_place = here || name.is_none() || dot;
-            // project name: in-place는 cwd basename(또는 `--here <name>`), 그 외는 인자명
+            // 제자리 도입: 기존 `.elf/config.json`(manifest 없는 구버전 포함)의 name, preset, lang을 기본값으로 (S042 t04)
+            let existing: Option<serde_json::Value> = if in_place {
+                std::fs::read_to_string(cwd.join(".elf").join("config.json"))
+                    .ok()
+                    .and_then(|t| serde_json::from_str(&t).ok())
+            } else {
+                None
+            };
+            let existing_str = |k: &str| -> Option<String> {
+                existing.as_ref().and_then(|v| v.get(k)).and_then(|x| x.as_str()).map(String::from)
+            };
+            // project name: in-place는 `--here <name>` > 기존 config name > cwd basename, 그 외는 인자명
             let proj_name = if in_place {
                 match name.clone().filter(|n| n != ".") {
                     Some(n) => n,
-                    None => cwd
-                        .file_name()
-                        .and_then(|s| s.to_str())
-                        .unwrap_or("project")
-                        .to_string(),
+                    None => existing_str("name").unwrap_or_else(|| {
+                        cwd.file_name().and_then(|s| s.to_str()).unwrap_or("project").to_string()
+                    }),
                 }
             } else {
                 name.clone().expect("subfolder requires a name")
             };
             let date = chrono::Local::now().format("%Y-%m-%d").to_string();
-            // 구 preset 이름(v2.25 이전) — 숨김 값 별칭
-            let preset = match preset.as_str() {
-                "experimental" => "exp".to_string(),
-                "software" => "sw".to_string(),
-                _ => preset,
+            // preset: 명시 > 기존 config(삭제된 general → minimal, custom은 modules와 함께만 의미) > full.
+            // 구 이름(experimental, software)과 계보 이름(research)은 현행 이름으로(미지정 연구 preset = full).
+            let preset = match preset {
+                Some(p) => manifest::normalize_preset(Some(&p)),
+                None => match existing_str("preset").as_deref() {
+                    Some(manifest::REMOVED_GENERAL) => "minimal".to_string(),
+                    Some("custom") | None => "full".to_string(),
+                    Some(p) => manifest::normalize_preset(Some(p)),
+                },
             };
+            let lang = lang.or_else(|| existing_str("lang")).unwrap_or_else(|| "ko-KR".to_string());
             let label = match &modules {
                 Some(keys) => format!("custom({})", keys.join(",")),
                 None => preset.clone(),
@@ -377,6 +392,9 @@ fn main() {
                         for s in &report.skipped {
                             println!("[elf]     kept your {s}");
                         }
+                        for n in &report.notes {
+                            println!("[elf]     {n}");
+                        }
                         for n in &report.elf_new {
                             println!("[elf]     ELF version at {n}");
                         }
@@ -389,7 +407,7 @@ fn main() {
                         _ => "0_Meta/ProjectRule.md",
                     };
                     println!("[elf] next: open {next}");
-                    if kind != manifest::Kind::Qa {
+                    if kind != manifest::Kind::Qa && report.created.iter().any(|c| c == "2_Log/S001_log.md") {
                         // v2.22: S001 로그는 헤더만(t01 stub 제거) — 첫 trial은 `elf trial new`
                         println!("[elf] next: elf trial new \"<title>\" → S001 t01 (the session log holds the header only)");
                     }

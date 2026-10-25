@@ -56,12 +56,12 @@ Scaffold an ELF project. **With no name, `elf init` initializes the current fold
 | `--dry-run` | off | Preview the plan; write nothing |
 | `--force` | off | Overwrite existing files (default keeps yours) |
 | `--preset <p>` | `full` | Module set: `full` (all modules) / `exp` (6_Exp + 7_Paper) / `sw` (5_SW + 7_Paper) / `minimal` (none) — a research preset is the module of the same name plus `paper`; the names before 2.26 (`experimental`, `software`) are still accepted. **`qa`** = question-archive project type (not research). The `general` preset was removed in 2.27 — use `minimal` |
-| `--modules <list>` | — | Custom modules (comma-separated): `hw,fab,sw,exp,paper`. Overrides `--preset` |
+| `--modules <list>` | — | Custom modules (comma-separated): `hw,fab,sw,exp,paper`. Overrides `--preset`; recorded as `"preset": "custom"` plus the module list in `.elf/config.json` |
 | `--lang <lang>` | `ko-KR` | AI agent response language, BCP-47 tag (written to `.elf/config.json`). For a non-Korean tag (e.g. `en-US`), English **companion** docs are also deployed — see note below |
 
 Core folders (`0_Meta`–`2_Log`) are always created; module folders (`3_HW`–`7_Paper`) are added per preset or `--modules`. The managed rule payload (rules + log-format stubs) is deployed under `.elf/managed/`; `0_Meta/` holds only user-owned files (`ProjectRule.md`, data overlays).
 
-**In-place (no name)** adopts ELF into an existing folder **without overwriting anything**: missing ELF files are added, your existing files are kept, and a colliding ELF-managed file is written alongside as `<file>.elf-new` (your `.gitignore`, `README`, etc. are never clobbered). When the folder is non-empty you get one confirmation echoing the path; the project name defaults to the folder name. If the folder is already an ELF project (`.elf/` present) it refuses with exit 3 — use `elf update`. The named (subfolder) form still refuses with exit 3 if `./<name>` already exists.
+**In-place (no name)** adopts ELF into an existing folder **without overwriting anything**: missing ELF files are added, your existing files are kept, and a colliding ELF-managed file is written alongside as `<file>.elf-new` (your `.gitignore`, `README`, etc. are never clobbered). When the folder is non-empty you get one confirmation echoing the path; the project name defaults to the folder name. If the folder is already an ELF project (`.elf/manifest.json` present) it refuses with exit 3 — use `elf update`. A folder from an old ELF version that has `.elf/` but no `.elf/manifest.json` (where `elf update` refuses) is adopted the same way: the existing `.elf/config.json` keys are kept (`created` included), `--preset`, `--lang` and the name default to the values already in it, and no `2_Log/S001_log.md` is created when the folder already has session records. Afterwards `elf check files` lists what is left: old rule copies in `0_Meta/` (the current rules are in `.elf/managed/`; delete the copies after moving any project-specific edits into `ProjectRule.md`), a `CLAUDE.md` without `@AGENTS.md`, a `.gitignore` without the ELF block (`elf update --force` inserts it at the top and keeps your lines). The named (subfolder) form still refuses with exit 3 if `./<name>` already exists.
 
 ```bash
 elf init                              # in-place: adopt ELF into the current folder
@@ -105,7 +105,7 @@ is used for planning and re-stamping. Projects initialized before 2.16.2 have no
 the preset is then inferred from the project's own stamp (`.elf/manifest.json`) and recorded
 on the first non-dry-run update. If `config.json` and the stamp contradict each other,
 `elf update` refuses to run until the `"preset"` field is fixed — this protects the project
-from being updated against the wrong template set.
+from being updated against the wrong template set. The first line shows the preset and its lineage, e.g. `preset: minimal (research lineage)`. A research project whose preset is unset or recorded as `research` is treated as `full`, and `elf update` records `full`.
 
 ```bash
 elf check files       # see what would change
