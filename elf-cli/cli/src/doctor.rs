@@ -232,6 +232,113 @@ fn check_i18n(root: &Path, r: &mut DoctorReport) {
     );
 }
 
+/// CLAUDE.md의 `@AGENTS.md` import 상태 — check files와 autoread digest 공용 (S043).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentsImport {
+    /// 본문에 유효한 `@AGENTS.md`(또는 `@./AGENTS.md`)
+    Imported,
+    /// 언급은 있으나 import되지 않는 자리(백틱, 코드 블록, 블록 HTML 주석, 따옴표, 붙은 문장부호)
+    NotImported,
+    /// 언급 없음
+    Absent,
+}
+
+const AGENTS_IMPORTS: [&str; 2] = ["@AGENTS.md", "@./AGENTS.md"];
+
+/// Claude Code import 파싱 규칙 기준 판정(공식 문서 memory: code span과 fenced block 안은 import하지
+/// 않음, 경로는 공백에서 끝남, 따옴표로 감싼 경로는 import하지 않음). 블록 HTML 주석은 하네스가
+/// 제거하므로 import 안 됨으로 봄(문서 미기재 — 보수적 판정). 유효 = 앞이 줄 시작이나 공백, 뒤가 공백이나 줄 끝.
+pub fn agents_import(text: &str) -> AgentsImport {
+    let mut fence: Option<(u8, usize)> = None;
+    let mut in_comment = false;
+    let mut mentioned = false;
+    for line in text.lines() {
+        mentioned |= AGENTS_IMPORTS.iter().any(|tok| line.contains(tok));
+        let t = line.trim_start();
+        let indent = line.len() - t.len();
+        let run = |c: u8| t.bytes().take_while(|&b| b == c).count();
+        if let Some((c, n)) = fence {
+            if indent <= 3 && run(c) >= n && t[run(c)..].trim().is_empty() {
+                fence = None;
+            }
+            continue;
+        }
+        if in_comment {
+            in_comment = !line.contains("-->");
+            continue;
+        }
+        if indent <= 3 {
+            // 백틱 fence의 info 문자열에는 백틱 불가(CommonMark) — "```x```"는 code span
+            if let Some(c) = [b'`', b'~'].into_iter().find(|&c| run(c) >= 3 && (c == b'~' || !t[run(c)..].contains('`'))) {
+                fence = Some((c, run(c)));
+                continue;
+            }
+            if let Some(rest) = t.strip_prefix("<!--") {
+                in_comment = !rest.contains("-->");
+                continue;
+            }
+        }
+        if has_import(&strip_code_spans(line)) {
+            return AgentsImport::Imported;
+        }
+    }
+    if mentioned { AgentsImport::NotImported } else { AgentsImport::Absent }
+}
+
+/// 백틱 code span을 import 불가 표시 문자(U+0001)로 바꿈 — 짝 없는 백틱은 글자 그대로(CommonMark).
+fn strip_code_spans(line: &str) -> String {
+    let b = line.as_bytes();
+    let run_at = |i: usize| b[i..].iter().take_while(|&&c| c == b'`').count();
+    let mut out = String::new();
+    let mut i = 0;
+    let mut lit = 0;
+    while i < b.len() {
+        if b[i] != b'`' {
+            i += 1;
+            continue;
+        }
+        let n = run_at(i);
+        let mut j = i + n;
+        let close = loop {
+            match b[j..].iter().position(|&c| c == b'`') {
+                None => break None,
+                Some(k) => {
+                    let m = run_at(j + k);
+                    if m == n {
+                        break Some(j + k);
+                    }
+                    j += k + m;
+                }
+            }
+        };
+        match close {
+            Some(k) => {
+                out.push_str(&line[lit..i]);
+                out.push('\u{1}');
+                i = k + n;
+                lit = i;
+            }
+            None => i += n,
+        }
+    }
+    out.push_str(&line[lit..]);
+    out
+}
+
+fn has_import(s: &str) -> bool {
+    AGENTS_IMPORTS.iter().any(|tok| {
+        s.match_indices(tok).any(|(p, _)| {
+            s[..p].chars().last().is_none_or(char::is_whitespace)
+                && s[p + tok.len()..].chars().next().is_none_or(char::is_whitespace)
+        })
+    })
+}
+
+/// 루트 CLAUDE.md의 import 상태 — 파일이 없으면 None.
+pub fn claude_md_agents_import(root: &Path) -> Option<AgentsImport> {
+    fs::read_to_string(root.join("CLAUDE.md")).ok().map(|c| agents_import(&c))
+}
+
 /// L2 진입 파일 연결 진단 (S021 t04, t06) — AGENTS.md(managed 상태는 check_status 소관)와
 /// CLAUDE.md 포인터의 **연결 상태**를 봄: 포인터 부재 = Claude Code가 AGENTS.md 미로드.
 /// stamp에 AGENTS.md entry가 없는 구버전 프로젝트는 조용히 skip(missing은 status가 안내).
@@ -251,10 +358,15 @@ fn check_l2(root: &Path, r: &mut DoctorReport) {
             "agent entry",
             "CLAUDE.md missing — Claude Code will not load AGENTS.md; run `elf update` (creates the pointer)",
         ),
-        Ok(c) if !c.contains("@AGENTS.md") => r.add(
+        Ok(c) if agents_import(&c) == AgentsImport::Absent => r.add(
             Health::Warn,
             "agent entry",
             "CLAUDE.md lacks a `@AGENTS.md` line — Claude Code will not load AGENTS.md; add the line (your other content can stay)",
+        ),
+        Ok(c) if agents_import(&c) == AgentsImport::NotImported => r.add(
+            Health::Warn,
+            "agent entry",
+            "CLAUDE.md mentions @AGENTS.md only where Claude Code does not import it (inside backticks, a code block, an HTML comment or quotes, or with a character attached) — AGENTS.md is not loaded; put `@AGENTS.md` on a line of plain text",
         ),
         Ok(c) => {
             let lines = c.lines().count();
@@ -445,11 +557,21 @@ fn check_tsa(root: &Path, r: &mut DoctorReport) {
                 "tsa hooks",
                 format!("{name} hook absent — commits are not recorded; run `elf tsa enable`"),
             ),
-            tsa::HookState::Foreign => r.add(
-                Health::Info,
-                "tsa hooks",
-                format!("{name} hook is not elf-tsa's — make sure it calls `elf tsa` (see `elf tsa enable` output)"),
-            ),
+            tsa::HookState::Foreign => match tsa::hook_removed_calls(root, name) {
+                calls if !calls.is_empty() => r.add(
+                    Health::Warn,
+                    "tsa hooks",
+                    format!(
+                        "{name} hook is not elf-tsa's and calls a removed command — replace {} (elf update does not edit this hook)",
+                        tsa::replacements_text(&calls)
+                    ),
+                ),
+                _ => r.add(
+                    Health::Info,
+                    "tsa hooks",
+                    format!("{name} hook is not elf-tsa's — make sure it calls `elf tsa` (see `elf tsa enable` output)"),
+                ),
+            },
         }
     }
     let gpg_on = std::process::Command::new("git")
@@ -529,6 +651,43 @@ mod tests {
         // 제외 절 밖의 bullet은 사유 불요
         let outside = "## 추가 (add)\n- new-word\n";
         assert_eq!(removals_missing_reason(outside), 0);
+    }
+
+    #[test]
+    fn agents_import_follows_claude_code_parsing() {
+        use AgentsImport::*;
+        for ok in [
+            "@AGENTS.md\n",
+            "@./AGENTS.md",
+            "  @AGENTS.md  \n",
+            "규칙은 @AGENTS.md 참고\n",
+            "`elf` 안내\n@AGENTS.md\n",
+            "```\ncode\n```\n@AGENTS.md\n",
+            "<!-- note -->\n@AGENTS.md\n",
+            "`a` @AGENTS.md `b`\n",
+        ] {
+            assert_eq!(agents_import(ok), Imported, "{ok:?}");
+        }
+        for quoted in [
+            "`@AGENTS.md`\n",
+            "``x `@AGENTS.md` y``\n",
+            "```\n@AGENTS.md\n```\n",
+            "~~~~md\n@AGENTS.md\n~~~\n~~~~\n",
+            "<!--\n@AGENTS.md\n-->\n",
+            "<!-- @AGENTS.md -->\n",
+            "\"@AGENTS.md\"\n",
+            "see @AGENTS.md.\n",
+            "x@AGENTS.md\n",
+            "`a`@AGENTS.md\n",
+            "```@AGENTS.md```\n",
+        ] {
+            assert_eq!(agents_import(quoted), NotImported, "{quoted:?}");
+        }
+        // 짝 없는 백틱은 글자 그대로 — 뒤의 import 유효
+        assert_eq!(agents_import("`` @AGENTS.md\n"), Imported);
+        // `@` 없는 파일 이름 언급(ELF 템플릿 설명 줄) = 언급 없음
+        assert_eq!(agents_import("> 규칙은 `AGENTS.md`(요약)\n"), Absent);
+        assert_eq!(agents_import(""), Absent);
     }
 
     #[test]

@@ -120,6 +120,19 @@ fn files_conflict_is_issue_and_status_alias_unchanged() {
 }
 
 #[test]
+fn files_warns_when_agents_import_is_inside_backticks() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    let (_, out, _) = elf(&root, &["check", "files"]);
+    assert!(out.contains("CLAUDE.md → @AGENTS.md pointer connected"), "{out}");
+    // 백틱 안 import = Claude Code가 import하지 않음 → warn (S043, 구현은 부분 문자열만 봐서 connected로 오판)
+    fs::write(root.join("CLAUDE.md"), "> 규칙 정본은 `@AGENTS.md`\n").unwrap();
+    let (_, out, _) = elf(&root, &["check", "files"]);
+    assert!(out.contains("warn: agent entry: CLAUDE.md mentions @AGENTS.md only where Claude Code does not import it"), "{out}");
+    assert!(!out.contains("pointer connected"), "{out}");
+}
+
+#[test]
 fn malformed_registry_exits_5() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());

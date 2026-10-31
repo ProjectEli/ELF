@@ -4,6 +4,27 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.27.2] - 2026-10-31
+
+### Fixed
+- **tsa hooks shared with another tool**: `elf update` does not edit a hook without the ELF marker,
+  so such a hook could keep calling a command removed in 2.26 and fail without notice (git ignores
+  a failing post-commit hook). `elf check files` now warns when a pre-commit or post-commit hook
+  without the marker calls `tsa stamp`, `tsa record --staged`, `--backfill` or `validate --strict`,
+  and names the replacement (`tsa`, `tsa record`, `--all`, `check logs`). `elf tsa status` shows
+  the same.
+- **`CLAUDE.md` link check**: `elf check files` reported `CLAUDE.md → @AGENTS.md pointer connected`
+  whenever the text `@AGENTS.md` appeared anywhere, including inside backticks, where Claude Code
+  does not import it (so `AGENTS.md` was not loaded). The check now follows Claude Code's import
+  parsing: `@AGENTS.md` (or `@./AGENTS.md`) counts only outside code spans, code blocks and HTML
+  comment blocks, at the start of a line or after a space, and followed by a space or the end of the
+  line. A mention that is not imported is a warning.
+- **autoread digest without a duplicate**: Claude Code reloads the root `CLAUDE.md` after a
+  compaction, so the `AGENTS.md` standing duties in the digest were a second copy. When the digest
+  goes to Claude Code (the hooks, or `elf autoread` inside a Claude Code session) and `CLAUDE.md`
+  imports `AGENTS.md`, the section is replaced by a one-line note. Without a working import, or
+  outside Claude Code, the section is included as before.
+
 ## [2.27.1] - 2026-10-25
 
 ### Fixed

@@ -331,7 +331,7 @@ pub fn run_manual(root: &Path) -> String {
 
 /// 세션 ID가 있으면 그 세션의 마커만, 없으면 전체 해제 — 다른 세션의 대기 주입을 지우지 않음(S041 t11).
 pub fn run_manual_for(root: &Path, session_id: Option<&str>) -> String {
-    let mut out = build_digest(root, "manual");
+    let mut out = build_digest_for(root, "manual", session_id.is_some());
     let n = match session_id {
         Some(sid) => usize::from(fs::remove_file(marker_path(root, sid)).is_ok()),
         None => clear_markers(root),
@@ -439,7 +439,7 @@ pub fn run_hook(root: &Path, event: &str, stdin_json: &str) -> Option<String> {
         }
         "prompt" => {
             let m = read_marker(root, session_id)?;
-            let digest = build_digest(root, &m.source);
+            let digest = build_digest_for(root, &m.source, true);
             let _ = fs::remove_file(marker_path(root, session_id));
             Some(digest)
         }
@@ -475,15 +475,27 @@ pub fn pending_banner_for(cwd: &Path, session_id: Option<&str>) -> Option<String
 
 // ── digest (정본 실행 시점 추출 — 하드코딩 없음) ──────────────────────────────────
 
+/// 거버넌스 digest 조립 — 읽는 쪽이 Claude Code인지 모를 때(상시 의무 블록 항상 포함).
+pub fn build_digest(root: &Path, source: &str) -> String {
+    build_digest_for(root, source, false)
+}
+
 /// 거버넌스 digest 조립. 원천: 루트 `AGENTS.md` 상시 의무 절 + 활성 세션 Handoff(2_Log 스캔) +
 /// validate 카운트. 총량 목표 ≤ ~1.5k tok — compact 직후 컨텍스트 압박 시점(전량 정본 미주입).
-pub fn build_digest(root: &Path, source: &str) -> String {
+/// `claude_code` = 읽는 쪽이 Claude Code(훅 경로, 세션 ID가 있는 수동 실행): Claude Code는 재구성 뒤
+/// 루트 CLAUDE.md를 다시 읽으므로, `@AGENTS.md` import가 유효하면 상시 의무 블록은 1줄 안내로 대신함
+/// (중복 제거 — S043). import가 없거나 import되지 않는 자리에만 있으면 블록 유지(유일한 전달 경로).
+pub fn build_digest_for(root: &Path, source: &str, claude_code: bool) -> String {
     let mut out = String::new();
     out.push_str(&format!(
         "[elf autoread] context was reconstructed ({source}) — the summary you were given is a lossy digest, not the canonical rules. Re-read the canonical rules before substantive work.\n"
     ));
 
-    if let Some(duties) = agents_duties(root) {
+    let reloaded = claude_code
+        && crate::doctor::claude_md_agents_import(root) == Some(crate::doctor::AgentsImport::Imported);
+    if reloaded {
+        out.push_str("\n(AGENTS.md standing duties not repeated here — CLAUDE.md imports AGENTS.md, which Claude Code reloads after a reconstruction)\n");
+    } else if let Some(duties) = agents_duties(root) {
         out.push_str("\n--- AGENTS.md standing duties (canonical digest) ---\n");
         out.push_str(duties.trim_end());
         out.push('\n');

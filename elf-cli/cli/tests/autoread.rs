@@ -140,12 +140,30 @@ fn session_start_marks_and_prompt_injects_exactly_once() {
     // 다음 프롬프트 → digest 주입 1회
     let digest = autoread::run_hook(&root, "prompt", &prompt_stdin("sid-1")).expect("digest");
     assert!(digest.contains("context was reconstructed (compact)"));
-    assert!(digest.contains("AGENTS.md standing duties")); // 절 구분자
-    assert!(digest.contains("컨텍스트 재구성 후 상태 복원")); // AGENTS 정본 본문(L23) 실추출 검증
+    // CLAUDE.md `@AGENTS.md` import 유효 → Claude Code가 AGENTS.md를 다시 읽으므로 상시 의무는 1줄 안내 (S043)
+    assert!(digest.contains("standing duties not repeated here"), "{digest}");
+    assert!(!digest.contains("컨텍스트 재구성 후 상태 복원"));
     assert!(digest.contains("S002")); // 활성 세션 Handoff
     assert!(digest.contains("check logs:")); // 카운트
     // 두 번째 프롬프트 = 침묵 (마커 소모됨)
     assert!(autoread::run_hook(&root, "prompt", &prompt_stdin("sid-1")).is_none());
+}
+
+#[test]
+fn digest_keeps_standing_duties_when_agents_md_is_not_imported() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    let full = |d: &str| d.contains("AGENTS.md standing duties (canonical digest)") && d.contains("컨텍스트 재구성 후 상태 복원");
+    // 다른 하네스, 사람 터미널(세션 ID 없음) = 블록 유지
+    assert!(full(&autoread::run_manual_for(&root, None)));
+    // Claude Code + 유효 import = 1줄 안내
+    assert!(!full(&autoread::run_manual_for(&root, Some("sid"))));
+    // 백틱 안에만 있으면 import되지 않음(Mastication S263 t07 실측) → 블록 유지
+    fs::write(root.join("CLAUDE.md"), "규칙: `@AGENTS.md`\n").unwrap();
+    assert!(full(&autoread::build_digest_for(&root, "compact", true)));
+    // CLAUDE.md 없음 → 블록 유지
+    fs::remove_file(root.join("CLAUDE.md")).unwrap();
+    assert!(full(&autoread::build_digest_for(&root, "compact", true)));
 }
 
 #[test]

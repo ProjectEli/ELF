@@ -233,7 +233,7 @@ elf gallery
 
 컨텍스트 재구성 후 거버넌스 재주입. AI 코딩 세션의 컨텍스트가 compaction, 재개, 초기화되면 에이전트는 손실된 요약에서 이어가고, 프로젝트 규칙은 컨텍스트에서 누락됩니다. `elf autoread`는 이를 되돌리는 **digest**를 출력합니다 — `AGENTS.md`의 상시 의무 절, 활성 세션 헤더(Handoff, 절단), 현재 `elf check logs` 집계, 그리고 요약이 아니라 규칙 전문에 따라 행동하라는 마무리 지시. 서브명령 없이 실행하면 digest를 stdout으로 출력합니다 — 어떤 에이전트 하네스에서도 쓸 수 있습니다(다음 프롬프트에 붙여 넣거나 파이프).
 
-**Claude Code 연동(자동).** `elf init`, `elf update`가 `.claude/settings.json`에 최소 훅 항목 2개를 유지합니다(파일은 미추적, 병합 시 다른 설정은 보존): `SessionStart` 훅이 `.elf/runtime/`에 세션 단위 마커를 기록하고(이 시점엔 주입 없음), `UserPromptSubmit` 훅이 다음 프롬프트에 digest를 주입합니다. 그 프롬프트가 오기 전까지는 그 세션에서 실행한 모든 `elf` 명령이 1줄 리마인더 배너를 출력합니다(대체 채널. 세션은 Claude Code가 Bash 명령과 훅에 설정하는 `CLAUDE_CODE_SESSION_ID`로 구분 — 같은 프로젝트의 다른 세션에는 영향 없음). 훅 경로는 엄격히 fail-open — 내부 오류는 exit 0, 무출력으로 끝나며 세션을 막지 않습니다. `.gitignore` 관리 블록이 `.elf/runtime/`을 제외합니다.
+**Claude Code 연동(자동).** `elf init`, `elf update`가 `.claude/settings.json`에 최소 훅 항목 2개를 유지합니다(파일은 미추적, 병합 시 다른 설정은 보존): `SessionStart` 훅이 `.elf/runtime/`에 세션 단위 마커를 기록하고(이 시점엔 주입 없음), `UserPromptSubmit` 훅이 다음 프롬프트에 digest를 주입합니다. 그 프롬프트가 오기 전까지는 그 세션에서 실행한 모든 `elf` 명령이 1줄 리마인더 배너를 출력합니다(대체 채널. 세션은 Claude Code가 Bash 명령과 훅에 설정하는 `CLAUDE_CODE_SESSION_ID`로 구분 — 같은 프로젝트의 다른 세션에는 영향 없음). 훅 경로는 엄격히 fail-open — 내부 오류는 exit 0, 무출력으로 끝나며 세션을 막지 않습니다. `.gitignore` 관리 블록이 `.elf/runtime/`을 제외합니다. Claude Code는 재구성 뒤 루트 `CLAUDE.md`를 다시 읽으므로, `CLAUDE.md`가 `AGENTS.md`를 import하면 Claude Code가 받는 digest는 상시 의무 절을 두 번째 사본 대신 1줄 안내로 대신합니다. import가 동작하지 않으면 그 절을 전부 싣습니다.
 
 | 서브명령 | 효과 |
 |---|---|
@@ -268,7 +268,7 @@ elf autoread disable      # 프로젝트 단위 끔 (훅은 no-op으로 잔존)
 | `verify <파일>` | 파일의 현재 sha256을 전체 manifest에서 탐색 — "이 내용이 언제 존재했나" |
 | `verify --date <D>` | manifest↔토큰 경량 검증(granted, messageImprint 대조, genTime) + 엄밀 서명 체인 검증용 `openssl ts -verify` 명령 안내(드문 경로 — 분쟁, 감사) |
 
-기본값: DigiCert 무료 공개 TSA(`http://timestamp.digicert.com`, 계정, 크리덴셜 불요; `.elf/config.json`의 `"tsaUrl"`로 교체). git 필수 — 커밋이 기록 단위. 훅은 커밋을 절대 막지 않음(토큰 요청은 백그라운드, 실패분은 나중에 `elf tsa --all`로 보충). 토큰 요청 외 전부 오프라인 동작. `elf update`는 ELF 소유 tsa 훅을 현재 명령으로 다시 씁니다 — 2.26 이전에 설치된 훅을 바꿀 때는 마지막 manifest 날짜와 그 뒤 커밋 수를 출력해, 각 프로젝트가 `elf tsa record --all`, `elf tsa --all` 실행 여부를 판단하게 합니다.
+기본값: DigiCert 무료 공개 TSA(`http://timestamp.digicert.com`, 계정, 크리덴셜 불요; `.elf/config.json`의 `"tsaUrl"`로 교체). git 필수 — 커밋이 기록 단위. 훅은 커밋을 절대 막지 않음(토큰 요청은 백그라운드, 실패분은 나중에 `elf tsa --all`로 보충). 토큰 요청 외 전부 오프라인 동작. `elf update`는 ELF 소유 tsa 훅을 현재 명령으로 다시 씁니다 — 2.26 이전에 설치된 훅을 바꿀 때는 마지막 manifest 날짜와 그 뒤 커밋 수를 출력해, 각 프로젝트가 `elf tsa record --all`, `elf tsa --all` 실행 여부를 판단하게 합니다. ELF 표식이 없는 훅(예: 다른 도구와 함께 쓰는 훅)은 고치지 않으며, 그런 훅이 삭제된 명령(`tsa stamp`, `tsa record --staged`, `--backfill`, `validate --strict`)을 부르면 `elf check files`와 `elf tsa status`가 warn과 대체 명령(`tsa`, `tsa record`, `--all`, `check logs`)을 표시합니다.
 
 ```bash
 elf tsa enable            # 프로젝트당 1회 — 이후 훅+baseline
@@ -316,7 +316,7 @@ agent-action: fix the line to match the schema, then re-run (this tool will not 
 | **Managed** | `.elf/managed/`(`EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`, companion), 루트 `.editorconfig`, `AGENTS.md` | 새 버전으로 교체. 편집한 경우 **보존**하고 새 버전을 `<파일>.elf-new`로 생성(`--force`로 덮어쓰기) |
 | **사용자 소유** | `0_Meta/`(`ProjectRule.md`, `<이름>.project.md` overlay), `Session_Registry.tsv`, `README.md`, 모든 연구 데이터, 로그 | **절대 미접근** |
 | **Hybrid** | `.gitignore` | 마커 블록(`# >>> ELF managed >>>` … `# <<< ELF managed <<<`)만 교체, 블록 밖 사용자 규칙은 보존 |
-| **Pointer** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(`.elf-new` 병기도 없음) — 수제 `CLAUDE.md`는 온전히 사용자 것. ELF 규칙 로드는 `@AGENTS.md` 1줄을 직접 추가; 연결 여부는 `elf check files`가 점검 |
+| **Pointer** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(`.elf-new` 병기도 없음) — 수제 `CLAUDE.md`는 온전히 사용자 것. ELF 규칙 로드는 `@AGENTS.md` 1줄을 직접 추가; 연결 여부는 `elf check files`가 Claude Code의 import 해석 방식대로 점검(백틱, 코드 블록, HTML 주석, 따옴표 안의 `@AGENTS.md`는 import되지 않으므로 warning) |
 
 프로젝트 규칙은 managed 파일을 고치는 대신 `ProjectRule.md`(사용자 소유)에 작성하세요 — 그러면 update 충돌이 없습니다. data 파일(`LLMcliche.md`, `highIFjournals.md`)의 항목 추가, 제외, 재정의는 **project overlay** `0_Meta/<이름>.project.md`로 선언합니다(사용자 소유; 유효 규칙 = base ⊕ overlay; 제외는 사유 필수 — EliRule §2.7).
 

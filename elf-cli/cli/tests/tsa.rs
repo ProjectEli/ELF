@@ -349,6 +349,38 @@ fn check_files_warns_on_outdated_and_absent_hooks() {
 }
 
 #[test]
+fn check_files_warns_on_foreign_hook_calling_removed_commands() {
+    use elf_cli::check::{self, Level, Scope};
+    use elf_cli::doctor::DoctorEnv;
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    enable_offline(&root);
+    let hooks = root.join(".git/hooks");
+    // 타 도구 겸용 훅: post-commit은 삭제된 명령, pre-commit은 현행 명령(주석의 구 명령 언급은 대상 아님 — Mastication 훅 형식)
+    fs::write(hooks.join("post-commit"), "#!/bin/sh\nelf gallery --quiet\nelf tsa stamp --backfill --quiet || true\n").unwrap();
+    fs::write(
+        hooks.join("pre-commit"),
+        "#!/bin/sh\n# 2.26.0에서 `elf tsa record --staged`, `elf tsa stamp` 삭제\nelf tsa record --quiet || true  # was tsa stamp\n",
+    )
+    .unwrap();
+    let env = DoctorEnv { version: elf_cli::embed::version().to_string(), receipt_present: false };
+    let items = check::run_scope(&root, &env, Scope::Files).items;
+    let hook_items: Vec<_> = items.iter().filter(|i| i.text.starts_with("tsa hooks")).collect();
+    let warn: Vec<_> = hook_items.iter().filter(|i| i.level == Level::Warn).collect();
+    assert_eq!(warn.len(), 1, "{hook_items:?}");
+    assert!(warn[0].text.contains("post-commit hook is not elf-tsa's and calls a removed command"), "{}", warn[0].text);
+    assert!(warn[0].text.contains("replace `tsa stamp` with `tsa`, `--backfill` with `--all`"), "{}", warn[0].text);
+    assert!(hook_items.iter().any(|i| i.level == Level::Info && i.text.contains("pre-commit hook is not elf-tsa's")));
+
+    let s = tsa::run_status(&root).unwrap();
+    assert!(s.lines.iter().any(|l| l.contains("hook post-commit: foreign, calls a removed command")), "{:?}", s.lines);
+
+    // 타 도구의 `--backfill`(tsa 없는 줄)은 대상 아님
+    assert!(tsa::removed_calls("#!/bin/sh\nother-tool --backfill\n").is_empty());
+    assert_eq!(tsa::removed_calls("elf validate --strict"), vec![("validate --strict", "check logs")]);
+}
+
+#[test]
 fn e2e_tsa_all_retries_unstamped_manifests_offline() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());

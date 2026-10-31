@@ -206,6 +206,43 @@ pub fn hook_states(root: &Path) -> Vec<(&'static str, HookState)> {
         .collect()
 }
 
+/// 삭제된 명령(v2.26.0)과 대체 — foreign 훅 검사(`check files`, `tsa status`)와 update 안내 공용.
+const REMOVED_CALLS: [(&str, &str); 4] = [
+    ("tsa record --staged", "tsa record"),
+    ("tsa stamp", "tsa"),
+    ("--backfill", "--all"),
+    ("validate --strict", "check logs"),
+];
+
+/// 훅 본문 속 삭제된 명령 → (구 명령, 대체) 목록. 주석(줄 전체, 줄 끝 ` #`)은 제외,
+/// `--backfill`은 tsa를 부르는 줄에서만.
+pub fn removed_calls(text: &str) -> Vec<(&'static str, &'static str)> {
+    let code: Vec<&str> = text
+        .lines()
+        .map(|l| l.trim_start())
+        .filter(|l| !l.starts_with('#'))
+        .map(|l| l.find(" #").or_else(|| l.find("\t#")).map_or(l, |i| &l[..i]))
+        .collect();
+    REMOVED_CALLS
+        .into_iter()
+        .filter(|(old, _)| code.iter().any(|l| l.contains(old) && (*old != "--backfill" || l.contains("tsa"))))
+        .collect()
+}
+
+/// 훅 `name` 본문의 삭제된 명령 — git 저장소가 아니거나 훅이 없으면 빈 목록.
+pub fn hook_removed_calls(root: &Path, name: &str) -> Vec<(&'static str, &'static str)> {
+    hooks_dir(root)
+        .ok()
+        .and_then(|h| fs::read_to_string(h.join(name)).ok())
+        .map(|t| removed_calls(&t))
+        .unwrap_or_default()
+}
+
+/// "`tsa stamp` with `tsa`, `--backfill` with `--all`" — 대체 안내 문구.
+pub fn replacements_text(calls: &[(&str, &str)]) -> String {
+    calls.iter().map(|(old, new)| format!("`{old}` with `{new}`")).collect::<Vec<_>>().join(", ")
+}
+
 /// `elf update` 경로 — elf 소유(마커) 훅만 현행 본문으로 교체(타 훅, 부재 훅은 비접근 — 설치는 `tsa enable`).
 /// 구 명령(`tsa record --staged`, `tsa stamp`)을 부르던 훅이면, 실행 파일 갱신 뒤 이 update 전까지의
 /// 커밋에서 기록과 토큰이 빠졌을 수 있음을 안내 — 판단은 프로젝트 몫.
@@ -221,7 +258,7 @@ pub fn refresh_hooks(root: &Path, dry_run: bool) -> Vec<String> {
             continue;
         }
         changed = true;
-        legacy |= existing.contains("tsa record --staged") || existing.contains("tsa stamp");
+        legacy |= !removed_calls(&existing).is_empty();
         if !dry_run {
             if let Err(e) = fs::write(&p, &body) {
                 out.push(format!("warn: tsa hook {name} not updated: {e}"));
@@ -373,11 +410,15 @@ pub fn run_status(root: &Path) -> Result<TsaReport, TsaError> {
     let enabled = is_enabled(root);
     r.say(format!("tsa: {}", if enabled { "enabled" } else { "disabled (opt-in — `elf tsa enable`)" }));
     for (name, state) in hook_states(root) {
+        let calls = hook_removed_calls(root, name);
         let state = match state {
-            HookState::Current => "elf-tsa",
-            HookState::Outdated => "elf-tsa (outdated — run `elf update`)",
-            HookState::Foreign => "foreign (add the elf tsa line manually — see `elf tsa enable` output)",
-            HookState::Absent => "absent",
+            HookState::Current => "elf-tsa".to_string(),
+            HookState::Outdated => "elf-tsa (outdated — run `elf update`)".to_string(),
+            HookState::Foreign if !calls.is_empty() => {
+                format!("foreign, calls a removed command — replace {}", replacements_text(&calls))
+            }
+            HookState::Foreign => "foreign (add the elf tsa line manually — see `elf tsa enable` output)".to_string(),
+            HookState::Absent => "absent".to_string(),
         };
         r.say(format!("hook {name}: {state}"));
     }
