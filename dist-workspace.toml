@@ -21,3 +21,8 @@ install-path = "~/.elf/bin"
 hosting = "github"
 # Whether to install an updater program
 install-updater = false
+
+# aarch64-apple-darwin 빌드 runner — dist 0.32.0 기본값 macos-14는 GitHub가 2026-11-02 폐기
+# (폐기 전 계획 중단 시간대에 v2.27.2 Release 빌드가 취소됨, S043 t03)
+[dist.github-custom-runners]
+aarch64-apple-darwin = "macos-15"

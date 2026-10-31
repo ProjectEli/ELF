@@ -4,7 +4,7 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
-## [2.27.2] - 2026-10-31
+## [2.27.3] - 2026-11-01
 
 ### Fixed
 - **tsa hooks shared with another tool**: `elf update` does not edit a hook without the ELF marker,
@@ -24,6 +24,14 @@ maintainer.) The matching section is shown on each GitHub Release.
   goes to Claude Code (the hooks, or `elf autoread` inside a Claude Code session) and `CLAUDE.md`
   imports `AGENTS.md`, the section is replaced by a one-line note. Without a working import, or
   outside Claude Code, the section is included as before.
+- **Release build**: the Apple silicon (`aarch64-apple-darwin`) build now runs on GitHub's
+  `macos-15` runner. GitHub is retiring the `macos-14` runner, and the 2.27.2 release build was
+  cancelled during one of its scheduled outages.
+
+## [2.27.2] - 2026-10-31
+
+Tagged, but the release build was cancelled, so 2.27.2 has no downloads. Its changes ship in
+2.27.3 (listed above).
 
 ## [2.27.1] - 2026-10-25
 
