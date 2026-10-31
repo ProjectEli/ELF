@@ -174,7 +174,7 @@ AI 에이전트가 새 세션(S{NNN})을 시작할 때:
 각 trial(t{NN}) 작성 시 두 단계로 분리하여 진행. **Phase 1과 Phase 2 사이에 멈춤점 필수** — 즉흥 실행 방지, 가설-관찰 사이클 완결 강제.
 
 **Phase 1 — 실행 전 (pre-execution, 멈춤점)**
-- [ ] trial stub 생성: `elf trial new [제목]` 권장(현행 trialTemplate을 활성 로그에 append; CLI 미설치 시 `.elf/managed/templates/trialTemplate.md` 수동 복사 또는 `## t{NN}: [작업 제목]` 헤더 수동 작성)
+- [ ] trial stub 생성: `elf trial new [제목]` 권장(현행 trialTemplate을 활성 로그에 append; 본문을 파일로 썼으면 `elf trial new "<제목>" --from <파일>` — 셸 escape 없음, 검사 실패 시 미추가, 첫 줄 `> **Handoff**:`이면 헤더 Handoff 교체; CLI 미설치 시 `.elf/managed/templates/trialTemplate.md` 수동 복사 또는 `## t{NN}: [작업 제목]` 헤더 수동 작성)
 - [ ] (선택) `### 배경 (Background)` — 맥락이 목표를 초과할 때만: 진입 의도 + **발의주체**(사용자 제기/AI 발상) + (진입 기각 경로 1줄)
 - [ ] `### 목표 (Goal)` 작성 (task의 what)
 - [ ] `### 조건 (Conditions)` 작성 (parameter, 제약 확정)

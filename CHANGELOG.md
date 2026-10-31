@@ -4,6 +4,20 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.27.4] - 2026-11-01
+
+### Added
+- **`elf trial new "<title>" --from <file>`**: appends a trial whose body was written to a file
+  (with an editor or an agent's file-writing tool), so the text never passes through the shell —
+  backticks, `$`, quotes and backslashes arrive unchanged, and the log does not have to be read
+  first. Previously the stub was appended and then filled by editing the log, which failed when
+  long text was passed through shell quoting. If the first line of the file is
+  `> **Handoff**: …`, it replaces the header Handoff. The body is checked first and nothing is
+  written on a problem (exit 3 with the reasons): headings above `###`, missing Phase 1 sections,
+  only some Phase 2 sections, non-canonical section names or order, or template text left in a
+  Phase 1 section. A body with Phase 1 sections only gets the Phase 2 sections from the template.
+- The managed `AGENTS.md` and `LogConvention.md` (KO and EN) mention `--from`; run `elf update`.
+
 ## [2.27.3] - 2026-11-01
 
 ### Fixed

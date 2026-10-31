@@ -28,6 +28,7 @@ fn topts(title: Option<&str>, session: Option<&str>) -> TrialNewOptions {
         title: title.map(String::from),
         session: session.map(String::from),
         date: "2026-07-06".into(),
+        body: None,
     }
 }
 
@@ -51,6 +52,37 @@ fn trial_new_stdout_carries_embed_reminder() {
         "embed reminder missing in trial new output: {text}"
     );
     assert!(text.contains("expected figures"), "{text}");
+}
+
+#[test]
+fn trial_new_from_file_appends_body_and_replaces_handoff() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    let log = root.join("2_Log/S001_log.md");
+    let elf = |args: &[&str]| assert_cmd::Command::cargo_bin("elf").unwrap().current_dir(&root).args(args).output().unwrap();
+    // 셸 escape가 깨지기 쉬운 문자(백틱, `$`, 역슬래시, 따옴표)를 파일로 전달
+    let body = "> **Handoff**: 상태 = `a\\b` 확인; 미완료 = $X; 참조 t01\n\n### 목표 (Goal)\n- \"따옴표\" 'quote' `code` $HOME \\n\n\n### 조건 (Conditions)\n- c\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n";
+    fs::write(tmp.path().join("t.md"), body).unwrap();
+    let out = elf(&["trial", "new", "파일 입력", "--from", tmp.path().join("t.md").to_str().unwrap()]);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(text.contains("appended t01") && text.contains("from file") && text.contains("Handoff replaced"), "{text}");
+    assert!(text.contains("Phase 2 sections (관찰, 해석, 교훈, 생성 파일)"), "{text}");
+    let c = fs::read_to_string(&log).unwrap();
+    assert!(c.contains("## t01: 파일 입력\n\n### 목표 (Goal)\n- \"따옴표\" 'quote' `code` $HOME \\n"), "{c}");
+    assert!(c.contains("> **Handoff**: 상태 = `a\\b` 확인; 미완료 = $X; 참조 t01\n"));
+    assert!(c.contains("### 관찰 (Observation)"));
+    // 검사 실패 = 덧붙이지 않음, 로그 불변, exit 3
+    fs::write(tmp.path().join("bad.md"), "### 목표 (Goal)\n- [이 작업의 구체적 목표]\n").unwrap();
+    let out = elf(&["trial", "new", "bad", "--from", tmp.path().join("bad.md").to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(3));
+    let err = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert!(err.contains("trial not appended") && err.contains("missing '### 조건'") && err.contains("template text"), "{err}");
+    assert_eq!(fs::read_to_string(&log).unwrap(), c);
+    // 제목 없음 = 거부
+    let out = elf(&["trial", "new", "--from", tmp.path().join("t.md").to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(3));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("--from needs a trial title"));
 }
 
 #[test]

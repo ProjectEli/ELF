@@ -263,6 +263,9 @@ enum TrialCmd {
         /// 대상 세션 / target session (S### — 생략 시 유일 활성 자동 선택)
         #[arg(long)]
         session: Option<String>,
+        /// 본문 파일 / trial body file (`### ` 절; 첫 줄 `> **Handoff**:` = 헤더 Handoff 교체 / a first `> **Handoff**:` line replaces the header Handoff)
+        #[arg(long, value_name = "FILE")]
+        from: Option<std::path::PathBuf>,
     },
 }
 
@@ -770,7 +773,8 @@ fn main() {
                     Err(
                         e @ (session::SessionError::NoOpenSession
                         | session::SessionError::MultipleOpen(_)
-                        | session::SessionError::NotFound(_)),
+                        | session::SessionError::NotFound(_)
+                        | session::SessionError::Rejected(_)),
                     ) => unreachable!("session new cannot yield close-only error: {e:?}"),
                 }
             }
@@ -820,6 +824,7 @@ fn main() {
                         eprintln!("[elf] io error: {e}");
                         std::process::exit(1);
                     }
+                    Err(e @ session::SessionError::Rejected(_)) => unreachable!("session close cannot yield a trial error: {e:?}"),
                 }
             }
             SessionCmd::FixHeaders { dry_run } => {
@@ -843,16 +848,39 @@ fn main() {
             }
         },
         Commands::Trial { cmd } => match cmd {
-            TrialCmd::New { title, session: sess } => {
+            TrialCmd::New { title, session: sess, from } => {
                 let root = log_root_or_exit();
                 let date = chrono::Local::now().format("%Y-%m-%d").to_string();
-                let opts = trial::TrialNewOptions { title, session: sess, date };
+                let body = from.as_ref().map(|p| {
+                    std::fs::read_to_string(p).unwrap_or_else(|e| {
+                        eprintln!("[elf] cannot read {}: {e}", p.display());
+                        std::process::exit(1);
+                    })
+                });
+                let from_file = body.is_some();
+                let opts = trial::TrialNewOptions { title, session: sess, date, body };
                 match trial::run_trial_new(&root, &opts) {
                     Ok(r) => {
-                        println!("[elf] appended {} to {} ({})", r.trial, r.log_rel, r.session);
                         println!(
-                            "[elf] next: Phase 1 — fill 목표/조건/가설/예상, then stop before execution (LogConvention §5.1)"
+                            "[elf] appended {} to {} ({}){}",
+                            r.trial,
+                            r.log_rel,
+                            r.session,
+                            if from_file { ", from file" } else { "" }
                         );
+                        if r.handoff_replaced {
+                            println!("[elf] header Handoff replaced with the first line of the file");
+                        }
+                        if !from_file {
+                            println!(
+                                "[elf] next: Phase 1 — fill 목표/조건/가설/예상, then stop before execution (LogConvention §5.1)"
+                            );
+                        } else if !r.filled_from_template.is_empty() {
+                            println!(
+                                "[elf] next: Phase 2 sections ({}) hold the template text — stop before execution, fill them afterwards (LogConvention §5.1)",
+                                r.filled_from_template.join(", ")
+                            );
+                        }
                         // 행동 시점 주입 (S027): 상시 문서의 embed 규칙은 발동 시점을 보장하지 못함 —
                         // trial 시작(= figure 작성 이전이 보장되는 유일한 ELF 소유 시점)에 반복 주입
                         println!(
@@ -876,6 +904,13 @@ fn main() {
                     Err(session::SessionError::NotFound(id)) => {
                         eprintln!("[elf] session not found: {id}");
                         std::process::exit(1);
+                    }
+                    Err(session::SessionError::Rejected(reasons)) => {
+                        eprintln!("[elf] refuse: trial not appended (the log is unchanged):");
+                        for x in reasons {
+                            eprintln!("[elf]   {x}");
+                        }
+                        std::process::exit(3);
                     }
                     Err(session::SessionError::Io(e)) => {
                         eprintln!("[elf] io error: {e}");

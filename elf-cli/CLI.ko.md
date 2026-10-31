@@ -32,7 +32,7 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases
 | `elf session new <제목>` | 다음 세션 로그 생성 + 등록 |
 | `elf session close [S###]` | 활성 세션 종료 → Archive 이동 + Registry 갱신 |
 | `elf session fix-headers` | 세션 로그 헤더 렌더링 보정 |
-| `elf trial new [제목]` | 활성 세션 로그에 정본 trial stub 추가 |
+| `elf trial new [제목]` | 활성 세션 로그에 정본 trial stub 추가, 또는 파일에 쓴 trial 추가(`--from`) |
 | `elf check [setup\|files\|logs]` | 설치와 설정, 관리 파일, 세션 로그 읽기전용 점검(범위 생략 = 전체, issue 시 exit 4) |
 | `elf gallery` | `6_Exp/64_Viz/`에서 Figure 색인 `_gallery.md` 생성 |
 | `elf tsa [서브]` | 연구 기록 시점인증, **opt-in**: 커밋별 해시 manifest + RFC 3161 토큰(서브명령 없음 = 오늘 토큰 요청) |
@@ -177,11 +177,15 @@ elf session close S007        # 특정 세션 종료
 | 플래그 | 의미 |
 |--------|------|
 | `--session <S###>` | 활성 세션이 여럿일 때 대상 지정 |
+| `--from <파일>` | stub 대신 파일에 쓴 trial 본문을 추가(제목 필수) |
 
 ```bash
 elf trial new "파장 스윕 v2"      # 유일 활성 세션에 t## 추가
 elf trial new --session S007     # 활성 복수 — 대상 지정
+elf trial new "파장 스윕 v2" --from trial.md   # 파일에 쓴 trial 추가
 ```
+
+**`--from <파일>`** — trial 본문(`### ` 절들, `### 목표 (Goal)` 또는 선택 절 `### 배경 (Background)`부터)을 편집기나 에이전트의 파일 쓰기 도구로 파일에 쓴 뒤 명령 1번으로 추가합니다. 셸을 거치지 않으므로 본문의 백틱, `$`, 따옴표, 역슬래시가 그대로 들어가고, 로그를 먼저 열 필요가 없습니다. 파일 첫 줄이 `> **Handoff**: …`이면 그 로그의 헤더 Handoff를 그 줄로 바꿉니다. 쓰기 전에 본문을 검사하며, 문제가 있으면 추가하지 않고(로그 불변) 이유와 함께 exit 3으로 끝납니다: 본문 안의 `#`, `## ` 제목(trial 제목은 인수에서 만듦), Phase 1 절(목표, 조건, 가설, 예상) 누락, Phase 2 절(관찰, 해석, 교훈, 생성 파일)의 일부만 있음(전부 또는 없음), 정본이 아닌 절 이름이나 순서, `예상 일치 정도:`로 시작하지 않는 해석 절, 틀 문구 그대로인 Phase 1 절. Phase 1 절만 있는 본문에는 Phase 2 절을 틀에서 붙이며, 실행 뒤 채웁니다.
 
 명령이 존재하는 이유: 에이전트(와 사람)는 직전 trial의 모양을 모방합니다. `elf trial new`는 모방 대상을 정본으로 유지합니다 — stub이 항상 *설치된* 템플릿 버전에서 나오므로, drift된 선례가 전파되지 않습니다. 오류: 활성 세션 없음 → exit 1(`elf session new`로 시작); `--session` 없이 활성 복수 → exit 1 + 목록 안내.
 

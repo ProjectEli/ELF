@@ -3,6 +3,9 @@
 //! 스캐폴드 원리: 규칙 텍스트를 복제하지 않고 **정본 구조를 인스턴스화** — 에이전트의
 //! 선례 모방 행동이 참조할 대상을 항상 현행 정본으로 유지한다(모방 대상의 자동 갱신).
 //! CLI 바이너리가 현행 템플릿을 embed하므로 생성 stub은 개정 시점과 무관하게 최신.
+//!
+//! `--from <파일>`(S044): 에이전트가 파일 쓰기 도구로 쓴 trial 본문을 검사 후 덧붙임 — 틀을 붙인 뒤
+//! 셸이나 스크립트로 채우는 단계의 escape 실패와 큰 로그 전체 읽기를 없앰. 첫 줄 Handoff 교체.
 
 use std::fs;
 use std::path::Path;
@@ -17,6 +20,8 @@ pub struct TrialNewOptions {
     pub session: Option<String>,
     /// YYYY-MM-DD — 헤더 Modified 갱신용(주입형; 테스트 결정성)
     pub date: String,
+    /// `--from` 파일 내용 — `### ` 절로 된 trial 본문. 첫 줄이 `> **Handoff**:`이면 헤더 Handoff 교체
+    pub body: Option<String>,
 }
 
 #[derive(Debug)]
@@ -25,6 +30,104 @@ pub struct TrialNewResult {
     /// 생성된 trial id (예: "t09")
     pub trial: String,
     pub log_rel: String,
+    /// `--from`이 Phase 1 절만 담았을 때 틀에서 채운 Phase 2 절
+    pub filled_from_template: Vec<String>,
+    /// `--from` 첫 줄로 헤더 Handoff를 교체했는가
+    pub handoff_replaced: bool,
+}
+
+/// Phase 2 절 — `--from`이 Phase 1 절만 담으면 틀 문구로 채움(실행 뒤 작성).
+const PHASE2_SECTIONS: [&str; 4] = ["관찰", "해석", "교훈", "생성 파일"];
+const HANDOFF_PREFIX: &str = "> **Handoff**:";
+
+/// `--from` 내용 → (Handoff 줄, 본문). BOM 제거, CRLF → LF. 첫 비어 있지 않은 줄이 Handoff 줄이면 분리.
+pub fn split_handoff(text: &str) -> (Option<String>, String) {
+    let text = text.trim_start_matches('\u{feff}').replace("\r\n", "\n");
+    let mut lines = text.lines().skip_while(|l| l.trim().is_empty()).peekable();
+    let handoff = match lines.peek() {
+        Some(l) if l.starts_with(HANDOFF_PREFIX) => lines.next().map(|l| l.trim_end().to_string()),
+        _ => None,
+    };
+    let body: Vec<&str> = lines.collect();
+    (handoff, body.join("\n").trim_matches('\n').to_string())
+}
+
+/// 틀(렌더된 stub)에서 `### <key>` 절 블록(다음 `### ` 전까지) 추출.
+fn template_section(stub: &str, key: &str) -> Option<String> {
+    let mut out: Option<Vec<&str>> = None;
+    for l in stub.lines() {
+        if let Some(k) = crate::validate::section_key(l) {
+            if out.is_some() {
+                break;
+            }
+            if k == key {
+                out = Some(vec![l]);
+            }
+            continue;
+        }
+        if let Some(v) = out.as_mut() {
+            v.push(l);
+        }
+    }
+    out.map(|v| v.join("\n").trim_end().to_string())
+}
+
+/// `--from` 본문 → trial 텍스트(`## tNN: 제목` + 본문, Phase 1만이면 Phase 2 틀 추가) 또는 덧붙이지 않을 이유.
+/// 검사: `#`, `## ` 제목 금지, Phase 1 절 4개 필수, Phase 2 절은 전부 있거나 전부 없음, 정본 절 이름과 순서,
+/// 해석 첫 줄, Phase 1 절이 틀 문구 그대로인지(`check logs`와 같은 검사 재사용).
+pub fn compose_trial(body: &str, trial_id: &str, session_id: &str, title: &str) -> Result<(String, Vec<String>), Vec<String>> {
+    let tpl = crate::validate::trial_template();
+    let mut problems = Vec::new();
+    for (n, l) in body.lines().enumerate() {
+        // 코드 블록 안도 금지 — trial 번호 수집과 check logs가 블록을 구분하지 않음
+        if l.starts_with("# ") || l.starts_with("## ") {
+            problems.push(format!(
+                "line {}: '{}' — the body holds only '### ' sections; the trial heading comes from the title argument",
+                n + 1,
+                l.chars().take(40).collect::<String>()
+            ));
+        }
+    }
+    let keys: Vec<&str> = body.lines().filter_map(crate::validate::section_key).collect();
+    for k in crate::validate::PHASE1_SECTIONS {
+        if !keys.contains(&k) {
+            problems.push(format!("missing '### {k}' — Phase 1 sections are required (LogConvention §5.1)"));
+        }
+    }
+    let phase2: Vec<&str> = PHASE2_SECTIONS.into_iter().filter(|k| keys.contains(k)).collect();
+    let stub = render_stub(tpl, trial_id, session_id, Some(title));
+    let mut text = format!("## {trial_id}: {title}\n\n{}", body.trim_matches('\n'));
+    let mut filled = Vec::new();
+    if phase2.is_empty() {
+        for k in PHASE2_SECTIONS {
+            if let Some(sec) = template_section(&stub, k) {
+                text.push_str("\n\n");
+                text.push_str(&sec);
+                filled.push(k.to_string());
+            }
+        }
+    } else if phase2.len() < PHASE2_SECTIONS.len() {
+        for k in PHASE2_SECTIONS.into_iter().filter(|k| !phase2.contains(k)) {
+            problems.push(format!(
+                "missing '### {k}' — give all Phase 2 sections (관찰, 해석, 교훈, 생성 파일) or none (Phase 1 only)"
+            ));
+        }
+    }
+    text.push('\n');
+    problems.extend(crate::validate::trial_structure_findings(&text));
+    problems.extend(crate::validate::unfilled_template_findings(&text, tpl));
+    if problems.is_empty() { Ok((text, filled)) } else { Err(problems) }
+}
+
+/// 헤더 `> **Handoff**:` 줄을 new_line으로 교체(끝 `\`, `\r` 보존). 줄이 없으면 None.
+pub fn replace_handoff(content: &str, new_line: &str) -> Option<String> {
+    let core = new_line.trim_end().trim_end_matches('\\').trim_end();
+    let mut out: Vec<String> = content.split('\n').map(str::to_string).collect();
+    let line = out.iter_mut().find(|l| l.starts_with(HANDOFF_PREFIX))?;
+    let cr = line.ends_with('\r');
+    let hard = line.trim_end_matches('\r').ends_with('\\');
+    *line = format!("{core}{}{}", if hard { "\\" } else { "" }, if cr { "\r" } else { "" });
+    Some(out.join("\n"))
 }
 
 /// 로그 본문의 `## t{NN}:` trial 번호 수집 (순수).
@@ -159,13 +262,38 @@ pub fn run_trial_new(root: &Path, opts: &TrialNewOptions) -> Result<TrialNewResu
         .get_file("log/trialTemplate.md")
         .and_then(|f| f.contents_utf8())
         .expect("trialTemplate embedded (gated by tests)");
-    let stub = render_stub(tpl, &trial_id, &target, opts.title.as_deref());
+    let mut filled_from_template = Vec::new();
+    let mut handoff = None;
+    let stub = match &opts.body {
+        None => render_stub(tpl, &trial_id, &target, opts.title.as_deref()),
+        Some(raw) => {
+            let Some(title) = opts.title.as_deref().filter(|t| !t.trim().is_empty()) else {
+                return Err(SessionError::Rejected(vec![
+                    "--from needs a trial title: elf trial new \"<title>\" --from <file>".into(),
+                ]));
+            };
+            let (h, body) = split_handoff(raw);
+            let (text, filled) = compose_trial(&body, &trial_id, &target, title).map_err(SessionError::Rejected)?;
+            if h.is_some() && !content.lines().any(|l| l.starts_with(HANDOFF_PREFIX)) {
+                return Err(SessionError::Rejected(vec![format!(
+                    "{log_rel} has no '{HANDOFF_PREFIX}' header line to replace — remove the first line of the file or fix the header"
+                )]));
+            }
+            filled_from_template = filled;
+            handoff = h;
+            text
+        }
+    };
 
     let updated = insert_trial(&content, &stub);
+    let updated = match &handoff {
+        Some(h) => replace_handoff(&updated, h).unwrap_or(updated),
+        None => updated,
+    };
     let updated = update_modified(&updated, &opts.date).unwrap_or(updated);
     fs::write(&log_path, updated)?;
 
-    Ok(TrialNewResult { session: target, trial: trial_id, log_rel })
+    Ok(TrialNewResult { session: target, trial: trial_id, log_rel, filled_from_template, handoff_replaced: handoff.is_some() })
 }
 
 #[cfg(test)]
@@ -218,6 +346,56 @@ mod tests {
         let out2 = insert_trial(log2, "## t02: b\n");
         assert!(out2.contains("---\n\n## t02: b\n"));
         assert!(!out2.contains("---\n\n---"));
+    }
+
+    const PHASE1: &str = "### 목표 (Goal)\n- g\n\n### 조건 (Conditions)\n- c\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n";
+
+    #[test]
+    fn compose_phase1_only_gets_phase2_template() {
+        let (text, filled) = compose_trial(PHASE1, "t03", "S044", "제목").unwrap();
+        assert!(text.starts_with("## t03: 제목\n\n### 목표 (Goal)\n- g"));
+        assert_eq!(filled, ["관찰", "해석", "교훈", "생성 파일"]);
+        assert!(text.contains("### 관찰 (Observation)\n- [Phase 2") && text.contains("64_Viz/S044/"));
+        assert!(text.ends_with("| Figure | `경로` |\n"));
+    }
+
+    #[test]
+    fn compose_full_trial_passes_unchanged() {
+        let body = format!("{PHASE1}\n### 관찰 (Observation)\n- o\n\n### 해석 (Interpretation)\n- 예상 일치 정도: 일치\n\n### 교훈 (Lessons)\n- l\n\n### 생성 파일 (Files)\n\n| 유형 | 파일 |\n|---|---|\n| (없음) | - |\n");
+        let (text, filled) = compose_trial(&body, "t01", "S001", "T").unwrap();
+        assert!(filled.is_empty());
+        assert_eq!(text, format!("## t01: T\n\n{}\n", body.trim_matches('\n')));
+    }
+
+    #[test]
+    fn compose_rejects_bad_bodies() {
+        let has = |r: Result<(String, Vec<String>), Vec<String>>, s: &str| {
+            let e = r.unwrap_err();
+            assert!(e.iter().any(|x| x.contains(s)), "{s} not in {e:?}");
+        };
+        has(compose_trial(&format!("## t09: x\n{PHASE1}"), "t01", "S001", "T"), "line 1: '## t09: x'");
+        has(compose_trial("### 목표 (Goal)\n- g\n", "t01", "S001", "T"), "missing '### 가설'");
+        has(compose_trial(&format!("{PHASE1}\n### 관찰 (Observation)\n- o\n"), "t01", "S001", "T"), "missing '### 해석'");
+        has(compose_trial(&format!("{PHASE1}\n### 비정본\n- x\n"), "t01", "S001", "T"), "non-canonical heading");
+        let tpl_goal = PHASE1.replace("- g", "- [이 작업의 구체적 목표]");
+        has(compose_trial(&tpl_goal, "t01", "S001", "T"), "still holds only the template text");
+        // 코드 블록 안의 `## `도 거부(번호 수집이 블록을 구분하지 않음)
+        assert!(compose_trial(&format!("{PHASE1}- 예:\n```\n## t01: 예시\n```\n"), "t01", "S001", "T").is_err());
+    }
+
+    #[test]
+    fn handoff_split_and_replace_keep_header_form() {
+        let (h, body) = split_handoff("\u{feff}\r\n> **Handoff**: 새 상태; 미완료 = X; 참조 t02\r\n\r\n### 목표 (Goal)\r\n- g\r\n");
+        assert_eq!(h.as_deref(), Some("> **Handoff**: 새 상태; 미완료 = X; 참조 t02"));
+        assert_eq!(body, "### 목표 (Goal)\n- g");
+        assert_eq!(split_handoff("### 목표 (Goal)\n").0, None);
+        let out = replace_handoff(LOG, h.as_deref().unwrap()).unwrap();
+        assert!(out.contains("> **Handoff**: 새 상태; 미완료 = X; 참조 t02\n\n---"));
+        assert!(!out.contains("> **Handoff**: -"));
+        // 끝 `\`가 있던 줄은 유지
+        let hard = LOG.replace("> **Handoff**: -\n", "> **Handoff**: -\\\n> **결론**: k\n");
+        assert!(replace_handoff(&hard, "> **Handoff**: y").unwrap().contains("> **Handoff**: y\\\n> **결론**: k"));
+        assert!(replace_handoff("# no header\n", "> **Handoff**: y").is_none());
     }
 
     #[test]

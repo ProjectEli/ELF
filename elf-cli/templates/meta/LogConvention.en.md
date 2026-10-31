@@ -185,7 +185,7 @@ When an AI agent starts a new session (S{NNN}):
 Write each trial (t{NN}) in two phases. **A stop point between Phase 1 and Phase 2 is required** — it prevents ad-hoc execution and forces completion of the hypothesis-observation cycle.
 
 **Phase 1 — before execution (pre-execution, stop point)**
-- [ ] Create the trial stub: `elf trial new [title]` recommended (appends the current trialTemplate to the active log; without the CLI, copy `.elf/managed/templates/trialTemplate.md` manually or write the `## t{NN}: [task title]` header by hand)
+- [ ] Create the trial stub: `elf trial new [title]` recommended (appends the current trialTemplate to the active log; with the body written to a file, `elf trial new "<title>" --from <file>` — no shell escaping, nothing appended when the check fails, a first line `> **Handoff**:` replaces the header Handoff; without the CLI, copy `.elf/managed/templates/trialTemplate.md` manually or write the `## t{NN}: [task title]` header by hand)
 - [ ] (optional) `### 배경 (Background)` — only when context exceeds the goal: entry intent + **initiator** (user-raised/AI-originated) + (one line on a rejected entry path)
 - [ ] Write `### 목표 (Goal)` (the what of the task)
 - [ ] Write `### 조건 (Conditions)` (fix parameters/constraints)

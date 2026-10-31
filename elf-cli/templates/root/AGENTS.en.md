@@ -20,7 +20,7 @@ This project follows **ELF (Eli's Lab Framework)** governance. `AGENTS.md` is th
 ## Standing duties (digest)
 
 - **Record**: any work that affects outputs, conclusions, or direction is logged as a trial (`t##`) in `2_Log/S###_log.md` in the same turn.
-- **Add trials with `elf trial new [title]`** — appends the current canonical stub to the active log. Without the CLI, copy `.elf/managed/templates/trialTemplate.md` manually.
+- **Add trials with `elf trial new [title]`** — appends the current canonical stub to the active log. With the body already written to a file, use `elf trial new "<title>" --from <file>` (no shell escaping; a first line `> **Handoff**:` replaces the header Handoff). Without the CLI, copy `.elf/managed/templates/trialTemplate.md` manually.
 - **Precedent ≠ norm**: past sessions/trials are reference only — follow the canonical format and rules; when a precedent deviates from the canonical rules, do not imitate it and report it to the user.
 - **Phase separation**: `### 가설 (Hypothesis)` / `### 예상 (Prediction)` (Phase 1) are written **before** execution, then stop → execute → `### 관찰 (Observation)` through `### 교훈 (Lessons)` (Phase 2). (LogConvention §5.1)
 - **Embed figures immediately**: in the turn a plot is produced, embed it inline in that trial's `### 관찰 (Observation)` — a path in a table is not an embed. **Sub-agent outputs included** (main embeds them at retrieval). (LogConvention §2)

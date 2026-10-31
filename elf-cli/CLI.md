@@ -32,7 +32,7 @@ Installs the binary to `~/.elf/bin` and adds it to PATH. Open a new shell and ve
 | `elf session new <title>` | Create + register the next session log |
 | `elf session close [S###]` | Close the active session → archive + update registry |
 | `elf session fix-headers` | Repair session-log header rendering |
-| `elf trial new [title]` | Append the canonical trial stub to the active session log |
+| `elf trial new [title]` | Append the canonical trial stub to the active session log, or a trial written to a file (`--from`) |
 | `elf check [setup\|files\|logs]` | Read-only checks of the install and settings, the managed files, and the session logs (no scope = all; exit 4 on issues) |
 | `elf gallery` | Generate the figure index `_gallery.md` from `6_Exp/64_Viz/` |
 | `elf tsa [sub]` | Research-record timestamping, **opt-in**: per-commit hash manifest + RFC 3161 token (no subcommand = request today's token) |
@@ -183,11 +183,15 @@ Append the **current canonical trial stub** (embedded in the CLI; deployed refer
 | Flag | Meaning |
 |------|---------|
 | `--session <S###>` | Target a specific session when several are open |
+| `--from <file>` | Append a trial body written to a file instead of the stub (a title is required) |
 
 ```bash
 elf trial new "Wavelength sweep v2"   # append t## to the single active session
 elf trial new --session S007          # several sessions open — name one
+elf trial new "Wavelength sweep v2" --from trial.md   # append a trial written to a file
 ```
+
+**`--from <file>`** — write the trial body (its `### ` sections, starting with `### 목표 (Goal)` or the optional `### 배경 (Background)`) to a file with your editor or the agent's file-writing tool, then append it in one command. Nothing passes through the shell, so backticks, `$`, quotes and backslashes in the text arrive unchanged, and the log does not have to be opened first. If the first line of the file is a `> **Handoff**: …` line, it replaces the header Handoff of that log. The body is checked before anything is written; on a problem the trial is not appended, the log is unchanged, and the command exits 3 with the reasons: a `#` or `## ` heading in the body (the trial heading comes from the title), a missing Phase 1 section (목표, 조건, 가설, 예상), only some of the Phase 2 sections (관찰, 해석, 교훈, 생성 파일 — give all or none), a non-canonical section name or order, a 해석 section that does not start with `예상 일치 정도:`, or a Phase 1 section that still holds the template text. A body with Phase 1 sections only gets the Phase 2 sections from the template, to be filled after execution.
 
 Why a command: agents (and humans) imitate whatever the previous trial looked like. `elf trial new` keeps the imitation target canonical — the stub always comes from the *installed* template version, so a drifted precedent never propagates. Errors: no open session → exit 1 (start one with `elf session new`); several open without `--session` → exit 1 with the list.
 

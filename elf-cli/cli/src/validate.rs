@@ -194,11 +194,11 @@ pub const INTERP_LABEL: &str = "예상 일치 정도";
 pub const INTERP_LABEL_LEGACY: &str = "가설 적중 여부";
 
 /// 코어 절의 정본 순서 (배경=0 … 생성 파일=8). `시행착오`는 위치 자유(순서 검사 제외).
-const TRIAL_SECTIONS: [&str; 9] =
+pub(crate) const TRIAL_SECTIONS: [&str; 9] =
     ["배경", "목표", "조건", "가설", "예상", "관찰", "해석", "교훈", "생성 파일"];
 
 /// `### 헤딩 (Gloss)` → 한국어 키("생성 파일" 등 공백 포함). `### ` 아닌 줄은 None.
-fn section_key(line: &str) -> Option<&str> {
+pub(crate) fn section_key(line: &str) -> Option<&str> {
     let rest = line.trim_end_matches('\r').strip_prefix("### ")?;
     let key = match rest.find(" (") {
         Some(i) => &rest[..i],
@@ -284,7 +284,7 @@ pub fn trial_structure_findings(content: &str) -> Vec<String> {
 }
 
 /// 내장 정본 trialTemplate(빌드 시 embed — 테스트가 존재 보증).
-fn trial_template() -> &'static str {
+pub(crate) fn trial_template() -> &'static str {
     crate::embed::TEMPLATES
         .get_file("log/trialTemplate.md")
         .and_then(|f| f.contents_utf8())
@@ -292,7 +292,7 @@ fn trial_template() -> &'static str {
 }
 
 /// Phase 1 절 — 실행 전에 채워야 하는 절(Phase 2 절은 Phase 2 대기 trial에 템플릿 문구가 정상적으로 남음).
-const PHASE1_SECTIONS: [&str; 4] = ["목표", "조건", "가설", "예상"];
+pub(crate) const PHASE1_SECTIONS: [&str; 4] = ["목표", "조건", "가설", "예상"];
 /// trialTemplate 제목 placeholder (`elf trial new`를 제목 없이 실행하면 남음).
 const TITLE_PLACEHOLDER: &str = "[작업 제목]";
 

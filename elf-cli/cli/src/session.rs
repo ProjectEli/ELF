@@ -176,6 +176,8 @@ pub enum SessionError {
     MultipleOpen(Vec<String>),
     /// close: 지정 세션 없음
     NotFound(String),
+    /// trial new `--from`: 본문 검사 실패 — 덧붙이지 않은 이유 목록 (refuse, exit 3)
+    Rejected(Vec<String>),
     Io(io::Error),
 }
 
