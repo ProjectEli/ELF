@@ -115,7 +115,7 @@ fn qa_project_update_keeps_qa_identity() {
     assert!(!root.join(".claudeignore").exists());
     // e: re-stamp가 qa manifest 유지 (계보 정체성 보존)
     let stamp = fs::read_to_string(root.join(".elf/manifest.json")).unwrap();
-    assert_eq!(stamp, embed::MANIFEST_QA_JSON);
+    assert_eq!(stamp, manifest::project_json(manifest::Kind::Qa));
 }
 
 /// v2.27 general preset 삭제: 기존 general 프로젝트는 update가 연구 계보 minimal로 전환하고 안내.
@@ -160,7 +160,7 @@ fn removed_general_project_is_converted_to_minimal_on_update() {
     assert_eq!(config_preset(&root), "minimal");
     let eli = fs::read_to_string(root.join(".elf/managed/EliRule.md")).unwrap();
     assert_ne!(eli, general_eli);
-    assert_eq!(fs::read_to_string(&stamp_path).unwrap(), embed::MANIFEST_JSON);
+    assert_eq!(fs::read_to_string(&stamp_path).unwrap(), manifest::project_json(manifest::Kind::Research));
     assert_eq!(fs::read(root.join("0_Meta/ProjectRule.md")).unwrap(), pr_before);
 
     // 두 번째 update: 전환 안내 없음
@@ -208,7 +208,7 @@ fn legacy_config_without_preset_is_inferred_and_healed() {
     assert_eq!(fs::read(root.join("AGENTS.md")).unwrap(), agents_before);
     assert_eq!(
         fs::read_to_string(root.join(".elf/manifest.json")).unwrap(),
-        embed::MANIFEST_QA_JSON
+        manifest::project_json(manifest::Kind::Qa)
     );
 }
 
@@ -362,11 +362,15 @@ fn user_tier_and_instance_are_never_touched() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
     fs::write(root.join("0_Meta/ProjectRule.md"), b"customized by user\n").unwrap();
-    fs::write(root.join("2_Log/S001_log.md"), b"my session notes\n").unwrap();
+    let opts = elf_cli::session::SessionNewOptions { title: "t".into(), date: "2026-11-09".into(), goal: "g".into(), gov: false };
+    elf_cli::session::run_session_new(&root, &opts).unwrap();
+    let log = root.join("2_Log/S/S001_log.md");
+    let notes = format!("{}\nmy session notes\n", fs::read_to_string(&log).unwrap());
+    fs::write(&log, &notes).unwrap();
 
     run_update(&root, &plain()).unwrap();
     assert_eq!(fs::read(root.join("0_Meta/ProjectRule.md")).unwrap(), b"customized by user\n");
-    assert_eq!(fs::read(root.join("2_Log/S001_log.md")).unwrap(), b"my session notes\n");
+    assert_eq!(fs::read_to_string(&log).unwrap(), notes);
     assert!(!root.join("0_Meta/ProjectRule.md.elf-new").exists());
 }
 
@@ -451,30 +455,46 @@ fn dry_run_writes_nothing() {
     let root = new_project(tmp.path(), "P");
     let dest = ".elf/managed/EliRule.md";
     fs::write(root.join(dest), b"edited\n").unwrap();
-    fs::write(root.join(".elf/version"), "v0.0\n").unwrap();
+    let before = fs::read_to_string(root.join(".elf/manifest.json")).unwrap();
 
     let report = run_update(&root, &UpdateOptions { dry_run: true, force: false }).unwrap();
     assert_eq!(report.conflicts, 1); // 보고는 됨
     assert!(!root.join(format!("{dest}.elf-new")).exists(), "dry-run must not write .elf-new");
-    assert_eq!(fs::read_to_string(root.join(".elf/version")).unwrap(), "v0.0\n", "dry-run must not re-stamp");
+    assert_eq!(fs::read_to_string(root.join(".elf/manifest.json")).unwrap(), before, "dry-run must not re-stamp");
 }
 
 #[test]
 fn update_always_restamps_manifest_and_version() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
-    fs::write(root.join(".elf/version"), "v0.0\n").unwrap();
+    // 이전 형식 기록(schema 1 + `.elf/version`) → schema 2 + elf_version, 버전 파일 삭제 (P022 §8)
+    fs::write(root.join(".elf/manifest.json"), embed::MANIFEST_JSON.replace("elf-manifest/2", "elf-manifest/1")).unwrap();
+    fs::write(root.join(".elf/version"), "v2.27.4\n").unwrap();
     tamper_stamp_sha(&root, ".elf/managed/EliRule.md", "deadbeef");
 
-    run_update(&root, &plain()).unwrap();
-    assert_eq!(
-        fs::read_to_string(root.join(".elf/version")).unwrap(),
-        format!("{}\n", embed::version())
-    );
-    // stamp가 embed 정본으로 복원
+    let r = run_update(&root, &plain()).unwrap();
+    assert!(!root.join(".elf/version").exists());
+    assert!(r.lines.iter().any(|l| l.contains("removed .elf/version")), "{:?}", r.lines);
     let stamp = fs::read_to_string(root.join(".elf/manifest.json")).unwrap();
-    assert_eq!(stamp, embed::MANIFEST_JSON);
-    assert!(manifest::parse(&stamp).is_ok());
+    assert_eq!(stamp, manifest::project_json(manifest::Kind::Research));
+    assert_eq!(manifest::parse(&stamp).unwrap().elf_version.as_deref(), Some(embed::version()));
+}
+
+#[test]
+fn update_refuses_project_newer_than_cli() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path(), "P");
+    let p = root.join(".elf/manifest.json");
+    let newer = fs::read_to_string(&p).unwrap().replace(&format!("\"elf_version\": \"{}\"", embed::version()), "\"elf_version\": \"v99.0.0\"");
+    fs::write(&p, &newer).unwrap();
+    assert!(matches!(run_update(&root, &plain()), Err(elf_cli::update::UpdateError::NewerProject(m)) if m.contains("elf self update")));
+    assert_eq!(fs::read_to_string(&p).unwrap(), newer, "nothing written");
+    // 쓰기 명령도 같은 판정으로 거부(exit 3), 읽기(check)는 issue로 보고
+    let out = assert_cmd::Command::cargo_bin("elf").unwrap().args(["session", "new", "x", "--goal", "g"]).current_dir(&root).output().unwrap();
+    assert_eq!(out.status.code(), Some(3));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("elf check version"));
+    let out = assert_cmd::Command::cargo_bin("elf").unwrap().args(["check", "version"]).current_dir(&root).output().unwrap();
+    assert_eq!(out.status.code(), Some(4));
 }
 
 #[test]

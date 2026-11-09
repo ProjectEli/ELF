@@ -1,4 +1,5 @@
-//! `elf autoread` — 컨텍스트 재구성(compact, resume, clear) 후 거버넌스 digest 자동 재주입 (S031).
+//! `elf autoread` — 세션 시작(startup)과 컨텍스트 재구성(compact, resume, clear) 뒤 거버넌스 digest
+//! 자동 주입 (S031; startup과 LogConvention §0 핵심 요약은 S044 t29).
 //!
 //! 문제(ELF_Proposal_ContextReanchor): compact 요약 = lossy 파생 digest — agent가 재구성 후
 //! 정본(AGENTS 상시 의무, 활성 Handoff)에 재정렬하지 않고 요약 위에서 동작하는 drift 실증(S031 t03).
@@ -6,7 +7,7 @@
 //! 본 기능은 "감지 = 하네스 훅 / 판정, 출력 = 본 바이너리"로 전달 방식을 확정한다(발동 강제는 비채택,
 //! t07: 차단은 목적[문서 재전달] 대비 과잉 — validate, close 게이트가 사후 검사 수단).
 //!
-//! 체인(t07 확정): ① SessionStart(compact|resume|clear) 훅 → 마커 기록(stdout 미사용 —
+//! 체인(t07 확정): ① SessionStart(startup|compact|resume|clear) 훅 → 마커 기록(stdout 미사용 —
 //! Claude Code #15174[compact matcher stdout 미주입]와 무관한 부수효과 경로) ② 다음
 //! UserPromptSubmit 훅 → digest stdout 주입 + 마커 해제 ③ 프롬프트 미경유 갭(auto-compact 직후
 //! 연속 작업)은 모든 elf 명령의 출력 선두 배너(main 진입부)가 보조 주입 채널.
@@ -35,8 +36,17 @@ const MARKER_TTL_SECS: u64 = 24 * 3600;
 const ACTIVE_LIMIT: usize = 5;
 /// Handoff 절단 길이(chars) (실측: S200 Handoff 700자+ — 라우팅 정보로는 선두면 충분. S031 t01)
 const HANDOFF_TRUNC: usize = 200;
-/// fulltext 파일당 절단 길이(chars) — 대상 정본(수~수십 KB)은 통과, 오선언 폭주만 차단 (S031 t16).
-const FULLTEXT_TRUNC: usize = 24_000;
+/// digest 전체 상한(chars). Claude Code는 훅 출력(stdout, additionalContext)이 10,000자를 넘으면
+/// 파일로 저장하고 앞 2,000자만 전달함(hooks 문서 "Output limits") — 넘치는 부분은 오류 없이 빠지므로
+/// digest 전체를 이 아래로 유지(S044 t28). 넘칠 수 있는 것은 선언 fulltext뿐이라 fulltext만 줄임.
+pub const DIGEST_CAP: usize = 10_000;
+/// fulltext 예산 계산 때 마지막 지시와 안내 줄 몫으로 남기는 여유(chars).
+const TAIL_RESERVE: usize = 1_200;
+/// fulltext 1건을 싣는 최소 여유(chars) — 이보다 적으면 싣지 않고 안내만.
+const FULLTEXT_MIN_ROOM: usize = 300;
+/// LogConvention 정본 경로(루트 상대)와 §0 핵심 요약 절 표지(KO 정본 / EN 번역).
+const LOGCONV_REL: &str = ".elf/managed/LogConvention.md";
+const CORE_MARKERS: [&str; 2] = ["핵심 요약", "Core summary"];
 /// config 키: 재구성 후 digest에 전문 포함할 정본 경로 배열 (opt-in — 라우팅 지식은 프로젝트 소유).
 const FULLTEXT_KEY: &str = "autoread_fulltext";
 
@@ -146,9 +156,10 @@ fn write_config_flag(root: &Path, on: bool) -> Result<(), AutoreadError> {
 /// (이벤트명, matcher, 훅 command) — Claude Code hooks 스키마.
 fn claude_hook_rows() -> [(&'static str, Option<&'static str>, String); 2] {
     [
-        // compact 외 resume, clear도 컨텍스트 경계 — SessionStart 4-matcher 중 startup 제외
-        // (신규 세션은 CLAUDE.md→@AGENTS.md 체인이 fresh 로드라 재정렬 대상 아님).
-        ("SessionStart", Some("compact|resume|clear"), format!("{HOOK_CMD_MARKER} session-start")),
+        // SessionStart 4-matcher 전부: compact, resume, clear = 컨텍스트 경계, startup = 새 세션.
+        // 새 세션도 LogConvention §0 핵심 요약과 진행 중 Handoff를 첫 프롬프트에 받음(S044 t29 —
+        // CLAUDE.md→@AGENTS.md 체인은 AGENTS만 싣고 LogConvention은 싣지 않음).
+        ("SessionStart", Some("startup|compact|resume|clear"), format!("{HOOK_CMD_MARKER} session-start")),
         ("UserPromptSubmit", None, format!("{HOOK_CMD_MARKER} prompt")),
     ]
 }
@@ -244,6 +255,25 @@ pub fn hook_states(root: &Path) -> Vec<(String, bool)> {
         .collect()
 }
 
+/// 설치는 되어 있으나 정의가 최신과 다른 elf 소유 훅의 이벤트명 — `elf update`가 교체하면 사라짐.
+pub fn hooks_outdated(root: &Path) -> Vec<String> {
+    let text = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap_or_default();
+    let v: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::json!({}));
+    claude_hook_rows()
+        .iter()
+        .filter_map(|(event, matcher, cmd)| {
+            let ours = v
+                .get("hooks")
+                .and_then(|h| h.get(*event))
+                .and_then(|a| a.as_array())
+                .and_then(|arr| arr.iter().find(|i| is_ours(i)))?;
+            let same_matcher = ours.get("matcher").and_then(|m| m.as_str()) == *matcher;
+            let same_cmd = ours["hooks"][0]["command"].as_str() == Some(cmd.as_str());
+            if same_matcher && same_cmd { None } else { Some((*event).to_string()) }
+        })
+        .collect()
+}
+
 // ── enable / disable / status / manual ──────────────────────────────────────────
 
 /// `elf autoread enable` — 멱등: ① config `"autoread": true`(.elf에 기록 — 스위치 정본)
@@ -253,12 +283,12 @@ pub fn run_enable(root: &Path) -> Result<AutoreadReport, AutoreadError> {
     write_config_flag(root, true)?;
     r.say("config: autoread = true (.elf/config.json — per-project switch)");
     match install_hooks(root) {
-        Ok(true) => r.say("hooks: .claude/settings.json updated (SessionStart[compact|resume|clear] + UserPromptSubmit)"),
+        Ok(true) => r.say("hooks: .claude/settings.json updated (SessionStart[startup|compact|resume|clear] + UserPromptSubmit)"),
         Ok(false) => r.say("hooks: already installed (no change)"),
         Err(AutoreadError::Refuse(e)) => r.warn(e),
         Err(e) => return Err(e),
     }
-    r.say("enabled. After a context reconstruction (compact/resume/clear), the governance digest is injected on the next prompt; every elf command also shows a one-line banner until then.");
+    r.say("enabled. At session start and after a context reconstruction (compact/resume/clear), the governance digest is injected on the next prompt; every elf command also shows a one-line banner until then.");
     Ok(r)
 }
 
@@ -432,7 +462,7 @@ pub fn run_hook(root: &Path, event: &str, stdin_json: &str) -> Option<String> {
         "session-start" => {
             let source = v.get("source").and_then(|s| s.as_str()).unwrap_or("");
             // matcher가 이미 거르지만 방어적 재검사 (설정 드리프트, 수동 호출 대비)
-            if matches!(source, "compact" | "resume" | "clear") {
+            if matches!(source, "startup" | "compact" | "resume" | "clear") {
                 let _ = write_marker(root, session_id, source);
             }
             None
@@ -460,17 +490,35 @@ pub fn pending_banner_for(cwd: &Path, session_id: Option<&str>) -> Option<String
     if !is_enabled(&root) {
         return None;
     }
-    let pending = match session_id {
-        Some(sid) => marker_path(&root, sid).is_file(),
-        None => !list_markers(&root).is_empty(),
+    // 대기 마커의 source 목록 — 세션 ID가 있으면 그 세션 것만
+    let sources: Vec<String> = match session_id {
+        Some(sid) => read_marker(&root, sid).map(|m| vec![m.source]).unwrap_or_default(),
+        None => list_markers(&root)
+            .iter()
+            .map(|p| {
+                fs::read_to_string(p)
+                    .ok()
+                    .and_then(|t| serde_json::from_str::<Marker>(&t).ok())
+                    .map(|m| m.source)
+                    .unwrap_or_default()
+            })
+            .collect(),
     };
-    if !pending {
+    if sources.is_empty() {
         return None;
     }
-    Some(
-        "autoread: context was reconstructed — run `elf autoread` for the governance digest (re-read the active session Handoff before substantive work)"
-            .to_string(),
-    )
+    // 재구성이 하나라도 있으면 재구성 문구(더 강한 경고), 전부 startup이면 시작 문구
+    if sources.iter().all(|s| s == "startup") {
+        Some(
+            "autoread: new session — run `elf autoread` for the core rules (LogConvention §0) and the active session Handoff before substantive work"
+                .to_string(),
+        )
+    } else {
+        Some(
+            "autoread: context was reconstructed — run `elf autoread` for the governance digest (re-read the active session Handoff before substantive work)"
+                .to_string(),
+        )
+    }
 }
 
 // ── digest (정본 실행 시점 추출 — 하드코딩 없음) ──────────────────────────────────
@@ -480,16 +528,24 @@ pub fn build_digest(root: &Path, source: &str) -> String {
     build_digest_for(root, source, false)
 }
 
-/// 거버넌스 digest 조립. 원천: 루트 `AGENTS.md` 상시 의무 절 + 활성 세션 Handoff(2_Log 스캔) +
-/// validate 카운트. 총량 목표 ≤ ~1.5k tok — compact 직후 컨텍스트 압박 시점(전량 정본 미주입).
-/// `claude_code` = 읽는 쪽이 Claude Code(훅 경로, 세션 ID가 있는 수동 실행): Claude Code는 재구성 뒤
-/// 루트 CLAUDE.md를 다시 읽으므로, `@AGENTS.md` import가 유효하면 상시 의무 블록은 1줄 안내로 대신함
+/// 거버넌스 digest 조립. 원천: 루트 `AGENTS.md` 상시 의무 절 + LogConvention §0 핵심 요약 +
+/// 활성 세션 Handoff(2_Log 스캔) + validate 카운트 + (선언 시) fulltext. 전체는 `DIGEST_CAP` 아래
+/// (Claude Code 훅 출력 상한) — 넘칠 수 있는 fulltext만 남은 예산 안에서 자르거나 뺌.
+/// `claude_code` = 읽는 쪽이 Claude Code(훅 경로, 세션 ID가 있는 수동 실행): Claude Code는 시작과 재구성
+/// 뒤 루트 CLAUDE.md를 다시 읽으므로, `@AGENTS.md` import가 유효하면 상시 의무 블록은 1줄 안내로 대신함
 /// (중복 제거 — S043). import가 없거나 import되지 않는 자리에만 있으면 블록 유지(유일한 전달 경로).
+/// `source` = `startup`이면 세션 시작 문구, 그 밖(compact, resume, clear, manual 등)은 재구성 문구.
 pub fn build_digest_for(root: &Path, source: &str, claude_code: bool) -> String {
     let mut out = String::new();
-    out.push_str(&format!(
-        "[elf autoread] context was reconstructed ({source}) — the summary you were given is a lossy digest, not the canonical rules. Re-read the canonical rules before substantive work.\n"
-    ));
+    if source == "startup" {
+        out.push_str(
+            "[elf autoread] session start: the core rules and the active state of this project follow. Apply them from your first substantive action.\n",
+        );
+    } else {
+        out.push_str(&format!(
+            "[elf autoread] context was reconstructed ({source}) — the summary you were given is a lossy digest, not the canonical rules. Re-read the canonical rules before substantive work.\n"
+        ));
+    }
 
     let reloaded = claude_code
         && crate::doctor::claude_md_agents_import(root) == Some(crate::doctor::AgentsImport::Imported);
@@ -503,6 +559,29 @@ pub fn build_digest_for(root: &Path, source: &str, claude_code: bool) -> String 
         out.push_str("(AGENTS.md standing-duties section not found — read AGENTS.md directly)\n");
     }
 
+    // LogConvention §0 핵심 요약 — AGENTS 상시 의무에 없는 매 trial 규칙(S044 t29). 로그 규약이 없는
+    // 프로젝트 유형(qa)은 생략, 절이 없으면(사용자 편집 등) 원문을 읽으라는 1줄.
+    match logconv_core(root) {
+        CoreSummary::Found(core) => {
+            out.push_str(&format!("\n--- LogConvention §0 core summary (canonical: {LOGCONV_REL}) ---\n"));
+            out.push_str(core.trim_end());
+            out.push('\n');
+        }
+        CoreSummary::Missing => out.push_str(&format!(
+            "\n(LogConvention §0 core summary not found — read {LOGCONV_REL} directly)\n"
+        )),
+        CoreSummary::NoFile => {}
+    }
+
+    let legacy = crate::logs::legacy_markers(root);
+    if !legacy.is_empty() {
+        out.push_str(&format!(
+            "
+(this project still has the earlier log layout: {} — run `elf update` to migrate; sessions are not listed until then)
+",
+            legacy.join(", ")
+        ));
+    }
     let sessions = active_session_handoffs(root);
     if !sessions.is_empty() {
         out.push_str("\n--- active sessions (newest first; Handoff truncated) ---\n");
@@ -528,7 +607,9 @@ pub fn build_digest_for(root: &Path, source: &str, claude_code: bool) -> String 
 
     // 전문(full-text) layer (S031 t16, ContextReanchor 개정판): 프로젝트가 config에 선언한
     // 정본만 전문 주입 — 라우팅 지식은 프로젝트 소유, core는 전달만. 미선언 = digest만(현행).
-    let injected_fulltext = append_fulltext(root, &mut out);
+    // 예산 = 상한 − 지금까지 − 마지막 지시 몫(S044 t28: 훅 출력 상한을 넘기면 오류 없이 빠짐).
+    let budget = DIGEST_CAP.saturating_sub(out.chars().count() + TAIL_RESERVE);
+    let injected_fulltext = append_fulltext(root, &mut out, budget);
 
     // 말미 지시 — 명령형(실측 결과: soft "re-align"만으로는 전문 재독 미달).
     if injected_fulltext {
@@ -545,23 +626,37 @@ pub fn build_digest_for(root: &Path, source: &str, claude_code: bool) -> String 
 
 /// config `autoread_fulltext` 선언 정본의 전문 블록을 out에 부착. 반환 = 실제 전문을 1건이라도
 /// 실었는지. 선언 오류(트리 이탈 경로, 판독 불가)는 1행 표기 후 계속 — fail-open.
-fn append_fulltext(root: &Path, out: &mut String) -> bool {
+/// `budget` = 이 함수가 out에 더할 수 있는 글자 수. 남은 여유가 적으면 자르고(안내 줄), 1건을 실을
+/// 여유도 없으면 남은 선언을 1줄로 알리고 멈춤 — digest 전체가 `DIGEST_CAP`를 넘지 않게 함.
+fn append_fulltext(root: &Path, out: &mut String, budget: usize) -> bool {
     let declared = fulltext_list(root);
+    let start = out.chars().count();
     let mut injected = false;
-    for rel in &declared {
+    for (i, rel) in declared.iter().enumerate() {
+        let left = budget.saturating_sub(out.chars().count() - start);
         if !fulltext_path_ok(rel) {
             out.push_str(&format!("\n(fulltext skipped — path escapes the project tree: {rel})\n"));
             continue;
         }
         match fs::read_to_string(root.join(rel)) {
             Ok(text) => {
-                out.push_str(&format!("\n--- full text: {rel} (declared in .elf/config.json {FULLTEXT_KEY}) ---\n"));
+                let header = format!("\n--- full text: {rel} (declared in .elf/config.json {FULLTEXT_KEY}) ---\n");
+                // 머리 줄과 절단 안내 줄 몫(200)을 뺀 본문 자리
+                let room = left.saturating_sub(header.chars().count() + 200);
+                if room < FULLTEXT_MIN_ROOM {
+                    out.push_str(&format!(
+                        "\n(fulltext not included: the autoread limit of {DIGEST_CAP} chars is reached — Read directly: {})\n",
+                        declared[i..].join(", ")
+                    ));
+                    break;
+                }
+                out.push_str(&header);
                 let total = text.chars().count();
-                if total > FULLTEXT_TRUNC {
-                    let cut: String = text.chars().take(FULLTEXT_TRUNC).collect();
+                if total > room {
+                    let cut: String = text.chars().take(room).collect();
                     out.push_str(cut.trim_end());
                     out.push_str(&format!(
-                        "\n…[truncated at {FULLTEXT_TRUNC} chars ({total} total) — Read the file directly for the remainder]\n"
+                        "\n…[truncated at {room} chars ({total} total) to stay under the autoread limit of {DIGEST_CAP} chars — Read the file directly for the remainder]\n"
                     ));
                 } else {
                     out.push_str(text.trim_end());
@@ -577,10 +672,8 @@ fn append_fulltext(root: &Path, out: &mut String) -> bool {
     injected
 }
 
-/// 루트 `AGENTS.md`의 상시 의무 절(`## 상시 의무`(KO) / `## Standing duties`(EN)) 추출 —
-/// 헤딩 라인 다음부터 다음 `## ` 전까지. 관리 파일이라 구조 안정(root, qa 각자 정본).
-fn agents_duties(root: &Path) -> Option<String> {
-    let text = fs::read_to_string(root.join("AGENTS.md")).ok()?;
+/// `## ` 헤딩 중 `is_target`에 맞는 첫 절의 본문(헤딩 다음 줄부터 다음 `## ` 전까지). 없거나 빈 절 = None.
+fn h2_section(text: &str, is_target: impl Fn(&str) -> bool) -> Option<String> {
     let mut in_section = false;
     let mut body = String::new();
     for line in text.lines() {
@@ -588,7 +681,7 @@ fn agents_duties(root: &Path) -> Option<String> {
             if in_section {
                 break;
             }
-            if line.contains("상시 의무") || line.contains("Standing duties") {
+            if is_target(line) {
                 in_section = true;
             }
             continue;
@@ -602,25 +695,51 @@ fn agents_duties(root: &Path) -> Option<String> {
     if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
 }
 
-/// 활성 세션 (id, Handoff) — 2_Log/*.md 헤더에서 Status가 Complete가 아닌 것, 번호 내림차순.
-fn active_session_handoffs(root: &Path) -> Vec<(String, String)> {
-    let dir = root.join("2_Log");
-    let mut rows: Vec<(u32, String, String)> = Vec::new();
-    if let Ok(rd) = fs::read_dir(&dir) {
-        for e in rd.flatten() {
-            let name = e.file_name().to_string_lossy().into_owned();
-            let Some(num) = crate::session::log_num(&name) else { continue };
-            let Ok(content) = fs::read_to_string(e.path()) else { continue };
-            let Some(status) = crate::session::header_status(&content) else { continue };
-            if !crate::session::is_open_status(&status) {
-                continue;
-            }
-            let handoff = crate::session::header_handoff(&content).unwrap_or_else(|| "-".into());
-            rows.push((num, format!("S{num:03}"), handoff));
+/// 루트 `AGENTS.md`의 상시 의무 절(`## 상시 의무`(KO) / `## Standing duties`(EN)) 추출 —
+/// 헤딩 라인 다음부터 다음 `## ` 전까지. 관리 파일이라 구조 안정(root, qa 각자 정본).
+fn agents_duties(root: &Path) -> Option<String> {
+    let text = fs::read_to_string(root.join("AGENTS.md")).ok()?;
+    h2_section(&text, |l| l.contains("상시 의무") || l.contains("Standing duties"))
+}
+
+/// LogConvention §0 핵심 요약 추출 결과.
+pub(crate) enum CoreSummary {
+    /// 로그 규약 파일 없음(qa 등 로그를 쓰지 않는 유형) — digest에서 생략.
+    NoFile,
+    /// 파일은 있으나 §0 절 없음(사용자 편집, 구버전) — 원문을 읽으라는 1줄.
+    Missing,
+    Found(String),
+}
+
+/// `.elf/managed/LogConvention.md`의 `## 0. 핵심 요약`(EN 번역 `## 0. Core summary`) 절 본문.
+pub(crate) fn logconv_core(root: &Path) -> CoreSummary {
+    let Ok(text) = fs::read_to_string(root.join(LOGCONV_REL)) else {
+        return CoreSummary::NoFile;
+    };
+    match h2_section(&text, |l| CORE_MARKERS.iter().any(|m| l.contains(m))) {
+        // 절 끝의 구분선(`---`)은 문서 장식이라 뺌
+        Some(body) => {
+            let body = body.trim_end_matches(|c: char| c == '-' || c.is_whitespace()).to_string();
+            if body.is_empty() { CoreSummary::Missing } else { CoreSummary::Found(body) }
         }
+        None => CoreSummary::Missing,
     }
-    rows.sort_by_key(|r| std::cmp::Reverse(r.0));
-    rows.into_iter().map(|(_, id, h)| (id, h)).collect()
+}
+
+/// 진행 중 세션 (id, handoff) — `2_Log/S/`, `2_Log/G/`의 YAML 헤더 status `ongoing`. G 먼저(거버넌스 작업이 규칙에 영향), 이어서 번호 내림차순.
+fn active_session_handoffs(root: &Path) -> Vec<(String, String)> {
+    let mut rows: Vec<(crate::logs::Series, u32, String, String)> = Vec::new();
+    for l in crate::logs::scan_all(root) {
+        let Ok(content) = fs::read_to_string(&l.path) else { continue };
+        let Ok((h, _)) = crate::header::parse(&content) else { continue };
+        if h.status != crate::header::Status::Ongoing {
+            continue;
+        }
+        let handoff = if h.handoff.is_empty() { "-".to_string() } else { h.handoff };
+        rows.push((l.series, l.num, l.id, handoff));
+    }
+    rows.sort_by_key(|r| (std::cmp::Reverse(r.0 == crate::logs::Series::G), std::cmp::Reverse(r.1)));
+    rows.into_iter().map(|(_, _, id, h)| (id, h)).collect()
 }
 
 #[cfg(test)]
@@ -628,14 +747,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn hook_rows_cover_reconstruction_boundaries_not_startup() {
+    fn hook_rows_cover_startup_and_reconstruction_boundaries() {
         let rows = claude_hook_rows();
         assert_eq!(rows[0].0, "SessionStart");
         let m = rows[0].1.expect("matcher");
-        for s in ["compact", "resume", "clear"] {
+        for s in ["startup", "compact", "resume", "clear"] {
             assert!(m.contains(s));
         }
-        assert!(!m.contains("startup"));
         assert_eq!(rows[1].0, "UserPromptSubmit");
         assert!(rows[1].1.is_none()); // 전체 매칭 — matcher 생략
     }
@@ -662,22 +780,50 @@ mod tests {
     }
 
     #[test]
-    fn fulltext_truncates_over_cap_and_keeps_small_files_whole() {
+    fn fulltext_stays_within_budget_and_keeps_small_files_whole() {
         let tmp = tempfile::tempdir().unwrap();
         fs::create_dir_all(tmp.path().join(".elf")).unwrap();
         fs::write(
             tmp.path().join(".elf/config.json"),
-            format!(r#"{{"{FULLTEXT_KEY}": ["small.md", "big.md"]}}"#),
+            format!(r#"{{"{FULLTEXT_KEY}": ["small.md", "big.md", "after.md"]}}"#),
         )
         .unwrap();
         fs::write(tmp.path().join("small.md"), "tiny rule body").unwrap();
-        fs::write(tmp.path().join("big.md"), "x".repeat(FULLTEXT_TRUNC + 100)).unwrap();
+        fs::write(tmp.path().join("big.md"), "x".repeat(DIGEST_CAP * 2)).unwrap();
+        fs::write(tmp.path().join("after.md"), "late rule").unwrap();
+        let budget = 5_000;
         let mut out = String::new();
-        assert!(append_fulltext(tmp.path(), &mut out));
+        assert!(append_fulltext(tmp.path(), &mut out, budget));
         assert!(out.contains("full text: small.md") && out.contains("tiny rule body"));
+        // 큰 파일은 남은 예산 안에서 잘림 + 안내, 뒤 선언은 실을 자리가 없어 1줄 안내
         assert!(out.contains("truncated at") && out.contains("Read the file directly"));
-        // 절단본 길이 확인 — cap + 마커 여유 내
-        assert!(out.chars().count() < FULLTEXT_TRUNC + 1000);
+        assert!(out.contains("fulltext not included") && out.contains("after.md"));
+        assert!(!out.contains("late rule"));
+        assert!(out.chars().count() <= budget + 300, "{}", out.chars().count());
+        // 예산이 0이면 아무 전문도 싣지 않음
+        let mut none = String::new();
+        assert!(!append_fulltext(tmp.path(), &mut none, 0));
+        assert!(none.contains("fulltext not included"));
+    }
+
+    #[test]
+    fn logconv_core_extracts_section_or_reports_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        // 파일 없음 = NoFile (qa 등)
+        assert!(matches!(logconv_core(tmp.path()), CoreSummary::NoFile));
+        let p = tmp.path().join(LOGCONV_REL);
+        fs::create_dir_all(p.parent().unwrap()).unwrap();
+        fs::write(&p, "# LC\n\nintro\n\n## 0. 핵심 요약\n\n- rule A (§1)\n\n---\n\n## 1. 위치\n- body\n").unwrap();
+        match logconv_core(tmp.path()) {
+            CoreSummary::Found(b) => {
+                assert!(b.contains("rule A") && !b.contains("body") && !b.contains("intro"));
+                assert!(b.ends_with("(§1)"), "trailing rule stripped: {b:?}");
+            }
+            _ => panic!("expected Found"),
+        }
+        // 절 없음 = Missing
+        fs::write(&p, "# LC\n\n## 1. 위치\n- body\n").unwrap();
+        assert!(matches!(logconv_core(tmp.path()), CoreSummary::Missing));
     }
 
     #[test]

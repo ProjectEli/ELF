@@ -1,5 +1,5 @@
 {
-  "schema": "elf-manifest/1",
+  "schema": "elf-manifest/2",
   "generated": "2026-06-15",
   "note": "ELF QA preset 배포 명세 — 질문 아카이브 유형. 연구 manifest(manifest.json)와 분리(isolation). src=elf-cli 상대, dest=프로젝트 루트 상대. `elf init <name> --preset qa`가 이 명세로 배포·.elf stamp. sha256=원본 LF 바이트 해시(hash::sha256_lf). dest = managed 레이아웃 기준.",
   "files": [

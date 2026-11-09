@@ -182,11 +182,13 @@ fn hybrid_block_outdated_via_baseline_is_pending() {
 fn version_mismatch_is_warned() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
-    fs::write(root.join(".elf/version"), "v0.0\n").unwrap();
+    let m = fs::read_to_string(root.join(".elf/manifest.json")).unwrap();
+    let m = m.replace(&format!("\"elf_version\": \"{}\"", elf_cli::embed::version()), "\"elf_version\": \"v0.1.0\"");
+    fs::write(root.join(".elf/manifest.json"), m).unwrap();
 
     let r = run_status(&root).unwrap();
     assert!(r.warnings >= 1);
-    assert!(r.lines.iter().any(|l| l.contains("v0.0") && l.contains("≠ CLI")));
+    assert!(r.lines.iter().any(|l| l.contains("v0.1.0") && l.contains("older") && l.contains("elf update")), "{:?}", r.lines);
 }
 
 // ── e2e: exit code 게이트 ───────────────────────────────────

@@ -1,19 +1,269 @@
-//! `elf session new` / (t02) `session close` — 세션 수명주기 (P012 t01, t02).
+//! `elf session new` / `session close` — 세션 수명주기 (P012 t01, t02; 구조 개편 P022 §6, S044).
 //!
-//! Registry TSV 파서는 t04 validate와 공용 — **위치 기반(6열) 결정론 파싱**.
-//! 파싱 불가(열수, 세션ID 형식)는 **자동 수정하지 않고 escalation**(exit 5)으로 상위 LLM 에이전트에 위임
-//! (P012 §0.1: 결정론 도구=게이트, 판단, 수리=에이전트. 무손실 원칙).
+//! 로그는 `2_Log/S/`(연구), `2_Log/G/`(거버넌스)에 고정되고 옮기지 않음. 상태 = YAML 헤더 `status`.
+//! 헤더는 elf 명령만 씀: `session new --goal`(goal), `session close --from`(conclusion, user_note, handoff).
+//! 로그를 바꾼 뒤 `logs::refresh`가 `Registry.md`와 탐색기 nesting을 다시 만듦.
+//!
+//! 이 파일 아래쪽의 "이전 형식" 절(TSV Registry 파서, 인용 블록 헤더 읽기)은 `elf update` 이관(migrate.rs)이 씀.
 
-use std::collections::BTreeSet;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use crate::embed;
+use crate::header::{self, Header, Status};
+use crate::logs::{self, Series};
+
+#[derive(Debug)]
+pub enum SessionError {
+    /// 계산된 로그 파일이 이미 존재 — refuse (exit 3)
+    Exists(String),
+    /// 제목, goal 등 입력 오류 — refuse
+    BadTitle(String),
+    /// 닫을(쓸) 진행 중 세션 없음
+    NoOpenSession,
+    /// 진행 중 세션 여럿 — 명시 필요
+    MultipleOpen(Vec<String>),
+    /// 지정 세션 없음
+    NotFound(String),
+    /// 입력 파일 검사 실패 — 쓰지 않은 이유 목록 (refuse, exit 3)
+    Rejected(Vec<String>),
+    /// 로그 헤더(YAML 7키)를 읽을 수 없음 — 형식 오류 위치 (refuse, exit 3)
+    BadHeader(String),
+    /// 이전 형식 로그가 남아 있음 — `elf update`로 이관 먼저 (refuse, exit 3)
+    Legacy(Vec<String>),
+    Io(io::Error),
+}
+
+impl From<io::Error> for SessionError {
+    fn from(e: io::Error) -> Self {
+        SessionError::Io(e)
+    }
+}
+
+/// 이전 형식 흔적이 있으면 쓰기 명령을 막음(두 형식이 섞이지 않게).
+pub fn refuse_legacy(root: &Path) -> Result<(), SessionError> {
+    let m = logs::legacy_markers(root);
+    if m.is_empty() { Ok(()) } else { Err(SessionError::Legacy(m)) }
+}
+
+/// 세션 기록이 이미 있는가 — 새 구조 로그 또는 이전 형식 흔적(제자리 init 판정).
+pub fn has_session_records(root: &Path) -> bool {
+    !logs::scan_all(root).is_empty() || !logs::legacy_markers(root).is_empty()
+}
+
+/// 내장 sessionTemplate 원문.
+pub fn template_text() -> &'static str {
+    embed::TEMPLATES
+        .get_file("log/sessionTemplate.md")
+        .and_then(|f| f.contents_utf8())
+        .expect("sessionTemplate embedded (gated by tests)")
+}
+
+/// 내장 sessionTemplate의 헤더 뒤 본문(제목 줄과 규범 주석).
+fn template_body() -> &'static str {
+    let tpl = template_text();
+    match header::parse(tpl) {
+        Ok((_, at)) => &tpl[at..],
+        Err(_) => tpl,
+    }
+}
+
+pub struct SessionNewOptions {
+    pub title: String,
+    /// YYYY-MM-DD — 주입형(테스트 결정성; main이 오늘 날짜 주입)
+    pub date: String,
+    /// 세션 목표 1-2문장 — 필수(헤더는 명령만 쓰므로 만들 때 정함)
+    pub goal: String,
+    /// 거버넌스 세션(`2_Log/G/`)
+    pub gov: bool,
+}
+
+#[derive(Debug)]
+pub struct SessionNewResult {
+    pub id: String,
+    pub log_rel: String,
+    pub warnings: Vec<String>,
+}
+
+/// `elf session new`: 계열 폴더에 다음 번호로 로그 생성(YAML 헤더 + 제목 + 규범 주석) → Registry.md 갱신.
+pub fn run_session_new(root: &Path, opts: &SessionNewOptions) -> Result<SessionNewResult, SessionError> {
+    if opts.title.trim().is_empty() || opts.title.contains(['\n', '\r']) {
+        return Err(SessionError::BadTitle("session title must be one non-empty line".into()));
+    }
+    if opts.goal.trim().is_empty() {
+        return Err(SessionError::BadTitle(
+            "--goal is required: the session goal in 1-2 sentences (the header is written only by elf commands)".into(),
+        ));
+    }
+    refuse_legacy(root)?;
+    let series = if opts.gov { Series::G } else { Series::S };
+    fs::create_dir_all(root.join(series.dir()))?;
+
+    // 원자적 번호 할당: create_new 성공 = 그 번호의 유일 소유(TOCTOU 없음). 선점 시 재스캔.
+    let (mut file, id, log_rel) = 'alloc: {
+        for _ in 0..32 {
+            let n = logs::next_number(root, series);
+            let rel = logs::log_rel(series, n);
+            match fs::OpenOptions::new().write(true).create_new(true).open(root.join(&rel)) {
+                Ok(f) => break 'alloc (f, logs::id_of(series, n), rel),
+                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
+                Err(e) => return Err(e.into()),
+            }
+        }
+        return Err(SessionError::Io(io::Error::other(
+            "could not allocate a session number in 32 attempts (unexpected contention)",
+        )));
+    };
+    let h = Header::new(&opts.date, &opts.goal);
+    let body = template_body().replace("S{NNN}", &id).replace("[세션 제목]", opts.title.trim());
+    file.write_all(format!("{}{}", header::render(&h), body).as_bytes())?;
+    drop(file);
+    let warnings = logs::refresh(root)?;
+    Ok(SessionNewResult { id, log_rel, warnings })
+}
+
+pub struct CloseOptions {
+    pub id: Option<String>,
+    /// `--from` 파일 내용 — YAML 블록(conclusion 필수, user_note, handoff)
+    pub body: Option<String>,
+    pub date: String,
+}
+
+#[derive(Debug)]
+pub struct CloseResult {
+    pub id: String,
+    pub log_rel: String,
+    /// 비차단 경고(handoff 미완료 잔존, 닫는 세션의 점검 결과)
+    pub warnings: Vec<String>,
+}
+
+/// 종료 파일 예(거부 메시지에 함께 출력).
+pub const CLOSE_FILE_EXAMPLE: &str = "---\nconclusion: '현재 유효한 최종 결론'\nuser_note: '사용자 원문(건너뛰면 빈 값)'\nhandoff: ''\n---";
+
+/// `elf session close --from <파일>`: status complete, conclusion(필수), user_note, handoff 기록. 파일은 옮기지 않음.
+pub fn run_session_close(root: &Path, opts: &CloseOptions) -> Result<CloseResult, SessionError> {
+    refuse_legacy(root)?;
+    let target = logs::resolve(root, opts.id.as_deref())?;
+    let (mut h, content) = logs::read(&target)?;
+    let log_rel = logs::rel_of(&target);
+    if h.status != Status::Ongoing {
+        return Err(SessionError::Rejected(vec![format!(
+            "{} is already {} — only an ongoing session can be closed",
+            target.id,
+            h.status.as_str()
+        )]));
+    }
+    let approval = "show the user a conclusion draft, get approval, and ask for the user's own note (user_note, their words only) before closing (LogConvention §5.2)";
+    let Some(raw) = opts.body.as_deref() else {
+        return Err(SessionError::Rejected(vec![
+            "a conclusion is required: elf session close --from <file>".into(),
+            approval.into(),
+            format!("file example:\n{CLOSE_FILE_EXAMPLE}"),
+        ]));
+    };
+    let (pairs, rest) = header::split_block(raw).map_err(|e| SessionError::Rejected(vec![e]))?;
+    let mut problems = Vec::new();
+    if !rest.trim().is_empty() {
+        problems.push("the close file holds only the YAML block (conclusion, user_note, handoff)".into());
+    }
+    for (k, _) in &pairs {
+        if !["conclusion", "user_note", "handoff"].contains(&k.as_str()) {
+            problems.push(format!("key '{k}' is not allowed — allowed: conclusion (required), user_note, handoff"));
+        }
+    }
+    let get = |k: &str| pairs.iter().find(|(x, _)| x == k).map(|(_, v)| v.clone());
+    let conclusion = get("conclusion").unwrap_or_default();
+    if conclusion.trim().is_empty() {
+        problems.push("conclusion is missing or empty — the session is not closed without a conclusion".into());
+        problems.push(approval.into());
+    }
+    if !problems.is_empty() {
+        return Err(SessionError::Rejected(problems));
+    }
+    h.status = Status::Complete;
+    h.conclusion = header::one_line(&conclusion);
+    if let Some(u) = get("user_note") {
+        h.user_note = header::one_line(&u);
+    }
+    if let Some(x) = get("handoff") {
+        h.handoff = header::one_line(&x);
+    }
+    h.modified = opts.date.clone();
+
+    let mut warnings = Vec::new();
+    if let Some(pending) = handoff_pending(&h.handoff) {
+        warnings.push(format!(
+            "handoff still lists pending items: \"{pending}\" — finish them or move them to a planning doc (LogConvention §5.2)"
+        ));
+    }
+    // 닫는 세션 범위의 점검 결과(비차단) — 종료 전 마지막 확인
+    if let Ok(v) = crate::validate::run_validate(root) {
+        let by_file = format!("{}_log.md", target.id);
+        let by_id = format!("{}:", target.id);
+        for l in &v.lines {
+            let body = l.strip_prefix("issue: ").or_else(|| l.strip_prefix("warn: ")).unwrap_or(l);
+            if body.starts_with(&by_file) || body.starts_with(&by_id) {
+                warnings.push(format!("check ({}): {l}", target.id));
+            }
+        }
+    }
+    let updated = header::replace(&content, &h).map_err(|e| SessionError::BadHeader(format!("{log_rel}: {e}")))?;
+    fs::write(&target.path, updated)?;
+    warnings.extend(logs::refresh(root)?);
+    Ok(CloseResult { id: target.id, log_rel, warnings })
+}
+
+/// cwd에서 위로 올라가며 `2_Log/` 보유 디렉토리(세션 루트)를 찾음.
+pub fn find_log_root(start: &Path) -> Option<PathBuf> {
+    start.ancestors().find(|a| a.join("2_Log").is_dir()).map(Path::to_path_buf)
+}
+
+/// handoff 3파트 중 미완료 파트의 잔존 내용 (S021 t13 #3, t17 경계 강화).
+/// 파트 경계 = **`;` 직후(공백 허용) 라벨**(`미완료`/`pending`, `참조`/`refs`)이 오는 위치만.
+/// 값 맨 앞의 라벨도 경계로 봄(첫 파트를 생략한 handoff). 라벨 경계 부재 = 판정 보류(None).
+pub fn handoff_pending(handoff: &str) -> Option<String> {
+    let owned = format!(";{handoff}");
+    let handoff = owned.as_str();
+    let boundary_after = |labels: &[&str], from: usize| -> Option<(usize, usize)> {
+        let mut i = from;
+        while let Some(off) = handoff[i..].find(';') {
+            let semi = i + off;
+            let rest = &handoff[semi + 1..];
+            let content_at = semi + 1 + (rest.len() - rest.trim_start().len());
+            for l in labels {
+                if handoff[content_at..].starts_with(l) {
+                    return Some((semi, content_at + l.len()));
+                }
+            }
+            i = semi + 1;
+        }
+        None
+    };
+    let (_, pending_start) = boundary_after(&["미완료", "pending", "Pending"], 0)?;
+    let end = boundary_after(&["참조", "refs", "Refs", "references"], pending_start)
+        .map(|(semi, _)| semi)
+        .unwrap_or(handoff.len());
+    let mut p = handoff[pending_start..end].trim();
+    p = p.strip_prefix(['=', ':']).unwrap_or(p).trim();
+    let p = p.trim_start_matches(['—', '–', '-', ' ']).trim();
+    let none = p.is_empty()
+        || p == "-"
+        || p.starts_with("없음")
+        || p.get(..4).is_some_and(|x| x.eq_ignore_ascii_case("none"));
+    if none {
+        None
+    } else {
+        Some(p.to_string())
+    }
+}
+
+// ── 이전 형식(이관 전용) ───────────────────────────────────────────
+//
+// `2_Log/Wiki/Session_Registry.tsv` 6열 파서와 인용 블록 헤더(`> **Status**:` 등) 읽기.
+// 새 구조에서는 쓰지 않고, `elf update` 이관이 두 신호(헤더 Status, Registry)를 읽을 때만 씀.
 
 pub const REGISTRY_REL: &str = "2_Log/Wiki/Session_Registry.tsv";
-/// 세션 로그가 놓이는 위치(상태 폴더) — 루트(진행 중), Archive(종료), Deprecated(폐기). 번호 스캔, 정합 검사가 공유.
-pub const LOG_DIRS: [&str; 3] = ["2_Log", "2_Log/Archive", "2_Log/Deprecated"];
 pub const REGISTRY_COLS: usize = 6;
 const ACTION_FIX_REGISTRY: &str =
     "표시된 행을 스키마에 맞게 수정 후 명령 재실행 (이 도구는 Registry를 자동 수정하지 않음)";
@@ -59,7 +309,6 @@ pub struct RegistryRow {
 }
 
 /// Registry TSV → 행 목록. 헤더(`Session\t…`), 빈 줄 skip. 6열 아니거나 세션ID가 S### 아니면 escalation.
-/// (Err은 박싱 — Escalation 구조가 커 result_large_err 회피)
 pub fn parse_registry(text: &str) -> Result<Vec<RegistryRow>, Box<Escalation>> {
     let mut rows = Vec::new();
     for (i, line) in text.lines().enumerate() {
@@ -67,7 +316,7 @@ pub fn parse_registry(text: &str) -> Result<Vec<RegistryRow>, Box<Escalation>> {
         if line.trim().is_empty() {
             continue;
         }
-        let cols: Vec<&str> = line.split('\t').collect();
+        let cols: Vec<&str> = line.trim_end_matches('\r').split('\t').collect();
         if cols.first() == Some(&"Session") {
             continue; // 헤더
         }
@@ -120,547 +369,17 @@ pub fn log_num(filename: &str) -> Option<u32> {
     session_num(filename.strip_suffix("_log.md")?)
 }
 
-/// 다음 세션 번호 = 알려진 모든 번호의 max + 1 (순수).
-pub fn next_number(nums: &[u32]) -> u32 {
-    nums.iter().copied().max().map_or(1, |m| m + 1)
+/// 이전 형식 헤더 블록의 `> **<label>**:` 값(트레일링 `\`, `\r` 제거).
+pub fn legacy_field(content: &str, label: &str) -> Option<String> {
+    let prefix = format!("> **{label}**:");
+    content.lines().find_map(|line| {
+        line.trim_end_matches('\r').strip_prefix(&prefix).map(|v| v.trim_end_matches('\\').trim().to_string())
+    })
 }
 
-/// gap, 중복, 로그↔Registry 불일치 경고 (순수, 비차단). 상세 진단은 `elf check logs`.
-pub fn number_warnings(log_nums: &[u32], reg_nums: &[u32]) -> Vec<String> {
-    let mut w = Vec::new();
-    let logs: BTreeSet<u32> = log_nums.iter().copied().collect();
-    let regs: BTreeSet<u32> = reg_nums.iter().copied().collect();
-    if logs.len() != log_nums.len() {
-        w.push("duplicate session log file numbers (run `elf check logs`)".into());
-    }
-    for n in logs.difference(&regs) {
-        w.push(format!("S{n:03} log exists but not in registry (run `elf check logs`)"));
-    }
-    for n in regs.difference(&logs) {
-        w.push(format!("S{n:03} in registry but no log file (run `elf check logs`)"));
-    }
-    let all: BTreeSet<u32> = logs.union(&regs).copied().collect();
-    if let Some(&mx) = all.iter().max() {
-        for n in 1..mx {
-            if !all.contains(&n) {
-                w.push(format!("gap: S{n:03} missing (run `elf check logs`)"));
-            }
-        }
-    }
-    w
-}
-
-pub struct SessionNewOptions {
-    pub title: String,
-    /// YYYY-MM-DD — 주입형(테스트 결정성; main이 오늘 날짜 주입)
-    pub date: String,
-}
-
-#[derive(Debug)]
-pub struct SessionNewResult {
-    pub id: String,
-    pub log_rel: String,
-    pub warnings: Vec<String>,
-}
-
-#[derive(Debug)]
-pub enum SessionError {
-    Escalation(Box<Escalation>),
-    /// 계산된 로그 파일이 이미 존재 — refuse (exit 3)
-    Exists(String),
-    /// 제목에 탭(TSV 파탄) — refuse
-    BadTitle(String),
-    /// close: 닫을 활성 세션 없음
-    NoOpenSession,
-    /// close: 활성 세션 다수 — 명시 필요
-    MultipleOpen(Vec<String>),
-    /// close: 지정 세션 없음
-    NotFound(String),
-    /// trial new `--from`: 본문 검사 실패 — 덧붙이지 않은 이유 목록 (refuse, exit 3)
-    Rejected(Vec<String>),
-    Io(io::Error),
-}
-
-impl From<io::Error> for SessionError {
-    fn from(e: io::Error) -> Self {
-        SessionError::Io(e)
-    }
-}
-
-/// 세션 기록이 이미 있는가 — `LOG_DIRS`의 S###_log.md 또는 Registry 데이터 행(제자리 init의 S001 생성 판정).
-pub fn has_session_records(root: &Path) -> bool {
-    if !scan_log_numbers(root).is_empty() {
-        return true;
-    }
-    fs::read_to_string(root.join(REGISTRY_REL))
-        .map(|t| t.lines().skip(1).any(|l| !l.trim().is_empty()))
-        .unwrap_or(false)
-}
-
-/// `LOG_DIRS`(루트, Archive, Deprecated)의 S###_log.md 번호 수집 — 부분 폐기 파일(`*.partial.md`)은 이름이 달라 제외.
-fn scan_log_numbers(root: &Path) -> Vec<u32> {
-    let mut nums = Vec::new();
-    for dir in LOG_DIRS {
-        if let Ok(entries) = fs::read_dir(root.join(dir)) {
-            for e in entries.flatten() {
-                if let Some(n) = e.file_name().to_str().and_then(log_num) {
-                    nums.push(n);
-                }
-            }
-        }
-    }
-    nums
-}
-
-fn registry_header() -> &'static str {
-    embed::TEMPLATES
-        .get_file("log/Session_Registry.tsv")
-        .and_then(|f| f.contents_utf8())
-        .and_then(|s| s.lines().next())
-        .unwrap_or("Session\tDate\tTitle\tStatus\tKey Finding\tArchive Path")
-}
-
-/// `elf session new`: S### 자동 증번 → 로그 생성 + Registry 행 추가.
-pub fn run_session_new(root: &Path, opts: &SessionNewOptions) -> Result<SessionNewResult, SessionError> {
-    if opts.title.contains('\t') {
-        return Err(SessionError::BadTitle(
-            "session title must not contain a tab character (breaks the TSV registry)".into(),
-        ));
-    }
-
-    let reg_path = root.join(REGISTRY_REL);
-    let reg_text = fs::read_to_string(&reg_path).unwrap_or_default();
-
-    // 세션 번호의 정본 = 로그 파일 index(2_Log/ + Archive/의 S###_log.md). Registry는 부차.
-    // Registry 파싱은 번호 할당의 전제조건이 아니다 — 파싱 실패(merge 충돌 마커 등)해도
-    // 파일 index로 번호를 낸다(멀티에이전트 Registry 손상 내성, S030). 실패는 경고로 노출하고
-    // 새 행은 raw append(손상부 보존, 데이터 무손실) → `elf check logs`로 복구.
-    let log_nums = scan_log_numbers(root);
-    let mut warnings = Vec::new();
-    let reg_nums: Vec<u32> = match parse_registry(&reg_text) {
-        Ok(rows) => {
-            let nums: Vec<u32> = rows.iter().filter_map(|r| session_num(&r.session)).collect();
-            warnings = number_warnings(&log_nums, &nums);
-            nums
-        }
-        Err(_) => {
-            warnings.push(
-                "registry unparseable (merge conflict?) — numbering from log files only; new row appended as text, run `elf check logs` to repair".into(),
-            );
-            Vec::new()
-        }
-    };
-
-    let tpl = embed::TEMPLATES
-        .get_file("log/sessionTemplate.md")
-        .and_then(|f| f.contents_utf8())
-        .expect("sessionTemplate embedded (gated by tests)");
-
-    // 원자적 번호 할당 (§12.13 ①-a): `create_new`(O_EXCL/CREATE_NEW) 성공 = 그 번호의 유일
-    // 소유 확정 — "체크 후 쓰기"의 TOCTOU를 "쓰기가 곧 체크"로 소거. AlreadyExists = 다른
-    // 프로세스 선점 → 재스캔, 재시도(선점 파일이 스캔에 잡혀 다음 번호로 전진). 파일 존재 =
-    // 번호 예약(파일 index 정본 원리의 쓰기 측). 상한은 병렬 현실 규모를 크게 넘는 여유값.
-    let mut nums = [log_nums.as_slice(), reg_nums.as_slice()].concat();
-    let (mut file, id, log_rel) = 'alloc: {
-        for _ in 0..32 {
-            let n = next_number(&nums);
-            let id = format!("S{n:03}");
-            let log_rel = format!("2_Log/{id}_log.md");
-            match fs::OpenOptions::new().write(true).create_new(true).open(root.join(&log_rel)) {
-                Ok(f) => break 'alloc (f, id, log_rel),
-                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
-                    nums = [scan_log_numbers(root).as_slice(), reg_nums.as_slice()].concat();
-                }
-                Err(e) => return Err(e.into()),
-            }
-        }
-        return Err(SessionError::Io(io::Error::other(
-            "could not allocate a session number in 32 attempts (unexpected contention)",
-        )));
-    };
-
-    // 템플릿 렌더 (managed sessionTemplate — embed 정본)
-    let content = tpl
-        .replace("S{NNN}", &id)
-        .replace("YYYY-MM-DD", &opts.date)
-        .replace("[세션 제목]", &opts.title);
-    file.write_all(content.as_bytes())?;
-    drop(file);
-
-    // Registry 행 append (§12.13 ①-b): 전체 rewrite 폐지 — 신규 행 추가는 본질이 append라
-    // O_APPEND(원자적 tail 쓰기, 단일 write 행은 로컬 FS에서 인터리브 없음)로 동시 lost update
-    // 소거. 극초기 동시 생성의 헤더 중복은 파서가 헤더 행을 무조건 skip하므로 무해. 행 순서는
-    // 완료순(번호순과 다를 수 있음) — 파서, validate는 행 단위라 무관(Registry = flat 인덱스).
-    let mut row = String::new();
-    if reg_text.is_empty() {
-        row.push_str(registry_header());
-        row.push('\n');
-    } else if !reg_text.ends_with('\n') {
-        row.push('\n');
-    }
-    row.push_str(&format!("{id}\t{}\t{}\t★ 활성\t-\t-\n", opts.date, opts.title));
-    let mut reg_file = fs::OpenOptions::new().append(true).create(true).open(&reg_path)?;
-    reg_file.write_all(row.as_bytes())?;
-
-    Ok(SessionNewResult { id, log_rel, warnings })
-}
-
-// ── 헤더 hard-break 보정 (codemod) ──────────────────────────────
-//
-// 세션 로그 헤더(첫 h1 뒤 첫 `>` 블록)의 각 줄(마지막 제외) 끝에 CommonMark hard break(`\`).
-// Discord 미리보기 등 strict 렌더러에서 6개 메타 항목이 한 줄로 합쳐지는 것 방지(LogConvention §2).
-// 멱등 — 이미 `\`면 건드리지 않음. 다른 `>` 블록, 본문 불변.
-
-/// 변경 시 보정된 전체 문자열, 변경 없으면 None.
-pub fn fix_session_header(content: &str) -> Option<String> {
-    let lines: Vec<&str> = content.split('\n').collect();
-    let title = lines.iter().position(|l| l.starts_with("# "))?;
-
-    let mut start = title + 1;
-    while start < lines.len() && lines[start].trim().is_empty() {
-        start += 1;
-    }
-    if start >= lines.len() || !lines[start].starts_with('>') {
-        return None;
-    }
-    let mut end = start;
-    while end < lines.len() && lines[end].starts_with('>') {
-        end += 1;
-    }
-    // end-1 = 블록 마지막 줄(Handoff) → `\` 부여 제외
-
-    let mut out: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
-    let mut changed = false;
-    for line in out.iter_mut().take(end.saturating_sub(1)).skip(start) {
-        // CRLF-safe: split('\n')이 남긴 줄 끝 '\r'을 분리해 '\'를 그 앞(=줄 내용 끝)에 삽입
-        let had_cr = line.ends_with('\r');
-        let core_len = line.len() - usize::from(had_cr);
-        {
-            let core = &line[..core_len];
-            let body = core.trim_start_matches('>').trim();
-            if body.is_empty() || core.ends_with('\\') {
-                continue; // bare '>' 또는 이미 hard break
-            }
-        }
-        line.insert(core_len, '\\');
-        changed = true;
-    }
-    if changed { Some(out.join("\n")) } else { None }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct FixedFile {
-    pub path: String,
-    pub changed: bool,
-}
-
-/// `base/2_Log/*.md` + `base/2_Log/Archive/*.md`에 헤더 보정 적용(또는 dry-run 집계).
-pub fn run_fix_headers(base: &Path, dry_run: bool) -> io::Result<Vec<FixedFile>> {
-    let mut out = Vec::new();
-    for dir in ["2_Log", "2_Log/Archive"] {
-        let Ok(entries) = fs::read_dir(base.join(dir)) else {
-            continue;
-        };
-        let mut paths: Vec<_> = entries
-            .flatten()
-            .map(|e| e.path())
-            .filter(|p| p.extension().is_some_and(|x| x == "md"))
-            .collect();
-        paths.sort();
-        for p in paths {
-            let content = fs::read_to_string(&p)?;
-            if let Some(fixed) = fix_session_header(&content) {
-                if !dry_run {
-                    fs::write(&p, fixed)?;
-                }
-                out.push(FixedFile {
-                    path: format!("{dir}/{}", p.file_name().unwrap_or_default().to_string_lossy()),
-                    changed: true,
-                });
-            }
-        }
-    }
-    Ok(out)
-}
-
-// ── session close (t02) + 공용 루트 탐지 ────────────────────────
-//
-// 루트 탐지 = `2_Log/` 기반(`.elf/` 불요). session new/close, fix-headers 공용 →
-// 생성 프로젝트뿐 아니라 프레임워크 `_dev/`도 자기사용 가능(S011 자기 사용 중 발견 반영).
-
-/// cwd에서 위로 올라가며 `2_Log/` 보유 디렉토리(세션 루트)를 찾음.
-pub fn find_log_root(start: &Path) -> Option<PathBuf> {
-    start
-        .ancestors()
-        .find(|a| a.join("2_Log").is_dir())
-        .map(Path::to_path_buf)
-}
-
-/// 헤더 블록 `> **Status**:` 값 (트레일링 `\`, `\r` 제거).
+/// 이전 형식 헤더 `> **Status**:` 값.
 pub fn header_status(content: &str) -> Option<String> {
-    content.lines().find_map(|line| {
-        line.trim_end_matches('\r')
-            .strip_prefix("> **Status**:")
-            .map(|v| v.trim_end_matches('\\').trim().to_string())
-    })
-}
-
-/// Complete, Deprecated가 아니면 열린(닫을 수 있는) 세션. (trial.rs 활성 세션 탐지와 공용)
-pub(crate) fn is_open_status(s: &str) -> bool {
-    !s.starts_with("Complete") && !s.starts_with("Deprecated") && !s.starts_with("Purged")
-}
-
-/// 헤더 블록 `> **Handoff**:` 값 (트레일링 `\`, `\r` 제거).
-pub fn header_handoff(content: &str) -> Option<String> {
-    content.lines().find_map(|line| {
-        line.trim_end_matches('\r')
-            .strip_prefix("> **Handoff**:")
-            .map(|v| v.trim_end_matches('\\').trim().to_string())
-    })
-}
-
-/// Handoff 3파트 중 미완료 파트의 잔존 내용 (S021 t13 #3, t17 경계 강화).
-/// 파트 경계 = **`;` 직후(공백 허용) 라벨**(`미완료`/`pending`, `참조`/`refs`)이 오는 위치만 —
-/// 위치 기반 split이 아니라서 파트 내용 속 `;`(라벨 비동반)와 본문 속 라벨 단어(`;` 비동반)가
-/// 모두 무해(v2.3 원설계 "`;`=파트 경계 전용" 복원과 쌍). 라벨 경계 부재 = 판정 보류(None).
-pub fn handoff_pending(handoff: &str) -> Option<String> {
-    // `;` 직후 labels 중 하나가 시작되는 첫 경계: (라벨 끝 바이트 위치) 반환
-    let boundary_after = |labels: &[&str], from: usize| -> Option<(usize, usize)> {
-        let mut i = from;
-        while let Some(off) = handoff[i..].find(';') {
-            let semi = i + off;
-            let rest = &handoff[semi + 1..];
-            let content_at = semi + 1 + (rest.len() - rest.trim_start().len());
-            for l in labels {
-                if handoff[content_at..].starts_with(l) {
-                    return Some((semi, content_at + l.len()));
-                }
-            }
-            i = semi + 1;
-        }
-        None
-    };
-    let (_, pending_start) = boundary_after(&["미완료", "pending", "Pending"], 0)?;
-    let end = boundary_after(&["참조", "refs", "Refs", "references"], pending_start)
-        .map(|(semi, _)| semi)
-        .unwrap_or(handoff.len());
-    let mut p = handoff[pending_start..end].trim();
-    p = p.strip_prefix(['=', ':']).unwrap_or(p).trim();
-    if p.is_empty() || p == "-" || p == "없음" || p.eq_ignore_ascii_case("none") {
-        None
-    } else {
-        Some(p.to_string())
-    }
-}
-
-/// 헤더 Status를 Complete로 (트레일링 `\`, `\r` 보존). 변경 없으면 None.
-pub fn mark_status_complete(content: &str) -> Option<String> {
-    let mut out: Vec<String> = content.split('\n').map(str::to_string).collect();
-    let mut changed = false;
-    for line in out.iter_mut() {
-        let trimmed = line.strip_suffix('\r').unwrap_or(line);
-        if !trimmed.starts_with("> **Status**:") {
-            continue;
-        }
-        let mut new = String::from("> **Status**: Complete");
-        if trimmed.ends_with('\\') {
-            new.push('\\');
-        }
-        if line.ends_with('\r') {
-            new.push('\r');
-        }
-        if *line != new {
-            *line = new;
-            changed = true;
-        }
-        break;
-    }
-    if changed { Some(out.join("\n")) } else { None }
-}
-
-/// close 시 Registry 행 갱신: status→Complete, archive_path→Archive/<id>_log.md. 타 행, EOL 보존.
-fn registry_mark_closed(reg_text: &str, target: &str) -> String {
-    let archive = format!("Archive/{target}_log.md");
-    let mut out = String::new();
-    for piece in reg_text.split_inclusive('\n') {
-        let (body, nl) = match piece.strip_suffix('\n') {
-            Some(b) => (b, "\n"),
-            None => (piece, ""),
-        };
-        let core = body.strip_suffix('\r').unwrap_or(body);
-        let cr = if body.ends_with('\r') { "\r" } else { "" };
-        let cols: Vec<&str> = core.split('\t').collect();
-        if cols.len() == REGISTRY_COLS && cols[0] == target {
-            out.push_str(&format!(
-                "{}\t{}\t{}\tComplete\t{}\t{archive}{cr}{nl}",
-                cols[0], cols[1], cols[2], cols[4]
-            ));
-        } else {
-            out.push_str(piece);
-        }
-    }
-    out
-}
-
-/// 로그가 `2_Log/` → `2_Log/Archive/`로 **한 단계 깊어질** 때, **`../`로 시작하는**(= 2_Log 밖
-/// 고정 대상을 가리키는) 상대 링크에만 `../`를 1개 prepend해 동일 대상을 유지. 변경 없으면 None.
-/// bare same-dir 링크(`](S###_log.md)` 형제 로그 — 함께 이동), 산문 속 `](...)` 오탐은 자동 회피.
-/// (prefix폐지 "단순 이동"이 누락한 상대링크 깊이 보정 — close 전용.)
-pub fn deepen_relative_links(content: &str) -> Option<String> {
-    let b = content.as_bytes();
-    let mut out = String::with_capacity(content.len() + 64);
-    let mut i = 0;
-    let mut last = 0;
-    let mut changed = false;
-    while i + 1 < b.len() {
-        if b[i] == b']'
-            && b[i + 1] == b'('
-            && let Some(close) = content[i + 2..].find(')')
-        {
-            let raw = &content[i + 2..i + 2 + close];
-            if let Some(adj) = deepen_link_target(raw) {
-                out.push_str(&content[last..i + 2]); // "...]("
-                out.push_str(&adj);
-                last = i + 2 + close; // ')' 위치
-                changed = true;
-            }
-            i = i + 2 + close + 1;
-            continue;
-        }
-        i += 1;
-    }
-    if changed {
-        out.push_str(&content[last..]);
-        Some(out)
-    } else {
-        None
-    }
-}
-
-/// `../`로 시작하는 상대 링크 대상에는 `../` prepend, 상태 폴더(`Wiki/`, `Archive/`, `Deprecated/`)로
-/// 시작하는 대상은 2_Log → 2_Log/Archive 기준으로 재계산(예: `Deprecated/x` → `../Deprecated/x`,
-/// `Archive/S001_log.md` → `S001_log.md`). 그 외(같은 폴더의 형제 로그 등)는 None.
-fn deepen_link_target(raw: &str) -> Option<String> {
-    let token = raw.split_whitespace().next().unwrap_or("");
-    if token.starts_with("../") {
-        return Some(format!("../{raw}"));
-    }
-    let first = token.split('/').next().unwrap_or("");
-    if token.contains('/') && crate::deprecate::STATE_DIRS.contains(&first) {
-        let stripped = raw.trim_start();
-        let lead = &raw[..raw.len() - stripped.len()];
-        let rebased = crate::deprecate::rebase_token(token, "2_Log", "2_Log/Archive");
-        return Some(format!("{lead}{rebased}{}", &stripped[token.len()..]));
-    }
-    None
-}
-
-pub struct CloseOptions {
-    pub id: Option<String>,
-    /// 호환용 — v2.20부터 무효과. 구 `## 다음 세션 후보` 미작성 refuse 게이트(≤ v2.19)의 우회 플래그였음.
-    pub force: bool,
-}
-
-#[derive(Debug)]
-pub struct CloseResult {
-    pub id: String,
-    pub archived_to: String,
-    /// 비차단 경고 (Handoff 미완료 잔존 등 — S013 강제→보조)
-    pub warnings: Vec<String>,
-}
-
-/// `elf session close [id]`: Status→Complete + Archive 이동(파일명 그대로) + Registry 갱신.
-pub fn run_session_close(root: &Path, opts: &CloseOptions) -> Result<CloseResult, SessionError> {
-    let reg_path = root.join(REGISTRY_REL);
-    let reg_text = fs::read_to_string(&reg_path).unwrap_or_default();
-    parse_registry(&reg_text).map_err(SessionError::Escalation)?; // 손상 시 escalation
-
-    let target = match &opts.id {
-        Some(id) => {
-            if session_num(id).is_none() {
-                return Err(SessionError::NotFound(id.clone()));
-            }
-            id.clone()
-        }
-        None => {
-            let mut open = Vec::new();
-            if let Ok(entries) = fs::read_dir(root.join("2_Log")) {
-                for e in entries.flatten() {
-                    let name = e.file_name().to_string_lossy().to_string();
-                    if let Some(n) = log_num(&name) {
-                        let st = fs::read_to_string(e.path())
-                            .ok()
-                            .and_then(|c| header_status(&c))
-                            .unwrap_or_default();
-                        if is_open_status(&st) {
-                            open.push(format!("S{n:03}"));
-                        }
-                    }
-                }
-            }
-            open.sort();
-            match open.len() {
-                0 => return Err(SessionError::NoOpenSession),
-                1 => open.pop().unwrap(),
-                _ => return Err(SessionError::MultipleOpen(open)),
-            }
-        }
-    };
-
-    let log_path = root.join(format!("2_Log/{target}_log.md"));
-    if !log_path.is_file() {
-        return Err(SessionError::NotFound(target));
-    }
-    let content = fs::read_to_string(&log_path)?;
-
-    // Handoff 미완료 잔존 경고 (비차단 — LogConvention §5.2: 소거 또는 Registry key finding, Planning 문서로 이관).
-    // 구 `## 다음 세션 후보` 게이트(≤ v2.19, MissingNextSection refuse)는 v2.20에서 제거 — 절은 비권장(off), 기존 로그의 절은 유효.
-    let mut warnings = Vec::new();
-    if let Some(pending) = header_handoff(&content).as_deref().and_then(handoff_pending) {
-        warnings.push(format!(
-            "Handoff still lists pending items: \"{pending}\" — resolve them or record them in the registry key finding / a planning doc (LogConvention §5.2)"
-        ));
-    }
-
-    // close 전 자동 validate — **닫는 세션 스코프**의 발견만 보고 (비차단, S027 #7).
-    // Archive 이동 후에는 구조 검사 범위에서 빠지므로 close 직전이 마지막 검증 기회.
-    // 스코프 필터 = 전역, 타 세션 경고(소급 면제분 포함)가 close 절차에 섞이지 않게 함.
-    // validate 자체가 실패(레지스트리 escalation 등)해도 close는 진행 — 그 문제는 별도 명령이 보고.
-    if let Ok(v) = crate::validate::run_validate(root) {
-        // 라인 형식 2종 커버: 구조 경고 = "S###_log.md: …" / figure-embed 경고 = "S###: figure …"
-        // — 세션 표지는 (issue:/warn: 접두 뒤) 라인 머리에 옴. **접두 매칭**으로 본문 인용의
-        // 오귀속(예: 타 로그의 broken cross-ref 대상 경로에 이 세션 파일명 등장)을 배제.
-        let by_file = format!("{target}_log.md");
-        let by_id = format!("{target}:");
-        let scoped = |l: &&String| {
-            let body =
-                l.strip_prefix("issue: ").or_else(|| l.strip_prefix("warn: ")).unwrap_or(l);
-            body.starts_with(&by_file) || body.starts_with(&by_id)
-        };
-        for l in v.lines.iter().filter(scoped) {
-            warnings.push(format!(
-                "validate ({target}): {l} — fix before closing or state an intentional exception (LogConvention §5.2)"
-            ));
-        }
-    }
-
-    let archive_rel = format!("2_Log/Archive/{target}_log.md");
-    let archive_path = root.join(&archive_rel);
-    if archive_path.exists() {
-        return Err(SessionError::Exists(archive_rel));
-    }
-
-    let updated = mark_status_complete(&content).unwrap_or(content);
-    // 2_Log → 2_Log/Archive 한 단계 깊어짐 → 상대 cross-ref에 ../ 1개 보정
-    let updated = deepen_relative_links(&updated).unwrap_or(updated);
-    if let Some(dir) = archive_path.parent() {
-        fs::create_dir_all(dir)?;
-    }
-    fs::write(&archive_path, updated)?;
-    fs::remove_file(&log_path)?;
-    fs::write(&reg_path, registry_mark_closed(&reg_text, &target))?;
-
-    Ok(CloseResult { id: target, archived_to: archive_rel, warnings })
+    legacy_field(content, "Status")
 }
 
 #[cfg(test)]
@@ -669,239 +388,107 @@ mod tests {
 
     const HEADER: &str = "Session\tDate\tTitle\tStatus\tKey Finding\tArchive Path";
 
+    fn opts(title: &str, goal: &str, gov: bool) -> SessionNewOptions {
+        SessionNewOptions { title: title.into(), date: "2026-11-09".into(), goal: goal.into(), gov }
+    }
+
     #[test]
-    fn header_status_extracts_value() {
-        assert_eq!(
-            header_status("# T\n\n> **Status**: ★ 활성 (x)\\\n").as_deref(),
-            Some("★ 활성 (x)")
-        );
-        assert_eq!(header_status("# T\n\n> **Status**: Complete\n").as_deref(), Some("Complete"));
+    fn new_creates_yaml_log_in_series_folder_and_registry() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        fs::create_dir_all(root.join("2_Log")).unwrap();
+        let r = run_session_new(root, &opts("SNR 비교", "파장별 SNR 비교", false)).unwrap();
+        assert_eq!(r.id, "S001");
+        assert_eq!(r.log_rel, "2_Log/S/S001_log.md");
+        let text = fs::read_to_string(root.join(&r.log_rel)).unwrap();
+        let (h, at) = header::parse(&text).unwrap();
+        assert_eq!(h.status, Status::Ongoing);
+        assert_eq!(h.goal, "파장별 SNR 비교");
+        assert!(text[at..].starts_with("# S001: SNR 비교\n"));
+        assert!(fs::read_to_string(root.join("2_Log/S/Registry.md")).unwrap().contains("[S001](S001_log.md) | ongoing"));
+        let g = run_session_new(root, &opts("규칙", "규칙 개정", true)).unwrap();
+        assert_eq!(g.log_rel, "2_Log/G/G001_log.md");
+        assert!(fs::read_to_string(root.join(&g.log_rel)).unwrap().contains("# G001: 규칙"));
+        assert_eq!(run_session_new(root, &opts("둘째", "x", false)).unwrap().id, "S002");
+    }
+
+    #[test]
+    fn new_refuses_without_goal_or_with_legacy_layout() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        fs::create_dir_all(root.join("2_Log")).unwrap();
+        assert!(matches!(run_session_new(root, &opts("t", " ", false)), Err(SessionError::BadTitle(_))));
+        fs::write(root.join("2_Log/S003_log.md"), "# S003: old\n").unwrap();
+        assert!(matches!(run_session_new(root, &opts("t", "g", false)), Err(SessionError::Legacy(v)) if v[0] == "2_Log/S003_log.md"));
+    }
+
+    #[test]
+    fn close_requires_conclusion_and_writes_header() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        fs::create_dir_all(root.join("2_Log")).unwrap();
+        run_session_new(root, &opts("t", "g", false)).unwrap();
+        let close = |body: Option<&str>| {
+            run_session_close(root, &CloseOptions { id: None, body: body.map(str::to_string), date: "2026-11-10".into() })
+        };
+        assert!(matches!(close(None), Err(SessionError::Rejected(v)) if v[0].contains("conclusion is required")));
+        assert!(matches!(close(Some("---\nconclusion: ''\n---\n")), Err(SessionError::Rejected(_))));
+        assert!(matches!(close(Some("---\nconclusion: 'x'\nstatus: done\n---\n")), Err(SessionError::Rejected(v)) if v[0].contains("not allowed")));
+        let r = close(Some("---\nconclusion: '810 nm 최적'\nuser_note: '다음은 5층'\nhandoff: '결론; 미완료 = 735 재검토; 참조 t03'\n---\n")).unwrap();
+        assert!(r.warnings.iter().any(|w| w.contains("pending")));
+        let text = fs::read_to_string(root.join("2_Log/S/S001_log.md")).unwrap();
+        let (h, _) = header::parse(&text).unwrap();
+        assert_eq!((h.status, h.conclusion.as_str(), h.user_note.as_str(), h.modified.as_str()), (Status::Complete, "810 nm 최적", "다음은 5층", "2026-11-10"));
+        assert!(fs::read_to_string(root.join("2_Log/S/Registry.md")).unwrap().contains("| complete | 810 nm 최적 |"));
+        // 닫힌 세션은 다시 닫지 않음
+        assert!(matches!(run_session_close(root, &CloseOptions { id: Some("S001".into()), body: Some("---\nconclusion: 'y'\n---".into()), date: "d".into() }), Err(SessionError::Rejected(_))));
+    }
+
+    #[test]
+    fn template_has_yaml_header_and_body() {
+        let tpl = embed::TEMPLATES.get_file("log/sessionTemplate.md").unwrap().contents_utf8().unwrap();
+        assert!(header::parse(tpl).is_ok());
+        assert!(template_body().starts_with("# S{NNN}: [세션 제목]"));
+    }
+
+    #[test]
+    fn legacy_field_extracts_value() {
+        assert_eq!(header_status("# T\n\n> **Status**: ★ 활성 (x)\\\n").as_deref(), Some("★ 활성 (x)"));
+        assert_eq!(legacy_field("# T\n> **Handoff**: a; 미완료 = b\n", "Handoff").as_deref(), Some("a; 미완료 = b"));
         assert_eq!(header_status("no status here\n"), None);
     }
 
     #[test]
-    fn header_handoff_extracts_value() {
-        let c = "# T\n\n> **Status**: ★ 활성\\\n> **Handoff**: A 기각, B 채택; 미완료 = X; 참조 t07\n";
-        assert_eq!(header_handoff(c).as_deref(), Some("A 기각, B 채택; 미완료 = X; 참조 t07"));
-        assert_eq!(header_handoff("no handoff\n"), None);
-    }
-
-    #[test]
     fn handoff_pending_detection() {
-        // 잔존 내용 → Some
-        assert_eq!(
-            handoff_pending("A 기각, B 채택; 미완료 = X, Y 반영; 참조 t07").as_deref(),
-            Some("X, Y 반영")
-        );
-        assert_eq!(
-            handoff_pending("state; pending: fix docs; refs t02").as_deref(),
-            Some("fix docs")
-        );
-        // 참조 파트 생략 → EOL까지
+        assert_eq!(handoff_pending("A 기각, B 채택; 미완료 = X, Y 반영; 참조 t07").as_deref(), Some("X, Y 반영"));
+        assert_eq!(handoff_pending("state; pending: fix docs; refs t02").as_deref(), Some("fix docs"));
         assert_eq!(handoff_pending("상태; 미완료 = X").as_deref(), Some("X"));
-        // 소거됨 → None
         assert_eq!(handoff_pending("상태; 미완료 -; 참조 t01"), None);
         assert_eq!(handoff_pending("상태; 미완료 없음; 참조"), None);
         assert_eq!(handoff_pending("state; pending: none; refs"), None);
-        // 라벨 경계 부재(구형식, 비정형) → 판정 보류(None)
         assert_eq!(handoff_pending("-"), None);
         assert_eq!(handoff_pending("상태 한 덩어리 서술"), None);
-        assert_eq!(handoff_pending("상태; 미착수 작업들; 파일"), None); // 미라벨 3파트
-    }
-
-    #[test]
-    fn handoff_pending_immune_to_semicolon_and_label_in_content() {
-        // t17 충돌 클래스 ①: 상태 파트 내 `;`(라벨 비동반) — 위치 기반이면 "B 결정"으로 오인
-        assert_eq!(
-            handoff_pending("A 확정; B 결정; 미완료 = X; 참조 t1").as_deref(),
-            Some("X")
-        );
-        // t17 충돌 클래스 ②: 상태 파트에 라벨 단어 등장(`;` 비동반) — 라벨 단독 anchor면 오인
+        assert_eq!(handoff_pending("상태; 미착수 작업들; 파일"), None);
+        assert_eq!(handoff_pending("A 확정; B 결정; 미완료 = X; 참조 t1").as_deref(), Some("X"));
         assert_eq!(handoff_pending("Handoff 미완료 소거 규약 반영 완료; -; 참조 t14"), None);
-        // 미완료 파트 내용에 `;`가 없고 참조 라벨 경계로 정확 종료
-        assert_eq!(
-            handoff_pending("결론 확정; 미완료 = 파서 강화, 규약 복원; 참조 t17 관찰").as_deref(),
-            Some("파서 강화, 규약 복원")
-        );
+        assert_eq!(handoff_pending("미완료 = t01 Phase 1 확인 대기").as_deref(), Some("t01 Phase 1 확인 대기"));
+        assert_eq!(handoff_pending("  미완료 없음; 참조 t01"), None);
+        assert_eq!(handoff_pending("완료; 미완료 = 없음(다음 세션 후보로 이관); 참조 t02"), None);
+        assert_eq!(handoff_pending("완료; 미완료 — 없음"), None);
     }
 
     #[test]
-    fn is_open_distinguishes_complete() {
-        assert!(is_open_status("★ 활성"));
-        assert!(is_open_status("In Progress"));
-        assert!(!is_open_status("Complete"));
-        assert!(!is_open_status("Complete (archived)"));
-    }
-
-    #[test]
-    fn mark_status_complete_preserves_hardbreak_and_idempotent() {
-        let input = "# T\n\n> **Created**: x\\\n> **Status**: ★ 활성 (y)\\\n> **Handoff**: -\n";
-        let out = mark_status_complete(input).unwrap();
-        assert!(out.contains("> **Status**: Complete\\\n"));
-        assert!(out.contains("> **Created**: x\\\n")); // 타 줄 불변
-        assert!(mark_status_complete(&out).is_none());
-    }
-
-    #[test]
-    fn deepen_prepends_dotdot_to_updir_links_only() {
-        let input = "[P](../1_Concept/P.md) [img](../../x/y.png) [ext](https://e.com/z) [abs](/a.md) [a](#sec) [t](../q.md \"제목\") [sib](S011_log.md)";
-        let out = deepen_relative_links(input).unwrap();
-        assert!(out.contains("[P](../../1_Concept/P.md)"));
-        assert!(out.contains("[img](../../../x/y.png)"));
-        assert!(out.contains("[t](../../q.md \"제목\")")); // 제목 보존
-        assert!(out.contains("[ext](https://e.com/z)")); // URL 불변
-        assert!(out.contains("[abs](/a.md)")); // 절대 불변
-        assert!(out.contains("[a](#sec)")); // 앵커 불변
-        assert!(out.contains("[sib](S011_log.md)")); // bare 형제 링크 불변(함께 이동)
-    }
-
-    #[test]
-    fn deepen_rebases_state_folder_links() {
-        let input = "[d](Deprecated/S012_log.partial.md) [a](Archive/S001_log.md) [w](Wiki/Notes.md \"t\") [sib](S011_log.md)";
-        let out = deepen_relative_links(input).unwrap();
-        assert!(out.contains("[d](../Deprecated/S012_log.partial.md)"), "{out}");
-        assert!(out.contains("[a](S001_log.md)"), "{out}"); // Archive 안에서는 같은 폴더
-        assert!(out.contains("[w](../Wiki/Notes.md \"t\")"), "{out}"); // 제목 보존
-        assert!(out.contains("[sib](S011_log.md)")); // 형제 로그 링크는 현행 유지
-    }
-
-    #[test]
-    fn deepen_noop_without_updir_links() {
-        // bare same-dir 링크, 산문 속 `](...)`, URL, 앵커는 보정 안 함
-        assert!(deepen_relative_links("`](` 없는 비링크 설명(AC) [sib](S005_log.md) [x](https://a.b)\n").is_none());
-    }
-
-    #[test]
-    fn registry_mark_closed_updates_only_target() {
-        let reg = format!("{HEADER}\nS001\t2026-01-01\tA\t★ 활성\t-\t-\nS002\t2026-01-02\tB\t★ 활성\tkey\t-\n");
-        let out = registry_mark_closed(&reg, "S001");
-        assert!(out.contains("S001\t2026-01-01\tA\tComplete\t-\tArchive/S001_log.md\n"));
-        assert!(out.contains("S002\t2026-01-02\tB\t★ 활성\tkey\t-\n")); // 불변
-    }
-
-    #[test]
-    fn fix_header_adds_hardbreaks_except_last() {
-        let input = "# S001: Title\n\n> **Created**: 2026-01-01\n> **Status**: active\n> **Handoff**: -\n\n---\nbody\n";
-        let out = fix_session_header(input).unwrap();
-        assert!(out.contains("> **Created**: 2026-01-01\\\n"));
-        assert!(out.contains("> **Status**: active\\\n"));
-        assert!(out.contains("> **Handoff**: -\n")); // 마지막: `\` 없음
-        assert!(out.ends_with("---\nbody\n")); // 본문 불변
-        assert!(fix_session_header(&out).is_none()); // 멱등
-    }
-
-    #[test]
-    fn fix_header_only_first_block() {
-        let input = "# S001: T\n\n> **Created**: x\n> **Handoff**: -\n\n> separate note\n\n## t01\n";
-        let out = fix_session_header(input).unwrap();
-        assert!(out.contains("> **Created**: x\\\n"));
-        assert!(out.contains("> separate note\n")); // 별도 블록 불변
-    }
-
-    #[test]
-    fn fix_header_crlf_safe() {
-        let input = "# S1: T\r\n\r\n> **Created**: x\r\n> **Handoff**: -\r\n\r\n---\r\n";
-        let out = fix_session_header(input).unwrap();
-        assert!(out.contains("> **Created**: x\\\r\n")); // `\`는 \r 앞 (줄 끝)
-        assert!(out.contains("> **Handoff**: -\r\n")); // 마지막: `\` 없음
-        assert!(!out.contains("\r\\")); // \r 뒤 backslash(corruption) 없음
-        assert!(fix_session_header(&out).is_none()); // 멱등
-    }
-
-    #[test]
-    fn fix_header_noop_cases() {
-        assert!(fix_session_header("no title\njust text\n").is_none());
-        assert!(fix_session_header("# Title\n\nbody, no blockquote\n").is_none());
-        // 이미 보정됨
-        assert!(fix_session_header("# T\n\n> **a**: 1\\\n> **b**: 2\n").is_none());
-    }
-
-    #[test]
-    fn parse_valid_registry_skips_header() {
-        let text = format!("{HEADER}\nS001\t2026-01-01\tFoo\t★ 활성\t-\t-\nS002\t2026-01-02\tBar\tComplete\tkey\tArchive/S002_log.md\n");
+    fn parse_registry_rows_and_escalations() {
+        let text = format!("{HEADER}\nS001\t2026-01-01\tFoo\t★ 활성\t-\t-\n\nS002\t2026-01-02\tBar\tComplete\tkey\tArchive/S002_log.md\n");
         let rows = parse_registry(&text).unwrap();
-        assert_eq!(rows.len(), 2);
-        assert_eq!(rows[0].session, "S001");
-        assert_eq!(rows[1].title, "Bar");
-        assert_eq!(rows[1].line, 3);
-    }
-
-    #[test]
-    fn parse_blank_lines_ignored() {
-        let text = format!("{HEADER}\n\nS001\t2026-01-01\tFoo\t★ 활성\t-\t-\n\n");
-        assert_eq!(parse_registry(&text).unwrap().len(), 1);
-    }
-
-    #[test]
-    fn parse_wrong_column_count_escalates_with_line() {
-        let text = format!("{HEADER}\nS001\t2026-01-01\tFoo\t★ 활성\n"); // 4 cols
-        let e = parse_registry(&text).unwrap_err();
+        assert_eq!((rows.len(), rows[1].title.as_str(), rows[1].line), (2, "Bar", 4));
+        let e = parse_registry(&format!("{HEADER}\nS001\t2026-01-01\tFoo\t★ 활성\n")).unwrap_err();
         assert_eq!(e.line, 2);
-        assert!(e.found.contains("4 columns"));
-        assert_eq!(e.file, REGISTRY_REL);
-        assert!(e.to_string().contains("agent-action:"));
-    }
-
-    #[test]
-    fn parse_bad_session_id_escalates() {
-        let text = format!("{HEADER}\nX001\t2026-01-01\tFoo\t★ 활성\t-\t-\n");
-        let e = parse_registry(&text).unwrap_err();
-        assert!(e.expected.contains("S###"));
-        assert!(e.found.contains("X001"));
-    }
-
-    #[test]
-    fn empty_registry_is_ok() {
+        assert!(e.to_string().lines().any(|l| l.starts_with("agent-action:")));
+        assert!(parse_registry(&format!("{HEADER}\nX001\ta\tb\tc\td\te\n")).unwrap_err().found.contains("X001"));
         assert!(parse_registry("").unwrap().is_empty());
-        assert!(parse_registry(HEADER).unwrap().is_empty());
-    }
-
-    #[test]
-    fn session_and_log_num() {
         assert_eq!(session_num("S007"), Some(7));
-        assert_eq!(session_num("S000"), Some(0));
-        assert_eq!(session_num("S12"), Some(12));
-        assert_eq!(session_num("X1"), None);
-        assert_eq!(session_num("S"), None);
-        assert_eq!(session_num("S1a"), None);
         assert_eq!(log_num("S007_log.md"), Some(7));
         assert_eq!(log_num("notes.md"), None);
-    }
-
-    #[test]
-    fn next_number_is_max_plus_one() {
-        assert_eq!(next_number(&[]), 1);
-        assert_eq!(next_number(&[1]), 2);
-        assert_eq!(next_number(&[1, 2, 5]), 6);
-        assert_eq!(next_number(&[3, 1, 2]), 4);
-    }
-
-    #[test]
-    fn warnings_detect_mismatch_and_gap() {
-        // 로그엔 1,3 / Registry엔 1,2 → 3은 미등록, 2는 로그없음, gap 없음(2 존재)
-        let w = number_warnings(&[1, 3], &[1, 2]);
-        assert!(w.iter().any(|s| s.contains("S003") && s.contains("not in registry")));
-        assert!(w.iter().any(|s| s.contains("S002") && s.contains("no log")));
-        // gap: 로그 1,4 / Registry 1,4 → 2,3 누락
-        let g = number_warnings(&[1, 4], &[1, 4]);
-        assert!(g.iter().any(|s| s.contains("S002 missing")));
-        assert!(g.iter().any(|s| s.contains("S003 missing")));
-        // clean
-        assert!(number_warnings(&[1, 2], &[1, 2]).is_empty());
-    }
-
-    #[test]
-    fn escalation_format_has_action_marker_at_col0() {
-        let e = Escalation {
-            file: "x.tsv".into(),
-            line: 7,
-            expected: "6 cols".into(),
-            found: "4 cols".into(),
-            raw: "a\tb".into(),
-            action: "fix it".into(),
-        };
-        let s = e.to_string();
-        assert!(s.contains("escalation: x.tsv (line 7)"));
-        assert!(s.lines().any(|l| l.starts_with("agent-action: fix it")));
     }
 }

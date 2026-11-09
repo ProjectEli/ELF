@@ -4,6 +4,55 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.28.0] - 2026-11-10
+
+A structure release: session logs get a fixed location and a YAML header, and records are written through commands
+that check before writing. Projects made with 2.27 or earlier are migrated once by `elf update`; see
+[Creating and updating projects](docs/projects.md#migrating-the-log-layout-228). After a project is updated, every PC that works
+on the same repository needs `elf self update` before pulling (2.27 and older refuse to update a 2.28 project).
+
+### Changed
+- **Log layout**: logs live in `2_Log/S/` (research sessions) and `2_Log/G/` (governance sessions: changes to rules,
+  structure, templates, or tool settings) and are never moved. The status is in a YAML header with seven keys in a
+  fixed order (`created`, `modified`, `status`, `goal`, `handoff`, `conclusion`, `user_note`; status `ongoing`,
+  `complete`, `deprecated`). `Registry.md` in each folder, generated from the headers by every command that changes a
+  log, replaces `2_Log/Wiki/Session_Registry.tsv`; in VS Code, closed and deprecated logs fold under it.
+- **`elf session new "<title>" --goal "<goal>" [--gov]`**: the goal is required; `--gov` creates a governance session.
+  `elf init` no longer creates `S001`.
+- **`elf session close [ID] --from <file>`**: the file holds a YAML block with `conclusion` (required), `user_note`,
+  and `handoff`. The status becomes `complete` and the file stays in place.
+- **Trials**: `elf trial new "<title>" [--from <file>]` creates a trial (Phase 1 template, or Phase 1 from the file);
+  the new `elf trial write [tNN] --from <file>` writes Phase 1 (revisable until Phase 2 exists) or Phase 2 (once).
+  Everything is checked before writing and all reasons are printed (exit 3, nothing written): missing or out-of-order
+  sections, both phases in one file, template text left, a Phase 1 revision after outputs of the session appeared in
+  `6_Exp/`, a Phase 2 while a new figure in `6_Exp/64_Viz/S###/` is not embedded. Exact synonyms of section names are
+  corrected and reported. A YAML block at the top of the file (`handoff` only) replaces the header handoff; it
+  replaces the `> **Handoff**:` first line of 2.27.4.
+- **`elf deprecate`**: deprecated content is removed from the document and kept compressed in
+  `.elf/deprecated/<ID>.md.xz` (standard xz, tracked by git); a neutral marker line stays. `elf deprecate show <ID>`
+  prints the original, `--restore <ID>` puts it back. Commit the document and the store file together.
+- **`elf check`**: a new `version` scope (the CLI, the project manifest, and a one-line verdict: `elf update` or
+  `elf self update`), run first; the version items left `setup` and `files`. `logs` checks the header format and
+  values, `Registry.md`, and deprecation markers against store files.
+- **Project manifest**: `.elf/manifest.json` (schema `elf-manifest/2`) records `elf_version`; `.elf/version` is
+  removed. Commands that write logs, and `elf update`, refuse while the project is newer than the CLI by MAJOR.MINOR.
+
+### Added
+- **Log layout migration in `elf update`**: requires a clean git tree; plans first and, on any warning, writes only the
+  decision file `.elf/runtime/migration.yaml` (status fields to fill, files to fix) and exits 3; the next `elf update`
+  applies everything at once. Header fields outside the seven keys are kept as one body line under the title, links
+  and single-path code spans are recomputed when they point to an existing file, old deprecation records become store
+  files, and a log that an older CLI creates in `2_Log/` later is moved under the next free number. A folder with
+  `2_Log/` but no `.elf/` is migrated too.
+- **`elf log`** (one line per session) and **`elf log show <ID> [tNN]`** (header and trial list, or one trial).
+
+### Removed
+- `elf session fix-headers`, `elf deprecate purge`, the TSV session registry, and exit code 5 (escalation for an
+  unreadable registry).
+
+The managed `AGENTS.md`, `LogConvention.md`, `EliRule.md`, `AI_PARA_Framework.md` (KO and EN) and the session and
+trial templates follow the new structure; run `elf update`.
+
 ## [2.27.4] - 2026-11-01
 
 ### Added

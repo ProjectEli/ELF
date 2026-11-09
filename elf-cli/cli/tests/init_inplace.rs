@@ -125,12 +125,14 @@ fn in_place_adopt_keeps_existing_config_keys() {
 }
 
 #[test]
-fn in_place_adopt_does_not_create_duplicate_s001() {
+fn in_place_adopt_leaves_earlier_layout_to_update() {
     let tmp = tempdir().unwrap();
     old_folder(tmp.path());
     let r = run_init_ex(tmp.path(), &opts("OldProj"), true, false, false).unwrap();
-    assert!(!tmp.path().join("2_Log/S001_log.md").exists(), "Archive에 S001이 있으면 새로 만들지 않음");
-    assert!(r.notes.iter().any(|s| s.contains("already has session records")), "{:?}", r.notes);
+    assert!(!tmp.path().join("2_Log/S001_log.md").exists());
+    assert!(!tmp.path().join("2_Log/S/Registry.md").exists(), "이전 형식이 남은 동안 Registry.md 미생성(이관은 elf update)");
+    assert!(tmp.path().join("2_Log/Archive/S001_log.md").is_file(), "기존 기록 그대로");
+    assert!(r.notes.iter().any(|s| s.contains("earlier layout") && s.contains("elf update")), "{:?}", r.notes);
 }
 
 /// e2e: `--preset`, `--lang`을 주지 않으면 기존 config 값을 씀(구 lang 표기도 그대로).

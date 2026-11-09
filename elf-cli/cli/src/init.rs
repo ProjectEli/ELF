@@ -236,29 +236,14 @@ pub fn run_init_ex(
         report.created.push(a.dest.clone());
     }
 
-    // 4. 파생 instance: 2_Log/S001_log.md — 연구 preset 전용, 부재 시만. 제자리 도입에서 세션 기록
-    //    (2_Log, Archive, Deprecated의 로그 또는 Registry 행)이 이미 있으면 만들지 않음 — 번호 중복 방지(S042 t04).
+    // 4. 세션 로그 폴더: 연구 preset 전용. 첫 세션은 만들지 않음 — `elf session new "<제목>" --goal '<목표>'`가
+    //    목표와 함께 만듦(헤더는 명령만 씀, S044 t35). 이전 형식 세션 기록이 있으면 이관 안내(S042 t04).
     if opts.preset != "qa" {
-        let rel = "2_Log/S001_log.md";
-        let dest = target.join(rel);
-        if dest.exists() && !force {
-            report.skipped.push(rel.into());
-        } else if had_session_records && !dest.exists() {
-            report.notes.push(format!("{rel} not created — this folder already has session records"));
-        } else {
-            if !dry_run {
-                let session_tpl = embed::TEMPLATES
-                    .get_file("log/sessionTemplate.md")
-                    .and_then(|f| f.contents_utf8())
-                    .ok_or_else(|| {
-                        InitError::Internal("embedded template missing: sessionTemplate.md".into())
-                    })?;
-                let s001 = session_tpl
-                    .replace("S{NNN}", "S001")
-                    .replace("YYYY-MM-DD", &opts.date);
-                fs::write(&dest, s001)?;
-            }
-            report.created.push(rel.into());
+        if had_session_records && !crate::logs::legacy_markers(&target).is_empty() {
+            report.notes.push("this folder has session records in the earlier layout — run `elf update` to migrate them".into());
+        }
+        if !dry_run {
+            fs::create_dir_all(target.join("2_Log/S"))?;
         }
     }
 
@@ -296,8 +281,8 @@ pub fn run_init_ex(
             serde_json::to_string_pretty(&serde_json::Value::Object(config)).expect("config serializes");
         config_text.push('\n');
         fs::write(elf_dir.join("config.json"), config_text)?;
-        fs::write(elf_dir.join("version"), format!("{}\n", embed::version()))?;
-        fs::write(elf_dir.join("manifest.json"), manifest::kind_json(kind))?;
+        // 프로젝트 manifest = 정본 + elf_version(schema 2) — 버전 파일 `.elf/version`은 쓰지 않음(P022 §8)
+        fs::write(elf_dir.join("manifest.json"), manifest::project_json(kind))?;
 
         // hybrid 배포본 baseline (블록 내 편집 감지의 비교 기준 — update가 사용)
         for e in &m.files {
@@ -326,6 +311,14 @@ pub fn run_init_ex(
                 report.skipped.push(format!(".claude/settings.json — {e}"));
             }
             Err(crate::autoread::AutoreadError::Io(e)) => return Err(InitError::Io(e)),
+        }
+
+        // 생성 파일: 세션 목록 Registry.md(빈 목록) — config의 언어를 읽으므로 config 작성 뒤
+        if opts.preset != "qa" && crate::logs::legacy_markers(&target).is_empty() {
+            for w in crate::logs::refresh(&target)? {
+                report.notes.push(w);
+            }
+            report.created.push("2_Log/S/Registry.md".into());
         }
     }
 
@@ -370,7 +363,6 @@ fn substitute_user(dest: &str, text: &str, o: &InitOptions) -> String {
         "README.md" => text
             .replace("PLACEHOLDER_PROJECT_NAME", &o.name)
             .replace("PLACEHOLDER_DATE", &o.date),
-        "2_Log/Wiki/Session_Registry.tsv" => text.replace("YYYY-MM-DD", &o.date),
         _ => text.to_string(), // 그 외 user tier: 치환 없음
     }
 }

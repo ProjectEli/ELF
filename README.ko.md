@@ -2,112 +2,94 @@
 
 # Eli's Lab Framework (ELF)
 
-**Base-Delta: 모든 변경은 실험이고, 기록은 에이전트가 남긴다.**
+**Base-Delta: 바뀐 부분만 기록으로 남기는 연구 자동화**
 
-이제는 연구결과가 어떻게 나왔는지도 기록합니다.\
-ELF에서는 변경 하나하나가 가설, 실행, 교훈이 붙은 trial이 되고, 에이전트가 지체 없이 기록합니다.\
-모든 결과에 과정이 남고, 다음 단계는 마지막 교훈에서 시작합니다.
+이제는 연구 결과가 어떻게 나왔는지도 기록합니다.\
+ELF에서는 변경 하나하나가 가설, 실행, 교훈이 붙은 trial이 되고, 에이전트가 사람 대신 기록합니다.\
+모든 결과에 과정이 남고, 다음 단계는 바뀌는 부분만 관리하면 됩니다.
 
-## Session과 trial
+ELF는 연구 프로젝트용 폴더 구조, AI 에이전트가 따르는 규칙, 명령행 도구 `elf`로 구성됩니다. 내 컴퓨터에 자료 원본을 두고 동작합니다.
+
+| 할 수 있는 일 | 내용 |
+|---|---|
+| 기록 | 변경할 때마다 trial을 남깁니다. 실행 전에는 가설과 예상을, 실행 후에는 관찰과 교훈을 적습니다 |
+| 이어서 작업 | 한 달 뒤에 다시 열어도, 대화가 새로 시작되어도 세션의 handoff와 결론을 읽고 이어 갑니다 |
+| 근거 추적 | `S012 t02` 같은 번호 하나로 로그, 스크립트, 데이터, figure를 함께 찾습니다 |
+| 점검 | `elf check`가 빠진 figure, 깨진 링크, Registry 불일치를 찾아 알려 줍니다 |
+
+## session과 trial
 
 | 단위 | 무엇 | 담는 것 |
 |---|---|---|
-| **trial** `t##` | 변경 1건 = 실험 1건 | 실행 전: 목표, 조건, 가설, 예상 / 실행 후: 관찰, 해석, 교훈, 생성 파일 |
-| **session** `S###` | 목표 1개 아래 trial이 쌓이는 작업 단위 | 헤더(목표, 관련, Handoff) + t01, t02, … → 닫을 때 결론 1줄이 Registry에 남습니다 |
+| **trial** `t##` | 변경 1건 = 실험 1건 | phase 1(실행 전): 목표, 조건, 가설, 예상 / phase 2(실행 후): 관찰, 해석, 교훈, 생성 파일 |
+| **session** `S###` | 목표 1개 아래 trial이 쌓이는 작업 단위 | 헤더(상태, 목표, handoff, 결론)와 t01, t02, …. 닫을 때 결론이 헤더와 `Registry.md`에 남습니다 |
 
 ```text
 S012  목표: 파장별 SNR 비교
  ├─ t01  기준선: 3파장 sweep               가설 → 실행 → 810 nm 최적
  ├─ t02  delta: 광자 수 1e8 → 1e9           가설 → 실행 → 결론 유지
  └─ t03  delta: 피부 모델 3층 → 5층         가설 → 실행 → 735 nm 역전
- close → Registry: "810 nm 최적 — 5층 모델에서는 735 nm 재검토"
+ close → Registry: "810 nm 최적, 5층 모델에서는 735 nm 재검토"
 ```
 
-- 기록은 `S012 t02` 같은 번호로 정형화됩니다. 로그, 스크립트, 데이터, figure가 같은 번호를 쓰기 때문에, 나중에 논문, 계획, 대화 어디서든 번호 하나로 인용하고 찾아갑니다.
-- 다음 trial을 정하는 것은 사람입니다. 에이전트는 직전 결과로부터 다음 변경과 가설, 예상을 적어 두고, 사람이 검토해 실행을 결정합니다.
+## 빠른 시작
 
-| 용어 | 뜻 |
-|---|---|
-| `S###`, `t##` | 세션, trial 번호. 로그, 스크립트, 데이터, figure가 같은 번호를 씁니다 |
-| delta | 직전 trial에서 바꾼 것 + 바꾼 이유 |
-| Handoff | 세션 헤더의 현재 상태 1줄 — "유효 결론; 미완료; 참조"를 덮어쓰기로 갱신 |
-| Registry | `2_Log/Wiki/Session_Registry.tsv` — 세션마다 1행(상태, 결론 1줄) |
-| Archive | 마감된 로그가 가는 곳(`2_Log/Archive/`). 종료된 유효 기록이며 에이전트도 읽을 수 있습니다 |
-| Deprecated | 폐기한 로그, 블록이 가는 곳(`2_Log/Deprecated/`). 읽을 수 있지만 현재 판단의 근거로는 쓰지 않습니다. `elf deprecate`로 옮기고 되돌립니다. 영구 삭제는 `elf deprecate purge`(experimental, 기본 비활성) |
-| check | `elf check` — 설치와 설정, 관리 파일, 로그(Registry, 번호, cross-ref, figure embed, 절 구조)의 읽기 전용 점검 |
+Claude Code, Codex 같은 AI 에이전트와 함께 씁니다. 에이전트 없이 쓰는 방법은 이 절의 마지막에 있습니다.
 
-## 핵심 원칙
+1. CLI를 설치합니다.
 
-| 원칙 | 한 줄 |
-|---|---|
-| **Base-Delta** | 기준선은 한 번, 이후엔 바뀐 것만 기록합니다. 변경 하나가 trial, 목표 하나가 session — trial이 session으로, session이 프로젝트의 기록으로 쌓입니다. |
-| **가설이 먼저** | 실행 전에 가설, 예상을 적고 멈춥니다. 그래서 변경 하나가 실험 하나가 됩니다. |
-| **사람은 판단, 에이전트는 기록, 도구는 검증** | 같은 형식으로 쓰기 때문에 서로의 작업을 이어받고, `elf check`가 누락을 검출합니다. |
-| **전부 로컬에** | 마크다운과 폴더뿐입니다. 서버도 계정도 없이 git으로 관리하고, ELF 없이도 읽을 수 있습니다. 보안을 위해 에이전트의 공개 링크 게시는 원칙적으로 금지됩니다. |
+   Windows에서는 PowerShell에서 실행합니다.
 
-## 실사용 장면
+   ```powershell
+   powershell -ExecutionPolicy Bypass -c "irm https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.ps1 | iex"
+   ```
 
-| 장면 | 말하는 것 | 기록되는 것 |
-|---|---|---|
-| 시작 | "새 세션 생성. 목표는 파장별 SNR 비교." | `elf session new` → 헤더, Registry 행. t01 가설, 예상 작성 후 **멈춤** — 사람이 확인하고 실행 |
-| 변경 | "광자 수 1e9로 올려서 다시." | t02: base = t01, delta + 이유 → 가설 → 실행 → figure가 관찰 절에 → 예상 일치 판정 |
-| 재개 | (한 달 뒤, 또는 컨텍스트 초기화 뒤) "SNR 비교 어디까지 했지?" | Handoff와 Registry 결론에서 이어감 — 기억이 아니라 기록에서 |
-| 추적 | "Fig 3의 810 nm 결론, 근거가 뭐지?" | S012 t01→t03 연쇄 + 스크립트, 데이터 경로 그대로 제시 |
-| 논문 | "지금까지 결론으로 원고 outline." | Registry 결론 → `7_Paper/72_Drafts` — 누적 → 논문 |
+   Linux와 macOS에서는 터미널에서 실행합니다.
 
-## 따라 하기
+   ```bash
+   curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.sh | sh
+   ```
 
-AI 코딩 에이전트와 함께하는 첫 세션입니다. `AGENTS.md`를 읽는 에이전트면 어느 것이든 됩니다. 앞 절의 S012는 세션이 쌓인 뒤의 모습이고, 여기서는 S001부터 시작합니다. 시작점은 둘입니다 — 데이터가 아직 없으면 **A**, 이미 있으면 **B**. 둘은 같은 연구의 두 시점으로, A는 파장별 SNR을 시뮬레이션으로, B는 시제품 광학 센서로 측정한 데이터로 봅니다. 에이전트 없이 쓰는 방법은 마지막 줄에 있습니다.
+   실행 파일 하나가 `~/.elf/bin`에 설치되며 Node나 Python은 필요 없습니다. 터미널을 새로 열고 `elf --version`으로 설치를 확인합니다.
 
-**1. 설치, 프로젝트 생성**
+2. 프로젝트를 만듭니다.
 
-```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.ps1 | iex"
-```
+   ```bash
+   elf init MyProject --preset exp   # 6_Exp + 7_Paper. 이름 없이 실행하면 현재 폴더에 생성
+   cd MyProject
+   ```
 
-```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ProjectEli/ELF/releases/latest/download/elf-cli-installer.sh | sh
-```
+   `[elf] created MyProject (ELF v2.28.0, preset: exp, lang: ko-KR)`가 출력되고, 폴더 구조와 함께 `AGENTS.md`(에이전트가 처음 읽는 규칙 요약)와 `2_Log/S/`(세션 로그를 두는 곳)가 만들어집니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 따로 설정할 것이 없습니다. preset, 언어, 만들어지는 파일은 [프로젝트 생성과 갱신](docs/projects.ko.md)에 있습니다.
 
-단일 바이너리가 `~/.elf/bin`에 설치됩니다(Node, Python 불필요). 새 셸에서 `elf --version`으로 확인합니다.
+3. 에이전트에서 프로젝트 폴더를 열고 세션을 시작하라고 말합니다.
 
-```bash
-elf init MyProject --preset exp   # 6_Exp + 7_Paper. 이름 없이 실행하면 현재 폴더에 생성
-cd MyProject
-```
+   > 새 세션 생성. 목표는 파장별 SNR 비교.
 
-`[elf] created MyProject (ELF v2.27.4, preset: exp, lang: ko-KR)` — 폴더 구조와 함께 `AGENTS.md`(에이전트 공통 진입 규칙 요약), `2_Log/S001_log.md`(첫 세션 stub)가 생깁니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 별도 설정이 없습니다. Claude Code용 파일(`CLAUDE.md` 포인터, 훅 설정)도 함께 생성되며, 다른 에이전트에서는 무시해도 됩니다. 프로젝트 고유 규칙은 `0_Meta/ProjectRule.md`에 적습니다. 영어 응답, 영어 규칙 문서가 필요하면 `--lang en-US`(규칙 정본은 한국어, 영어본은 읽기용 companion).
+   에이전트가 목표와 함께 `elf session new`를 실행해 `2_Log/S/S001_log.md`를 만들고, 세션 목록 `2_Log/S/Registry.md`를 갱신합니다.
 
-**2-A. 처음부터 — 아이디어 스케치부터 시작**
+4. 첫 trial을 요청합니다.
 
-| 단계 | 말하는 것 | 기록되는 것 | 사람이 하는 일 |
-|---|---|---|---|
-| 아이디어 | "웨어러블 광학 센서의 파장 선택에 대해 생각 정리가 필요. 현재 생각은 피부 투과와 헤모글로빈 흡수를 같이 보면 810 nm 근처가 유리하다는 것. 근거와 반례를 함께 정리." | `1_Concept/13_Ideas/wavelength_choice.md`(로그에는 적지 않음) | 방향 판단 |
-| 계획 | "이 아이디어를 검증할 구체적인 계획을 plan 문서로 작성. 시뮬레이션으로 파장별 SNR을 비교한 뒤, 시제품 센서 측정으로 확인하는 순서." | `1_Concept/12_Planning/P001_wavelength_optimization.md` | 단계 승인 |
-| 세션 | "P001의 1단계부터 시작. S001 목표는 파장별 SNR 비교 — 735/810/940 nm, Monte Carlo 시뮬레이션." | S001 헤더 `관련: P001` + Registry 행 | 목표 확정 |
-| t01 | "t01: 3파장 sweep. 기준 조건은 P001에 적은 대로 — 3층 피부 모델, 광자 1e8." | t01 실행 전 절 → **정지** → 실행 → 관찰, 해석, 교훈, `61_Sim/Scripts/S001_t01_*.m`, `61_Sim/Data/S001/` | 가설, 예상 검토 → 실행 지시 |
+   > t01: 3파장 sweep. 3층 피부 모델, 광자 1e8.
 
-근거 논문은 `1_Concept/11_Literature/`에 둡니다 — 출처 신뢰 규칙과 저널 도메인 목록이 규칙에 들어 있습니다.
+   에이전트는 `elf trial new`로 phase 1(목표, 조건, 가설, 예상)을 적고 실행할지 묻습니다. 수정을 요청하면 `elf trial write`로 phase 1을 고칩니다. 승인하면 실행한 뒤 `elf trial write`로 phase 2(관찰, 해석, 교훈, 생성 파일)를 적습니다.
 
-**2-B. 데이터가 있을 때 — 분석부터 시작**
+5. 다음 변경을 요청합니다.
 
-| 단계 | 명령 / 말하는 것 | 기록되는 것 | 사람이 하는 일 |
-|---|---|---|---|
-| 데이터 투입 | 측정 raw CSV를 `6_Exp/62_Empirical/Raw/`에 복사 | 기록 없음 — 원본 보존(읽기 전용, git 제외), 기록은 t01부터 | 원본 확인 |
-| 세션 | "시제품 광학 센서로 3파장 반사광을 측정한 CSV가 있음. S001 목표는 이 데이터의 파장별 SNR 비교." | S001 헤더 + Registry 행 | 목표 확정 |
-| t01 정제 | "t01: 데이터 개요와 정제. 포화 구간과 움직임 잡음 구간은 제외." | `62_Empirical/Processed/S001/`, `63_Analysis/Scripts/S001_t01_*.m`(조건에 범위, 필터) | 정제 기준 승인 |
-| t02 분석 | "t02: 정제 데이터로 파장별 SNR 비교. 시뮬레이션과 같은 정의로." | t02 실행 전 절 → **정지** → figure `64_Viz/S001/` + 데이터 배열 `.mat`/`.csv` → 해석, 교훈 | 가설, 예상 검토 → 실행 지시 |
+   > 광자 수 1e9로 올려서 다시.
 
-**3. 공통 — 다음 변경 → 마감**
+   에이전트가 `elf trial new`로 t02를 추가합니다. t02에는 t01을 기준으로 무엇을 왜 바꿨는지가 적히고, t01과 같이 phase 1, phase 2 순서로 진행됩니다.
 
-| 단계 | 명령 / 말하는 것 | 기록되는 것 | 사람이 하는 일 |
-|---|---|---|---|
-| 다음 변경 | "광자 수 1e9로 올려서 다시."(A) → `elf trial new "광자 수 1e9"` | `[elf] appended t02 to 2_Log/S001_log.md (S001)` — t02: base = t01, delta + 이유 → 정지 → 실행 → 기록. 직전 결과를 보고 반복합니다 | 실행 결정 |
-| 마감 | `elf check logs` → `elf session close` | `[elf] check logs: 0 issue(s), 0 warning(s)` → `[elf] closed S001 → 2_Log/Archive/S001_log.md (Status: Complete, registry updated)` | Registry 결론 1줄 확인 |
+6. 세션을 마감합니다.
 
-`elf check logs`는 figure 누락, 비정본 절, Registry 불일치를 warning/issue로 보고하고, `elf session close`는 같은 검사를 한 번 더 돌린 뒤 Archive로 옮기고 cross-ref 상대경로를 보정합니다. Handoff에 미완료가 남아 있으면 경고합니다.
+   > 세션 마감.
 
-에이전트가 남기는 trial은 이런 모습입니다(A의 t02):
+   에이전트가 `elf check logs`로 빠진 figure나 형식 오류를 확인하고 결론을 제안합니다. 승인하면 `elf session close --from <파일>`로 마감합니다. 로그는 `2_Log/S/`에 그대로 있고, 상태가 complete로 바뀌며 `Registry.md`에 결론이 나옵니다.
+
+에이전트 없이 쓸 때도 같은 명령을 씁니다. 절이나 결론을 파일에 적고 `--from`으로 넘깁니다.
+
+## trial 예시
+
+위 5단계에서 에이전트가 남기는 t02는 다음과 같습니다.
 
 ```markdown
 ## t02: 광자 수 1e9
@@ -127,7 +109,7 @@ cd MyProject
 
 ### 관찰 (Observation)
 - 810 nm 우위 유지, 신뢰구간 폭 0.28배
-- ![S001_t02: 파장별 SNR, 1e9 광자](../6_Exp/64_Viz/S001/S001_t02_SNR_ci.png)
+- ![S001_t02: 파장별 SNR, 1e9 광자](../../6_Exp/64_Viz/S001/S001_t02_SNR_ci.png)
 
 ### 해석 (Interpretation)
 - 예상 일치 정도: 일치
@@ -145,130 +127,82 @@ cd MyProject
 | Figure | `6_Exp/64_Viz/S001/S001_t02_SNR_ci.png` |
 ```
 
-에이전트 없이: `.elf/managed/templates/trialTemplate.md`를 로그에 붙여 직접 쓰고, `elf trial new`, `elf check`, `elf session close`는 그대로 씁니다.
-
 ## 작동 원리
 
-| 장치 | 역할 |
+### 핵심 원칙
+
+| 원칙 | 설명 |
 |---|---|
-| `AGENTS.md` | 에이전트 진입 규칙 요약 — 같은 turn에 기록, 정본 우선(선례 모방 금지), 컨텍스트 재구성 후 Handoff 재독. 정본은 `.elf/managed/`(EliRule, LogConvention, AI_PARA_Framework), 프로젝트 규칙은 `0_Meta/ProjectRule.md` |
-| 실행 전 정지 | 가설, 예상은 실행 전에 확정합니다(LogConvention §5.1). 에이전트는 자동 실행 모드에서도 이 지점에서 멈춥니다 |
-| `elf check` | 설치와 설정(`setup`), 관리 파일(`files`), 로그(`logs`: Registry↔로그, 번호, cross-ref, figure embed 누락, trial 절 구조) 점검. 범위 생략 = 전체, issue 시 exit 4. `session close`가 logs 검사를 자동 실행 |
-| `elf autoread` | `elf autoread`(인수 없이) = 규칙 요약, 활성 세션 Handoff, 로그 점검 결과를 digest로 출력 — 컨텍스트가 재구성된 뒤 어느 에이전트에게든 다시 읽힙니다. Claude Code에서는 훅(`.claude/settings.json`)이 compaction, 재시작 뒤 첫 프롬프트에 자동 주입합니다(기본 on, `autoread_fulltext`로 규칙 전문 포함 가능) |
-| Handoff, Registry | Handoff = "유효 결론; 미완료; 참조" 1줄을 덮어쓰기로 유지, Registry key finding = 세션 결론 1줄 — 재개할 때 읽는 곳 |
-| one writer | 세션 로그 1개의 작성자는 하나(에이전트 또는 사람). 병렬 작업은 에이전트마다 세션을 열고, 관계는 헤더 `관련:`에 적습니다 |
-| Archive, Deprecated | `Archive/`는 종료된 유효 기록(읽기 허용), `Deprecated/`는 폐기한 기록(읽기 허용, 현재 근거 아님) — `AGENTS.md` 규칙. 폐기 여부는 사람이 결정하고 에이전트는 `elf deprecate`로 실행합니다(AI_PARA_Framework) |
-| overlay | 어휘, 검색 도메인 커스터마이즈는 `0_Meta/<이름>.project.md`(유효 규칙 = base ⊕ overlay). `elf update`가 건드리지 않습니다 |
+| **Base-Delta** | 완료 내용은 한 번만 적고, 이후에는 바뀐 것만 기록합니다. 변경 하나가 trial, 목표 하나가 session이며, trial이 모여 session이 되고 session이 모여 프로젝트 기록이 됩니다. |
+| **가설이 먼저** | 한 trial에서 가설과 예상을 적는 phase 1, 이를 실행하는 phase 2로 나눕니다. phase 1에서 수정 후 승인하면 phase 2로 진행합니다. |
+| **사람은 판단, 에이전트는 기록, 도구는 검증** | 같은 형식으로 쓰기 때문에 서로의 작업을 이어받고, `elf check`가 빠진 것을 찾아냅니다. |
+| **전부 로컬에** | 내 컴퓨터에 자료 원본을 두고 동작합니다. git으로 관리하고, ELF 없이도 읽을 수 있습니다. 보안을 위해 에이전트의 공개 링크 게시는 원칙적으로 금지됩니다. |
 
-## CLI
+- 모든 기록에는 `S012 t02` 같은 번호가 붙습니다. 로그, 스크립트, 데이터, figure가 같은 번호를 쓰기 때문에 논문, 계획, 대화 어디서든 번호 하나로 인용하고 찾아갈 수 있습니다.
+- 다음 trial은 사람이 정합니다. 에이전트는 직전 결과를 보고 다음 변경과 가설, 예상을 적어 두고, 사람이 검토해 실행 여부를 결정합니다.
 
-> 전체 레퍼런스(플래그, exit code, 파일 소유권): **[elf-cli/CLI.ko.md](elf-cli/CLI.ko.md)**
+### 사용 예시
 
-| 명령 | 역할 |
+| 상황 | 사용자 입력 | 동작 |
+|---|---|---|
+| 세션 시작 | "새 세션 생성. 목표는 파장별 SNR 비교." | `elf session new`로 로그와 Registry 행 생성. t01의 phase 1을 적고, 사용자가 승인하면 phase 2 실행 |
+| 조건 변경 | "광자 수 1e9로 올려서 다시." | t02에 t01 기준의 변경과 이유, 가설 기록. 실행 후 figure를 관찰 절에 넣고 예상과 비교 |
+| 작업 재개 | (한 달 뒤, 또는 대화를 새로 시작한 뒤) "SNR 비교 어디까지 했지?" | handoff와 `Registry.md`를 읽고 이어 감 |
+| 근거 추적 | "Fig 3의 810 nm 결론, 근거가 뭐지?" | S012 t01~t03의 기록과 스크립트, 데이터 경로를 보여 줌 |
+| 논문 작성 | "지금까지 결론으로 원고 개요 작성." | Registry의 결론을 모아 `7_Paper/72_Drafts`에 작성 |
+
+## 이미 아이디어나 진행된 내용이 있는 경우
+
+빠른 시작은 빈 프로젝트에서 바로 세션을 엽니다. 아이디어나 이미 진행된 내용이 있으면 먼저 프로젝트에 넣고 시작합니다.
+
+| 경우 | 사용자 입력 | 동작 |
+|---|---|---|
+| 아이디어가 있음 | "웨어러블 광학 센서의 파장 선택에 대한 생각을 정리하고, 검증 계획을 plan 문서로 작성." | 아이디어는 `1_Concept/13_Ideas/`, 계획은 `1_Concept/12_Planning/P001_*.md`에 작성. 사용자가 계획을 승인하면 헤더에 `관련: P001`을 적은 세션을 엶 |
+| 진행된 내용이 있음 | (측정 raw CSV를 `6_Exp/62_Empirical/Raw/`에 복사한 뒤) "이 데이터로 파장별 SNR 비교 세션 시작. t01은 데이터 정제." | 원본은 읽기 전용으로 두고, t01에서 정제한 데이터를 `62_Empirical/Processed/`에 저장한 뒤 t02부터 분석 |
+
+단계별 예는 [시작 예시](docs/examples.ko.md)에 있습니다.
+
+## 용어
+
+| 용어 | 뜻 |
 |---|---|
-| `elf init [name] [--preset …] [--modules …] [--lang …]` | 프로젝트 생성. 이름 없으면 현재 폴더에 in-place. preset `full`, `exp`, `sw`, `minimal`(연구 preset = 이름과 같은 주 모듈 + `paper`), `qa`(질문 아카이브) |
-| `elf session new <title>` / `close [S###]` / `fix-headers` | 세션 생성, 마감(로그 점검 → Archive 이동 → Registry, cross-ref 보정), 헤더 줄바꿈 수리 |
-| `elf trial new [title]` | 활성 로그에 정본 trial stub 추가(`t##` 자동 번호) |
-| `elf deprecate [대상] [--trial tNN [--section 절]] [--marked] [--lines A-B --expect …]` / `--restore <ID>` / `purge <ID>` | 로그, 계획 문서의 전체 또는 일부를 `Deprecated/`로 옮기고(원 위치에 이동 표기 1줄) 되돌립니다. 인수 없이 실행하면 폐기 목록. 산출물은 제자리 |
-| `elf gallery` | `6_Exp/64_Viz/`의 figure 색인 `_gallery.md` 생성 |
-| `elf autoread [enable\|disable\|status]` | 컨텍스트 재구성 후 규칙 재주입. 인수 없이 실행하면 digest 출력(모든 에이전트 공통); 훅 자동 주입은 Claude Code(기본 on) |
-| `elf update [--dry-run] [--force]` | 관리 파일을 설치된 CLI 버전으로 갱신 — 연구 데이터, 로그, 설정은 건드리지 않음 |
-| `elf check [setup\|files\|logs]` | 읽기 전용 점검(범위 생략 = 세 범위 전체, 문제만 출력). issue 시 exit 4 — 팀, CI 게이트로 사용 |
-| `elf tsa [sub]` | 선택: 커밋마다 파일 해시 manifest + RFC 3161 타임스탬프로 존재 시점을 증명. 기본 off, 외부로 전송되는 것은 manifest digest 32바이트뿐 |
-| `elf self update` | `elf` 바이너리 갱신 |
+| `S###`, `G###`, `t##` | 연구 세션, 거버넌스 세션, trial 번호. 로그, 스크립트, 데이터, figure가 같은 번호를 씁니다 |
+| delta | 직전 trial에서 바꾼 것과 바꾼 이유 |
+| handoff | 세션 헤더에 적는 현재 상태 한 줄. "유효한 결론; 남은 일; 참조" 형식이며 고칠 때는 줄 전체를 새로 씁니다 |
+| status | 로그 헤더의 `ongoing`, `complete`, `deprecated`. 로그는 옮기지 않으므로 기록이 유효한지는 status로 봅니다 |
+| Registry | `2_Log/S/`, `2_Log/G/`의 `Registry.md`. 로그 헤더에서 만드는 생성 파일이며 세션마다 한 줄(상태, 결론 또는 handoff) |
+| Deprecated | 사용자가 폐기하기로 정한 내용. 문서에서 지우고 원문은 `.elf/deprecated/`에 압축 보관하며 표기 줄이 남습니다. 현재 판단의 근거로 쓰지 않습니다 |
 
-운영 시나리오:
+## 구성 요소
 
-```bash
-elf self update          # 새 버전 반영 ① CLI 갱신
-elf check files          # ② 무엇이 바뀌는지 진단
-elf update --dry-run     # ③ 쓰기 없이 미리 보기
-elf update               # ④ 관리 파일만 교체 — "edited: … — kept; new version at ….elf-new"면 내 편집 보존, diff 후 병합(또는 --force로 정본 채택)
-elf check                # 팀/CI 게이트 — issue 시 exit 4 (로그만은 elf check logs)
-```
+규칙 문서는 프로젝트의 `.elf/managed/`에 있습니다.
 
-`.gitignore`는 마커 블록(`# >>> ELF managed >>>` … `# <<< ELF managed <<<`)만 관리하고, 그 밖의 규칙은 보존됩니다.
+| 구성 요소 | 역할 | 자세히 |
+|---|---|---|
+| `AGENTS.md` | 에이전트가 처음 읽는 규칙 요약. 프로젝트 고유 규칙은 `0_Meta/ProjectRule.md`에 적습니다 | [프로젝트 생성과 갱신](docs/projects.ko.md) |
+| `elf check` | 설치와 설정, 관리 파일, 로그를 점검합니다. `elf session close`도 마감 전에 로그를 점검합니다 | [점검](docs/check.ko.md) |
+| `elf autoread` | 대화가 압축되거나 새로 시작된 뒤 에이전트가 규칙 요약과 handoff를 다시 읽게 합니다. Claude Code에서는 훅이 자동으로 실행합니다 | [규칙 다시 읽기](docs/autoread.ko.md) |
+| `elf deprecate` | 사용자가 폐기하기로 정한 내용을 지우고 원문을 압축 보관합니다 | [폐기](docs/deprecate.ko.md) |
+| 실행 전 승인 | 에이전트는 자동 실행 모드에서도 phase 1이 끝나면 사용자 승인을 받습니다 | `LogConvention.md` §5.1 |
+| 작성자 한 명 | 세션 로그 하나는 한 작성자(에이전트 또는 사용자)만 씁니다. 여러 에이전트가 함께 일하면 에이전트마다 세션을 따로 엽니다 | `EliRule.md` |
+| 프로젝트별 추가 규칙 | 어휘와 검색 도메인은 `0_Meta/<이름>.project.md`로 바꿉니다. `elf update`는 이 파일을 건드리지 않습니다 | [프로젝트 생성과 갱신](docs/projects.ko.md) |
 
-## 프로젝트 구조
+## 참고 문서
 
-- 파일 이름은 번호만 씁니다 — `S001_t02_sweep.m`, `Data/S001/S001_t02_results.mat`, `64_Viz/S001/S001_t02_SNR_ci.png`. 조건은 로그에 있습니다.
-- 로그의 cross-ref는 상대경로입니다 — 계획 `../1_Concept/12_Planning/P00x.md`, 데이터 `../6_Exp/61_Sim/Data/S###/`, figure `../6_Exp/64_Viz/S###/`. `session close`가 Archive 깊이에 맞춰 보정합니다.
-- 계획은 `1_Concept/12_Planning/P###_제목.md`, 아이디어는 `13_Ideas/`, 로그에는 사실만 적습니다. 분석 코드는 `6_Exp/63_Analysis/Scripts/`, `61_Sim/Scripts/`(`.m` 셀 모드 `%%`).
-
-전체 폴더 구조:
-
-```text
-Project_Root/
-│
-├── AGENTS.md                        # 에이전트 진입 규칙 요약 (모든 에이전트 공통, ELF 관리)
-├── CLAUDE.md, .claude/settings.json   # Claude Code 전용 (포인터, autoread 훅) — 다른 에이전트는 무시
-├── README.md, LICENSE, .gitignore, .editorconfig, .gitattributes
-│
-│  ─── Core ───────────────────────────────
-│
-├── .elf/                            # ELF 제어 영역 (version, config, manifest — 직접 수정 금지)
-│   └── managed/                     # 관리 규칙 payload: EliRule, LogConvention, AI_PARA_Framework
-│       └── templates/               #   LLMcliche, highIFjournals + 세션/trial 스텁
-├── 0_Meta/                          # 프로젝트 거버넌스 — 사용자 영역 (`elf update` 미접근)
-│   ├── ProjectRule.md               # 프로젝트 전용 규칙 및 목표
-│   ├── <이름>.project.md            # Data overlay (유효 규칙 = base ⊕ overlay)
-│   └── tsa/                         # (선택) elf tsa manifest, 타임스탬프
-│
-├── 1_Concept/                       # 연구 기획, 문헌, 아이디어
-│   ├── 11_Literature/               # 논문 PDF, 서지 정보, 기반 공식
-│   ├── 12_Planning/                 # 연구 기획, 로드맵 (다중 세션)
-│   │   ├── Wiki/                    # 기획 단계 결론 및 핵심 규칙 요약
-│   │   ├── Archive/                 # 종료된 계획 문서
-│   │   └── Deprecated/              # 폐기한 계획 문서 (elf deprecate)
-│   └── 13_Ideas/                    # 작은 snippet / 초기 naive 아이디어 (flat)
-│
-├── 2_Log/                           # 세션 로그 (S###_log.md)
-│   ├── Wiki/                      # 핵심 발견 요약 및 세션 레지스트리
-│   ├── Archive/                   # 완료된 세션 로그 (읽기 허용)
-│   └── Deprecated/                # 폐기한 세션 로그, 블록 (elf deprecate)
-│
-│  ─── Modules (Optional) ────────────────
-│
-├── 3_HW/                            # 하드웨어 설계
-│   ├── 31_Component/                # 개별 부품 사양서, 단위 소자 설계
-│   │   ├── Design/
-│   │   └── Calibration/
-│   ├── 32_System/                   # 통합 기기 설계, 하우징, 3D 모델
-│   └── 33_Elec/                     # PCB 회로도, Gerber, BOM, Datasheets
-│
-├── 4_Fab/                           # 제작 및 공정
-│   ├── 41_Recipes/                  # 공정 조건 문서화
-│   └── 42_Eval/                     # 모듈별 단일 특성 평가
-│
-├── 5_SW/                            # 소프트웨어 & 펌웨어
-│   ├── 51_FW/                       # MCU/임베디드 펌웨어
-│   ├── 52_DAQ/                      # PC/모바일 데이터 획득 시스템
-│   └── 53_Libs/                     # 재사용 가능한 공용 라이브러리
-│
-├── 6_Exp/                           # 실험: 시뮬레이션 + 실측 + 분석
-│   ├── 61_Sim/                      # 시뮬레이션
-│   │   ├── Scripts/                 # 시뮬레이션 코드 (S###_sim.m)
-│   │   │   └── Archive/          # 일회용 스크립트 보관
-│   │   └── Data/                    # 시뮬레이션 결과 (Data/S###/)
-│   ├── 62_Empirical/                # 실측 데이터
-│   │   ├── Raw/                     # 원본 센서 데이터 (Read-Only, Git 제외)
-│   │   └── Processed/               # 1차 가공 데이터
-│   ├── 63_Analysis/                 # 통합 분석
-│   │   └── Scripts/                 # 비교/검증 포스트프로세싱 코드
-│   │       └── Archive/           # 일회용 스크립트 보관
-│   └── 64_Viz/                      # 시각화 추출물 (자동 생성 Figure)
-│
-├── 7_Paper/                         # 논문 & 발표
-│   ├── 71_Figs/                     # 논문용 Figure
-│   │   ├── Raw/
-│   │   ├── Processed/
-│   │   └── Final/
-│   ├── 72_Drafts/                   # 원고 (Word, LaTeX)
-│   │   └── Archive/               # 이전 버전 보관
-│   └── 73_Presentations/            # 발표 자료 (PPT, 포스터)
-```
-
-각 폴더의 용도와 운영 규칙은 `.elf/managed/EliRule.md`에 있습니다.
+| 주제 | 문서 |
+|---|---|
+| CLI 설치와 갱신 | [docs/install.ko.md](docs/install.ko.md) |
+| 프로젝트 생성과 갱신(preset, 언어, 파일 소유권, `.elf/`, 로그 구조 이관) | [docs/projects.ko.md](docs/projects.ko.md) |
+| 아이디어나 진행된 내용에서 시작하는 단계별 예 | [docs/examples.ko.md](docs/examples.ko.md) |
+| 세션과 trial(`session new`, `session close`, `trial new`, `trial write`, `elf log`, `gallery`) | [docs/sessions.ko.md](docs/sessions.ko.md) |
+| 점검(`elf check` 범위, issue와 warning) | [docs/check.ko.md](docs/check.ko.md) |
+| 폐기(`elf deprecate`) | [docs/deprecate.ko.md](docs/deprecate.ko.md) |
+| 대화가 다시 구성된 뒤 규칙 다시 읽기(`elf autoread`, Claude Code 훅) | [docs/autoread.ko.md](docs/autoread.ko.md) |
+| 연구 기록 시점 인증(선택 기능, `elf tsa`) | [docs/tsa.ko.md](docs/tsa.ko.md) |
+| 전체 폴더 구조 | [docs/layout.ko.md](docs/layout.ko.md) |
+| 명령 요약, exit code | [docs/reference.ko.md](docs/reference.ko.md) |
+| 로그 형식 규칙 | 프로젝트의 `.elf/managed/LogConvention.md` |
+| 버전별 변경 | [CHANGELOG.md](CHANGELOG.md) |
 
 ## 라이선스 (License)
 

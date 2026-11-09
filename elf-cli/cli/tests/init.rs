@@ -27,7 +27,7 @@ fn full_init_creates_expected_tree() {
         "1_Concept/12_Planning/Archive",
         "1_Concept/13_Ideas",
         "2_Log/Wiki",
-        "2_Log/Archive",
+        "2_Log/S",
         "3_HW/31_Component/Design",
         "4_Fab/41_Recipes",
         "5_SW/53_Libs",
@@ -80,8 +80,9 @@ fn user_tier_substitution_applied_and_no_placeholders_remain() {
     assert!(rule.contains("2026-06-12"));
     assert!(!rule.contains("[프로젝트명]"));
 
-    let registry = std::fs::read_to_string(target.join("2_Log/Wiki/Session_Registry.tsv")).unwrap();
-    assert!(!registry.contains("YYYY-MM-DD"));
+    // 세션 Registry.md = 도구 생성(치환 대상 아님), TSV 없음(P022)
+    assert!(!target.join("2_Log/Wiki/Session_Registry.tsv").exists());
+    assert!(target.join("2_Log/S/Registry.md").is_file());
 }
 
 /// P016: `--lang en` → KO operative 정본 유지 + EN companion 동반 + user tier는 EN variant로 대체
@@ -114,14 +115,16 @@ fn en_init_deploys_companions_and_variants() {
     assert!(pr.contains("EnProj") && !pr.contains("[Project Name]"));
 }
 
+/// P022: init은 세션을 만들지 않음 — 첫 세션은 `elf session new --goal`(목표 필수). 빈 Registry.md만 생성.
 #[test]
-fn s001_log_derived_from_session_template() {
+fn init_creates_no_session_and_empty_registry() {
     let tmp = tempdir().unwrap();
     let target = run_init(tmp.path(), &opts("P3")).unwrap();
-    let s001 = std::fs::read_to_string(target.join("2_Log/S001_log.md")).unwrap();
-    assert!(s001.contains("S001"));
-    assert!(!s001.contains("S{NNN}"));
-    assert!(s001.contains("2026-06-12"));
+    assert!(target.join("2_Log/S").is_dir());
+    assert!(!target.join("2_Log/S/S001_log.md").exists());
+    assert!(!target.join("2_Log/S001_log.md").exists());
+    let reg = std::fs::read_to_string(target.join("2_Log/S/Registry.md")).unwrap();
+    assert!(reg.contains("| 세션 | status |") && !reg.contains("S001"), "{reg}");
 }
 
 #[test]
@@ -137,13 +140,12 @@ fn elf_control_plane_written() {
     assert_eq!(config["preset"], "full", "계보 정체성 영속화 (S026)");
     assert_eq!(config["created"], "2026-06-12");
 
-    let version = std::fs::read_to_string(target.join(".elf/version")).unwrap();
-    assert_eq!(version, format!("{}\n", embed::version()));
-
-    // manifest stamp = embed 정본 사본 + 파싱 가능
+    // 버전 = manifest elf_version(schema 2) — `.elf/version` 없음 (P022 §8)
+    assert!(!target.join(".elf/version").exists());
     let stamp_text = std::fs::read_to_string(target.join(".elf/manifest.json")).unwrap();
-    assert_eq!(stamp_text, embed::MANIFEST_JSON);
-    assert!(manifest::parse(&stamp_text).is_ok());
+    assert_eq!(stamp_text, manifest::project_json(manifest::Kind::Research));
+    let m = manifest::parse(&stamp_text).unwrap();
+    assert_eq!((m.schema.as_str(), m.elf_version.as_deref()), (manifest::SCHEMA, Some(embed::version())));
 }
 
 #[test]
@@ -211,7 +213,7 @@ fn qa_preset_creates_question_archive_and_skips_research() {
 
     // .elf stamp = qa manifest (update가 qa 파일만 관리)
     let stamp = std::fs::read_to_string(target.join(".elf/manifest.json")).unwrap();
-    assert_eq!(stamp, embed::MANIFEST_QA_JSON);
+    assert_eq!(stamp, manifest::project_json(manifest::Kind::Qa));
     assert!(manifest::parse(&stamp).is_ok());
     // 공용 spine — config/version 동일 + preset 정체성 기록 (S026)
     let config: serde_json::Value =

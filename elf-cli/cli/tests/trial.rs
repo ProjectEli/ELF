@@ -1,8 +1,7 @@
-//! S021 통합: `elf trial new`(정본 stub append) + L2 진입 파일 배치, pointer tier 거동.
+//! trial 통합 — `trial new`(만들기, Phase 1) + `trial write`(Phase 1 수정, Phase 2), 진입 파일 배치, pointer tier.
 
 use elf_cli::init::{InitOptions, run_init, run_init_ex};
 use elf_cli::session::{SessionError, SessionNewOptions, run_session_new};
-use elf_cli::trial::{TrialNewOptions, run_trial_new};
 use elf_cli::update::{UpdateOptions, run_update};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -15,158 +14,86 @@ fn init_opts() -> InitOptions {
         modules: None,
         categories: Vec::new(),
         lang: "ko-KR".into(),
-        date: "2026-07-06".into(),
+        date: "2026-11-09".into(),
     }
 }
 
 fn new_project(tmp: &Path) -> PathBuf {
-    run_init(tmp, &init_opts()).unwrap()
+    let root = run_init(tmp, &init_opts()).unwrap();
+    run_session_new(&root, &SessionNewOptions { title: "t".into(), date: "2026-11-09".into(), goal: "g".into(), gov: false }).unwrap();
+    root
 }
 
-fn topts(title: Option<&str>, session: Option<&str>) -> TrialNewOptions {
-    TrialNewOptions {
-        title: title.map(String::from),
-        session: session.map(String::from),
-        date: "2026-07-06".into(),
-        body: None,
-    }
-}
+const P1: &str = "---\nhandoff: '상태; 미완료 = t01 Phase 1 사용자 확인 대기'\n---\n### 목표 (Goal)\n- 파장별 SNR\n\n### 조건 (Conditions)\n- 광자 1e8\n\n### 가설 (Hypothesis)\n- 810 우위\n\n### 예상 (Prediction)\n- 810 최대\n";
+const P2: &str = "### 관찰 (Observation)\n- 810 최대\n\n### 해석 (Interpretation)\n- 예상 일치 정도: 일치\n\n### 교훈 (Lessons)\n- 1e9 필요\n\n### 생성 파일 (Files)\n- 없음\n";
 
-// ── trial new ───────────────────────────────────────────────────
-
-/// trial new 출력의 embed 리마인더 — 행동 시점 주입(trial 시작 = figure 작성 이전 보장, S027)
-#[test]
-fn trial_new_stdout_carries_embed_reminder() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    let out = assert_cmd::Command::cargo_bin("elf")
-        .unwrap()
-        .current_dir(&root)
-        .args(["trial", "new", "reminder-check"])
-        .output()
-        .unwrap();
-    assert!(out.status.success());
-    let text = String::from_utf8_lossy(&out.stdout).into_owned();
-    assert!(
-        text.contains("embed") && text.contains("### 관찰"),
-        "embed reminder missing in trial new output: {text}"
-    );
-    assert!(text.contains("expected figures"), "{text}");
+fn elf(root: &Path, args: &[&str]) -> std::process::Output {
+    assert_cmd::Command::cargo_bin("elf").unwrap().args(args).current_dir(root).output().unwrap()
 }
 
 #[test]
-fn trial_new_from_file_appends_body_and_replaces_handoff() {
+fn e2e_new_from_write_revise_and_phase2() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    let log = root.join("2_Log/S001_log.md");
-    let elf = |args: &[&str]| assert_cmd::Command::cargo_bin("elf").unwrap().current_dir(&root).args(args).output().unwrap();
-    // 셸 escape가 깨지기 쉬운 문자(백틱, `$`, 역슬래시, 따옴표)를 파일로 전달
-    let body = "> **Handoff**: 상태 = `a\\b` 확인; 미완료 = $X; 참조 t01\n\n### 목표 (Goal)\n- \"따옴표\" 'quote' `code` $HOME \\n\n\n### 조건 (Conditions)\n- c\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n";
-    fs::write(tmp.path().join("t.md"), body).unwrap();
-    let out = elf(&["trial", "new", "파일 입력", "--from", tmp.path().join("t.md").to_str().unwrap()]);
+    fs::write(root.join("p1.md"), P1).unwrap();
+    fs::write(root.join("p2.md"), P2).unwrap();
+    let out = elf(&root, &["trial", "new", "3파장 sweep", "--from", "p1.md"]);
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    let text = String::from_utf8_lossy(&out.stdout).into_owned();
-    assert!(text.contains("appended t01") && text.contains("from file") && text.contains("Handoff replaced"), "{text}");
-    assert!(text.contains("Phase 2 sections (관찰, 해석, 교훈, 생성 파일)"), "{text}");
-    let c = fs::read_to_string(&log).unwrap();
-    assert!(c.contains("## t01: 파일 입력\n\n### 목표 (Goal)\n- \"따옴표\" 'quote' `code` $HOME \\n"), "{c}");
-    assert!(c.contains("> **Handoff**: 상태 = `a\\b` 확인; 미완료 = $X; 참조 t01\n"));
-    assert!(c.contains("### 관찰 (Observation)"));
-    // 검사 실패 = 덧붙이지 않음, 로그 불변, exit 3
-    fs::write(tmp.path().join("bad.md"), "### 목표 (Goal)\n- [이 작업의 구체적 목표]\n").unwrap();
-    let out = elf(&["trial", "new", "bad", "--from", tmp.path().join("bad.md").to_str().unwrap()]);
+    let so = String::from_utf8_lossy(&out.stdout);
+    assert!(so.contains("t01 Phase 1 written") && so.contains("stop — show Phase 1 to the user"), "{so}");
+    assert!(so.contains("header handoff replaced"));
+    // Phase 1 수정
+    fs::write(root.join("p1.md"), P1.replace("광자 1e8", "광자 1e9")).unwrap();
+    assert!(elf(&root, &["trial", "write", "--from", "p1.md"]).status.success());
+    // Phase 2
+    let out = elf(&root, &["trial", "write", "t01", "--from", "p2.md"]);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let log = fs::read_to_string(root.join("2_Log/S/S001_log.md")).unwrap();
+    assert!(log.contains("광자 1e9") && log.contains("### 관찰 (Observation)") && log.contains("(2 writes)"));
+    // Phase 2 뒤 Phase 1 수정 = 거부, 로그 그대로
+    let out = elf(&root, &["trial", "write", "--from", "p1.md"]);
     assert_eq!(out.status.code(), Some(3));
-    let err = String::from_utf8_lossy(&out.stderr).into_owned();
-    assert!(err.contains("trial not appended") && err.contains("missing '### 조건'") && err.contains("template text"), "{err}");
-    assert_eq!(fs::read_to_string(&log).unwrap(), c);
-    // 제목 없음 = 거부
-    let out = elf(&["trial", "new", "--from", tmp.path().join("t.md").to_str().unwrap()]);
-    assert_eq!(out.status.code(), Some(3));
-    assert!(String::from_utf8_lossy(&out.stderr).contains("--from needs a trial title"));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("already has Phase 2"));
+    assert_eq!(fs::read_to_string(root.join("2_Log/S/S001_log.md")).unwrap(), log);
 }
 
 #[test]
-fn trial_new_appends_canonical_stub_at_end() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path()); // init = S001 활성 로그(헤더만 — v2.22 t01 stub 제거)
-
-    let before = fs::read_to_string(root.join("2_Log/S001_log.md")).unwrap();
-    assert!(!before.contains("## t"), "fresh log carries no trial stub");
-
-    let r = run_trial_new(&root, &topts(Some("첫 작업"), None)).unwrap();
-    assert_eq!(r.trial, "t01");
-    assert_eq!(r.session, "S001");
-
-    let log = fs::read_to_string(root.join("2_Log/S001_log.md")).unwrap();
-    assert!(log.contains("## t01: 첫 작업"));
-    // 정본 stub 렌더: placeholder 치환 완료 + 정본 헤딩 포함
-    assert!(!log.contains("t{NN}"));
-    assert!(log.contains("64_Viz/S001/"));
-    assert!(log.contains("### 가설 (Hypothesis)"));
-    // 첫 trial은 헤더 규범 주석 뒤에 바로(구분선 중복 없음), 본문 말미(EOF append)
-    assert!(!log.contains("---\n\n---"));
-    assert!(log.find("-->").unwrap() < log.find("## t01").unwrap());
-    assert!(!log.contains("## 다음 세션 후보"));
-    assert!(log.trim_end().ends_with("| Figure | `경로` |"), "stub appended at end of body");
-    // 헤더 Modified 갱신 (hard break 보존)
-    assert!(log.contains("> **Modified**: 2026-07-06\\"));
-
-    // 연속 증번: t01 < t02, trial 사이 구분선
-    assert_eq!(run_trial_new(&root, &topts(None, None)).unwrap().trial, "t02");
-    let log2 = fs::read_to_string(root.join("2_Log/S001_log.md")).unwrap();
-    assert!(log2.contains("## t02: [작업 제목]")); // 제목 생략 → placeholder 유지
-    assert!(log2.find("## t01").unwrap() < log2.find("## t02").unwrap());
-    assert!(log2.contains("\n\n---\n\n## t02"), "trials separated by a rule");
-}
-
-#[test]
-fn trial_new_errors_without_open_session() {
+fn e2e_new_from_refuses_phase2_sections_and_mixed_files() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    let p = root.join("2_Log/S001_log.md");
-    let closed = fs::read_to_string(&p)
-        .unwrap()
-        .replace("> **Status**: ★ 활성", "> **Status**: Complete");
-    fs::write(&p, closed).unwrap();
-
-    match run_trial_new(&root, &topts(None, None)) {
-        Err(SessionError::NoOpenSession) => {}
-        other => panic!("expected NoOpenSession, got {other:?}"),
-    }
+    fs::write(root.join("all.md"), format!("{P1}\n{P2}")).unwrap();
+    let out = elf(&root, &["trial", "new", "x", "--from", "all.md"]);
+    assert_eq!(out.status.code(), Some(3));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("one phase only"));
+    assert!(!fs::read_to_string(root.join("2_Log/S/S001_log.md")).unwrap().contains("## t01"));
 }
 
 #[test]
-fn trial_new_with_multiple_open_requires_session_flag() {
+fn trial_needs_one_ongoing_session_or_flag() {
     let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    run_session_new(&root, &SessionNewOptions { title: "B".into(), date: "2026-07-06".into() })
-        .unwrap();
-
-    match run_trial_new(&root, &topts(None, None)) {
-        Err(SessionError::MultipleOpen(ids)) => assert_eq!(ids, vec!["S001", "S002"]),
-        other => panic!("expected MultipleOpen, got {other:?}"),
+    let root = run_init(tmp.path(), &init_opts()).unwrap();
+    assert_eq!(elf(&root, &["trial", "new", "x"]).status.code(), Some(1));
+    for gov in [false, true] {
+        run_session_new(&root, &SessionNewOptions { title: "t".into(), date: "d".into(), goal: "g".into(), gov }).unwrap();
     }
-    let r = run_trial_new(&root, &topts(Some("지정"), Some("S002"))).unwrap();
-    assert_eq!(r.session, "S002");
-    assert!(
-        fs::read_to_string(root.join("2_Log/S002_log.md")).unwrap().contains("## t01: 지정")
-    );
+    let out = elf(&root, &["trial", "new", "x"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("multiple ongoing sessions (S001, G001)"));
+    assert!(elf(&root, &["trial", "new", "x", "--session", "G001"]).status.success());
+    assert!(fs::read_to_string(root.join("2_Log/G/G001_log.md")).unwrap().contains("## t01: x"));
+    let _ = SessionError::NoOpenSession;
 }
 
-// ── L2 배치, pointer tier ──────────────────────────────────────
+// ── 진입 파일, pointer tier ──────────────────────────────────────
 
 #[test]
 fn init_places_agents_digest_and_claude_pointer() {
     let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-
+    let root = run_init(tmp.path(), &init_opts()).unwrap();
     let agents = fs::read_to_string(root.join("AGENTS.md")).unwrap();
     assert!(agents.contains("ELF 에이전트 진입 규칙"));
-    assert!(agents.contains("elf trial new")); // 스캐폴드 지시 탑재
-    let claude = fs::read_to_string(root.join("CLAUDE.md")).unwrap();
-    assert!(claude.contains("@AGENTS.md")); // 포인터 연결
-
-    // ko 프로젝트: EN companion 미배포
+    assert!(agents.contains("elf trial new") && agents.contains("elf trial write"));
+    assert!(fs::read_to_string(root.join("CLAUDE.md")).unwrap().contains("@AGENTS.md"));
     assert!(!root.join("AGENTS.en.md").exists());
 }
 
@@ -176,117 +103,57 @@ fn en_project_gets_agents_companion() {
     let mut o = init_opts();
     o.lang = "en-US".into();
     let root = run_init(tmp.path(), &o).unwrap();
-    assert!(root.join("AGENTS.md").is_file()); // operative는 KO 정본 그대로
+    assert!(root.join("AGENTS.md").is_file());
     assert!(root.join("AGENTS.en.md").is_file());
+    assert!(fs::read_to_string(root.join("2_Log/S/Registry.md")).unwrap().contains("| Session | status |"));
 }
 
 #[test]
 fn inplace_init_keeps_existing_claude_md_without_elf_new() {
     let tmp = tempdir().unwrap();
     fs::write(tmp.path().join("CLAUDE.md"), "user rules\n").unwrap();
-
     let report = run_init_ex(tmp.path(), &init_opts(), true, false, false).unwrap();
     assert!(report.skipped.iter().any(|s| s == "CLAUDE.md"), "{:?}", report.skipped);
-    // 기존 파일 무손상 + `.elf-new` 병기 없음 (pointer tier — t06)
     assert_eq!(fs::read_to_string(tmp.path().join("CLAUDE.md")).unwrap(), "user rules\n");
     assert!(!tmp.path().join("CLAUDE.md.elf-new").exists());
-    // 규칙 본문(AGENTS.md)은 무충돌 정상 배치
     assert!(tmp.path().join("AGENTS.md").is_file());
-}
-
-#[test]
-fn close_warns_on_pending_handoff_nonblocking() {
-    use elf_cli::session::{CloseOptions, run_session_close};
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    let p = root.join("2_Log/S001_log.md");
-    let c = fs::read_to_string(&p)
-        .unwrap()
-        .replace("> **Handoff**: -", "> **Handoff**: 설계 확정; 미완료 = 문서 반영; 참조 t01");
-    fs::write(&p, c).unwrap();
-
-    // close (v2.20: 후보 절 게이트 없음 — force는 호환용 no-op; 경고는 비차단으로 함께 반환)
-    let r = run_session_close(&root, &CloseOptions { id: None, force: true }).unwrap();
-    assert_eq!(r.id, "S001");
-    assert!(
-        r.warnings.iter().any(|w| w.contains("pending") && w.contains("문서 반영")),
-        "{:?}",
-        r.warnings
-    );
-
-    // 소거된 Handoff는 경고 없음
-    let root2 = new_project(&tmp.path().join("sub2"));
-    let p2 = root2.join("2_Log/S001_log.md");
-    let c2 = fs::read_to_string(&p2)
-        .unwrap()
-        .replace("> **Handoff**: -", "> **Handoff**: 완료; -; 참조 t01");
-    fs::write(&p2, c2).unwrap();
-    let r2 = run_session_close(&root2, &CloseOptions { id: None, force: true }).unwrap();
-    assert!(r2.warnings.is_empty(), "{:?}", r2.warnings);
 }
 
 #[test]
 fn dirty_warning_fires_only_on_tracked_changes_or_unborn_head() {
     fn git(root: &Path, args: &[&str]) {
-        let o = std::process::Command::new("git")
-            .arg("-C")
-            .arg(root)
-            .args(args)
-            .output()
-            .expect("git runs");
+        let o = std::process::Command::new("git").arg("-C").arg(root).args(args).output().expect("git runs");
         assert!(o.status.success(), "git {:?}: {}", args, String::from_utf8_lossy(&o.stderr));
     }
     fn update_lines(root: &Path) -> String {
-        run_update(root, &UpdateOptions { dry_run: true, force: false })
-            .unwrap()
-            .lines
-            .join("\n")
+        run_update(root, &UpdateOptions { dry_run: true, force: false }).unwrap().lines.join("\n")
     }
     let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-
-    // ① .git 없음 → git 경고 없음
+    let root = run_init(tmp.path(), &init_opts()).unwrap();
     let l = update_lines(&root);
     assert!(!l.contains("would mix") && !l.contains("no git commit"), "{l}");
-
-    // ② git init 직후(unborn HEAD, 전부 untracked) → 롤백 기준 부재 경고
     git(&root, &["init", "-q"]);
-    let l = update_lines(&root);
-    assert!(l.contains("no git commit yet"), "{l}");
-
-    // ③ 전체 커밋(clean) → 무경고
+    assert!(update_lines(&root).contains("no git commit yet"));
     git(&root, &["add", "-A"]);
     git(&root, &["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init"]);
     let l = update_lines(&root);
     assert!(!l.contains("would mix") && !l.contains("no git commit"), "{l}");
-
-    // ④ untracked-only → 무경고 (과경고 제거 — 핵심 신규 동작)
     fs::write(root.join("scratch.txt"), "tmp\n").unwrap();
-    let l = update_lines(&root);
-    assert!(!l.contains("would mix") && !l.contains("no git commit"), "{l}");
-
-    // ⑤ 추적 파일 변경 → 혼합 명시 경고
+    assert!(!update_lines(&root).contains("would mix"));
     let readme = root.join("README.md");
     let mut c = fs::read_to_string(&readme).unwrap();
     c.push_str("\nlocal edit\n");
     fs::write(&readme, c).unwrap();
-    let l = update_lines(&root);
-    assert!(l.contains("would mix in one tree"), "{l}");
+    assert!(update_lines(&root).contains("would mix in one tree"));
 }
 
 #[test]
 fn update_keeps_user_claude_md_without_conflict() {
     let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
+    let root = run_init(tmp.path(), &init_opts()).unwrap();
     fs::write(root.join("CLAUDE.md"), "custom claude rules\n").unwrap();
-
     let rep = run_update(&root, &UpdateOptions { dry_run: false, force: false }).unwrap();
     assert_eq!(fs::read_to_string(root.join("CLAUDE.md")).unwrap(), "custom claude rules\n");
     assert!(!root.join("CLAUDE.md.elf-new").exists());
     assert_eq!(rep.conflicts, 0, "{:?}", rep.lines);
-    assert!(
-        rep.lines.iter().any(|l| l.contains("pointer (kept as-is): CLAUDE.md")),
-        "{:?}",
-        rep.lines
-    );
 }

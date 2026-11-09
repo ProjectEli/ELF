@@ -1,5 +1,5 @@
 //! check: `elf check [setup|files|logs]` — 진단 통합(구 doctor, status, validate는 숨김 별칭).
-//! 검증: 범위별 요약과 상세, 적용 불가 범위 처리(`.elf/` 없는 폴더), 종료 코드(문제 4, 검사 불능 5),
+//! 검증: 범위별 요약과 상세, 적용 불가 범위 처리(`.elf/` 없는 폴더), 종료 코드(문제 4),
 //! 별칭의 기존 출력과 종료 코드 유지.
 
 use assert_cmd::Command;
@@ -49,9 +49,10 @@ fn check_all_summarizes_three_scopes_and_exits_0_when_clean() {
     let root = new_project(tmp.path());
     let (code, out, _) = elf(&root, &["check"]);
     assert_eq!(code, 0, "{out}");
-    for s in ["check setup:", "check files:", "check logs:"] {
+    for s in ["check version:", "check setup:", "check files:", "check logs:"] {
         assert!(out.contains(s), "missing {s}:\n{out}");
     }
+    assert!(out.find("check version:") < out.find("check setup:"), "version first: {out}");
     assert!(out.lines().last().unwrap_or("").contains("check: 0 issue(s)"), "{out}");
     // 요약 모드는 ok/info 줄을 싣지 않음
     assert!(!out.contains("ok: "), "{out}");
@@ -63,13 +64,18 @@ fn check_scope_prints_full_detail() {
     let root = new_project(tmp.path());
     let (code, out, _) = elf(&root, &["check", "files"]);
     assert_eq!(code, 0, "{out}");
-    assert!(out.contains("ok: .elf stamp"), "{out}"); // 진단 묶음
+    assert!(out.contains("ok: .elf baseline") || out.contains("info: .elf baseline"), "{out}"); // 진단 묶음
+    assert!(!out.contains("stamp") && !out.contains(".elf version"), "version items moved to `check version`: {out}");
     assert!(out.contains("ok: AGENTS.md"), "{out}"); // 관리 파일 상태
     assert!(out.contains("check files: 0 issue(s)"), "{out}");
     let (code, out, _) = elf(&root, &["check", "setup"]);
     assert_eq!(code, 0, "{out}");
-    assert!(out.contains("info: elf version"), "{out}");
+    assert!(!out.contains("elf version") && !out.contains("install receipt"), "{out}");
     assert!(out.contains("autoread"), "{out}");
+    let (code, out, _) = elf(&root, &["check", "version"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains("info: CLI: elf ") && out.contains("install receipt"), "{out}");
+    assert!(out.contains("schema 2, elf_version") && out.contains("ok: verdict: project"), "{out}");
 }
 
 #[test]
@@ -133,12 +139,15 @@ fn files_warns_when_agents_import_is_inside_backticks() {
 }
 
 #[test]
-fn malformed_registry_exits_5() {
+fn leftover_registry_tsv_is_earlier_layout_issue() {
+    // P022: TSV는 폐지 — 남아 있으면(형식이 깨졌어도) 이전 형식 1건 issue, 이관은 `elf update`
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
     fs::write(root.join(REG), "Session\tDate\tTitle\tStatus\tKey Finding\tArchive Path\nS001\tbad\n").unwrap();
-    assert_eq!(elf(&root, &["check"]).0, 5);
-    assert_eq!(elf(&root, &["check", "logs"]).0, 5);
+    let (code, out, _) = elf(&root, &["check", "logs"]);
+    assert_eq!(code, 4, "{out}");
+    assert!(out.contains("earlier layout") && out.contains("elf update"), "{out}");
+    assert_eq!(elf(&root, &["check"]).0, 4);
 }
 
 #[test]

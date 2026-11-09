@@ -1,15 +1,14 @@
-//! t04: `elf validate` — Registry↔로그 정합, 번호, cross-ref 검사, escalation, `--check` 게이트.
+//! `elf check logs` 통합 — 구조 개편(P022): 헤더 형식, status별 값, 번호, 링크, figure embed, Registry.md, 이전 형식.
 
-use assert_cmd::Command;
 use elf_cli::init::{InitOptions, run_init};
 use elf_cli::session::{SessionNewOptions, run_session_new};
-use elf_cli::validate::{ValidateError, run_validate};
+use elf_cli::validate::run_validate;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
 fn new_project(tmp: &Path) -> PathBuf {
-    run_init(
+    let root = run_init(
         tmp,
         &InitOptions {
             name: "P".into(),
@@ -17,380 +16,126 @@ fn new_project(tmp: &Path) -> PathBuf {
             modules: None,
             categories: Vec::new(),
             lang: "ko-KR".into(),
-            date: "2026-06-13".into(),
+            date: "2026-11-09".into(),
         },
     )
-    .unwrap()
+    .unwrap();
+    run_session_new(&root, &SessionNewOptions { title: "t".into(), date: "2026-11-09".into(), goal: "g".into(), gov: false }).unwrap();
+    root
 }
 
-const REG: &str = "2_Log/Wiki/Session_Registry.tsv";
+fn log(root: &Path) -> PathBuf {
+    root.join("2_Log/S/S001_log.md")
+}
+
+fn append(root: &Path, text: &str) {
+    let mut c = fs::read_to_string(log(root)).unwrap();
+    c.push_str(text);
+    fs::write(log(root), c).unwrap();
+}
+
+fn lines(root: &Path) -> (usize, usize, String) {
+    let r = run_validate(root).unwrap();
+    (r.issues, r.warnings, r.lines.join("\n"))
+}
 
 #[test]
 fn clean_project_has_no_findings() {
     let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path()); // init = S001 로그 + 등록
-    let r = run_validate(&root).unwrap();
-    assert_eq!(r.issues, 0, "{:?}", r.lines);
-    assert_eq!(r.warnings, 0, "{:?}", r.lines);
-    assert!(r.lines.iter().any(|l| l.starts_with("ok")), "{:?}", r.lines);
+    let root = new_project(tmp.path());
+    let (i, w, l) = lines(&root);
+    assert_eq!((i, w), (0, 0), "{l}");
+    assert!(l.contains("ok:"));
 }
 
 #[test]
-fn unregistered_log_is_issue() {
+fn header_format_error_is_issue() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    fs::write(root.join("2_Log/S005_log.md"), "# S005\n").unwrap(); // 등록 없는 로그
-    let r = run_validate(&root).unwrap();
-    assert!(
-        r.lines.iter().any(|l| l.contains("S005") && l.contains("not in the registry")),
-        "{:?}",
-        r.lines
-    );
-    assert!(r.issues >= 1);
-}
-
-// S030: 세션 id 변형(접미사 등)은 규칙 문서가 아니라 CLI 게이트가 차단 — 비정격 `*_log.md`는
-// 스캔 체계 밖으로 침묵 이탈하므로 validate가 issue로 표면화.
-#[test]
-fn malformed_session_log_name_is_issue() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    fs::write(root.join("2_Log/S005-a_log.md"), "# S005-a\n").unwrap(); // 접미사 변형
-    fs::create_dir_all(root.join("2_Log/Archive")).unwrap();
-    fs::write(root.join("2_Log/Archive/Sfoo_log.md"), "# bad\n").unwrap(); // 비숫자 변형
-    let r = run_validate(&root).unwrap();
-    assert!(
-        r.lines.iter().any(|l| l.contains("malformed session log name: 2_Log/S005-a_log.md")),
-        "{:?}",
-        r.lines
-    );
-    assert!(
-        r.lines.iter().any(|l| l.contains("2_Log/Archive/Sfoo_log.md")),
-        "{:?}",
-        r.lines
-    );
-    assert!(r.issues >= 2);
-    // 정격 로그(S001)는 비영향
-    assert!(!r.lines.iter().any(|l| l.contains("malformed") && l.contains("S001_log.md")));
+    let c = fs::read_to_string(log(&root)).unwrap().replace("status: ongoing", "status: Active");
+    fs::write(log(&root), c).unwrap();
+    let (i, _, l) = lines(&root);
+    assert!(i >= 1 && l.contains("S001_log.md: header line 4"), "{l}");
 }
 
 #[test]
-fn phantom_registry_row_is_issue() {
+fn malformed_name_issue_and_gap_and_multiple_active_warnings() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    let mut reg = fs::read_to_string(root.join(REG)).unwrap();
-    reg.push_str("S002\t2026-06-13\tGhost\tComplete\t-\tArchive/S002_log.md\n"); // 로그 없는 행
-    fs::write(root.join(REG), reg).unwrap();
-    let r = run_validate(&root).unwrap();
-    assert!(
-        r.lines.iter().any(|l| l.contains("S002") && l.contains("no log file")),
-        "{:?}",
-        r.lines
-    );
-}
-
-#[test]
-fn gap_is_warning_not_issue() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    fs::write(root.join("2_Log/S003_log.md"), "# S003\n").unwrap();
-    let mut reg = fs::read_to_string(root.join(REG)).unwrap();
-    reg.push_str("S003\t2026-06-13\tThree\tComplete\t-\tArchive/S003_log.md\n");
-    fs::write(root.join(REG), reg).unwrap();
-    let r = run_validate(&root).unwrap();
-    assert!(r.lines.iter().any(|l| l.contains("gap") && l.contains("S002")), "{:?}", r.lines);
-    assert_eq!(r.issues, 0, "gap는 warning이어야 함: {:?}", r.lines); // S003 등록+로그 → issue 아님
-}
-
-#[test]
-fn multiple_active_is_warning() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    run_session_new(&root, &SessionNewOptions { title: "Second".into(), date: "2026-06-13".into() })
-        .unwrap(); // S002도 활성
-    let r = run_validate(&root).unwrap();
-    assert!(
-        r.lines.iter().any(|l| l.contains("multiple active") && l.contains("S001") && l.contains("S002")),
-        "{:?}",
-        r.lines
-    );
-    assert_eq!(r.issues, 0, "{:?}", r.lines); // 둘 다 등록+연속 → 정합 issue 없음
+    fs::write(root.join("2_Log/S/S201-a_log.md"), "x").unwrap();
+    let t = fs::read_to_string(log(&root)).unwrap().replace("# S001", "# S003");
+    fs::write(root.join("2_Log/S/S003_log.md"), t).unwrap();
+    let (_, _, l) = lines(&root);
+    assert!(l.contains("issue: malformed session log name: 2_Log/S/S201-a_log.md"), "{l}");
+    assert!(l.contains("warn: gap in session numbering: S002 missing"), "{l}");
+    assert!(l.contains("warn: multiple active sessions (S001, S003)"), "{l}");
+    assert!(l.contains("Registry.md differs from the log headers"), "S003 placed by hand: {l}");
 }
 
 #[test]
 fn broken_cross_ref_is_issue_valid_is_not() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    fs::create_dir_all(root.join("1_Concept")).unwrap();
-    fs::write(root.join("1_Concept/Real.md"), "x").unwrap();
-    let p = root.join("2_Log/S001_log.md");
-    let mut c = fs::read_to_string(&p).unwrap();
-    c.push_str("\nsee [plan](../1_Concept/Nope.md) and [ok](../1_Concept/Real.md)\n");
-    fs::write(&p, c).unwrap();
-
-    let r = run_validate(&root).unwrap();
-    assert!(
-        r.lines.iter().any(|l| l.contains("broken cross-ref") && l.contains("Nope.md")),
-        "{:?}",
-        r.lines
-    );
-    assert!(
-        !r.lines.iter().any(|l| l.contains("Real.md")),
-        "유효 링크는 미발견이어야 함: {:?}",
-        r.lines
-    );
+    fs::create_dir_all(root.join("1_Concept/12_Planning")).unwrap();
+    fs::write(root.join("1_Concept/12_Planning/P001_a.md"), "# P001").unwrap();
+    append(&root, "\n[ok](../../1_Concept/12_Planning/P001_a.md) [bad](../../1_Concept/12_Planning/P999.md)\n");
+    let (i, _, l) = lines(&root);
+    assert_eq!(i, 1, "{l}");
+    assert!(l.contains("broken cross-ref → ../../1_Concept/12_Planning/P999.md"));
 }
 
 #[test]
-fn malformed_registry_escalates() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    fs::write(
-        root.join(REG),
-        "Session\tDate\tTitle\tStatus\tKey Finding\tArchive Path\nS001\tbad\n",
-    )
-    .unwrap();
-    match run_validate(&root) {
-        Err(ValidateError::Escalation(e)) => {
-            assert_eq!(e.line, 2);
-            assert!(e.to_string().contains("agent-action:"));
-        }
-        _ => panic!("expected escalation"),
-    }
-}
-
-// ── figure-embed (Figure-Embed Enforcement) ──────────
-
-fn seed_fig(root: &Path, name: &str) {
-    let viz = root.join("6_Exp/64_Viz/S001");
-    fs::create_dir_all(&viz).unwrap();
-    fs::write(viz.join(name), b"x").unwrap(); // figure 생성(내용 무관)
-}
-
-fn append_s001(root: &Path, extra: &str) {
-    let p = root.join("2_Log/S001_log.md");
-    let mut c = fs::read_to_string(&p).unwrap();
-    c.push_str(extra);
-    fs::write(&p, c).unwrap();
-}
-
-#[test]
-fn unembedded_figure_is_warning_not_issue() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    seed_fig(&root, "S001_fig.png"); // 생성만, 로그 미임베딩
-    let r = run_validate(&root).unwrap();
-    assert!(
-        r.lines.iter().any(|l| l.contains("S001_fig.png") && l.contains("not embedded")),
-        "{:?}",
-        r.lines
-    );
-    assert_eq!(r.issues, 0, "embed 누락은 기본 warn: {:?}", r.lines);
-    assert!(r.warnings >= 1);
-}
-
-#[test]
-fn embedded_figure_has_no_finding() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    seed_fig(&root, "S001_fig.png");
-    append_s001(&root, "\n### 관찰\n![Fig1: 축 설명](../6_Exp/64_Viz/S001/S001_fig.png)\n");
-    let r = run_validate(&root).unwrap();
-    assert!(!r.lines.iter().any(|l| l.contains("S001_fig.png")), "{:?}", r.lines);
-}
-
-#[test]
-fn table_path_only_still_warns() {
-    // 표에 경로만 기재(임베딩 아님) → 여전히 누락 경고 (S156 t04 갭 재현)
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    seed_fig(&root, "S001_fig.png");
-    append_s001(&root, "\n| Figure | `../6_Exp/64_Viz/S001/S001_fig.png` |\n");
-    let r = run_validate(&root).unwrap();
-    assert!(
-        r.lines.iter().any(|l| l.contains("S001_fig.png") && l.contains("not embedded")),
-        "{:?}",
-        r.lines
-    );
-}
-
-#[test]
-fn noembed_comment_suppresses_warning() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    seed_fig(&root, "S001_fig.png");
-    append_s001(&root, "\n<!-- noembed: S001_fig.png -->\n");
-    let r = run_validate(&root).unwrap();
-    assert!(!r.lines.iter().any(|l| l.contains("S001_fig.png")), "{:?}", r.lines);
-}
-
-/// `--strict` 삭제(v2.26) — embed 누락은 경고로만 보고되고 issue로 승격되지 않음.
-#[test]
-fn embed_miss_is_warning_not_issue() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    seed_fig(&root, "S001_fig.png");
-    let r = run_validate(&root).unwrap();
-    assert_eq!(r.issues, 0, "{:?}", r.lines);
-    assert!(r.lines.iter().any(|l| l.starts_with("warn:") && l.contains("S001_fig.png")), "{:?}", r.lines);
-}
-
-#[test]
-fn e2e_validate_strict_flag_removed() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    Command::cargo_bin("elf")
-        .unwrap()
-        .current_dir(&root)
-        .args(["validate", "--strict"])
-        .assert()
-        .failure()
-        .code(2);
-}
-
-// ── e2e ──────────────────────────────────────────────
-
-#[test]
-fn e2e_validate_clean_exits_0() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    Command::cargo_bin("elf")
-        .unwrap()
-        .current_dir(&root)
-        .args(["validate"])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("0 issue"));
-}
-
-#[test]
-fn e2e_validate_check_gates_with_exit_4() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    fs::write(root.join("2_Log/S005_log.md"), "# S005\n").unwrap(); // 미등록 = issue
-    Command::cargo_bin("elf")
-        .unwrap()
-        .current_dir(&root)
-        .args(["validate", "--check"])
-        .assert()
-        .failure()
-        .code(4);
-}
-
-#[test]
-fn e2e_validate_malformed_exits_5_with_marker() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    fs::write(
-        root.join(REG),
-        "Session\tDate\tTitle\tStatus\tKey Finding\tArchive Path\nS001\tbad\n",
-    )
-    .unwrap();
-    Command::cargo_bin("elf")
-        .unwrap()
-        .current_dir(&root)
-        .args(["validate"])
-        .assert()
-        .failure()
-        .code(5)
-        .stderr(predicates::str::contains("agent-action:"));
-}
-
-#[test]
-fn deprecated_whole_log_satisfies_registry_and_numbering() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    // S002: 전체 폐기 상태(Deprecated/에 로그, Registry Status Deprecated) — 번호는 보존, 구조 검사 대상 아님
-    fs::create_dir_all(root.join("2_Log/Deprecated")).unwrap();
-    fs::write(
-        root.join("2_Log/Deprecated/S002_log.md"),
-        "---\ndeprecated: 2026-10-08\nsource: 2_Log/S002_log.md\n---\n\n# S002: T\n\n> **Status**: Deprecated\n\n## t01: x\n\n### 결과 (bad)\n- 구조 검사 대상 아님\n",
-    )
-    .unwrap();
-    let mut reg = fs::read_to_string(root.join(REG)).unwrap();
-    reg.push_str("S002\t2026-06-13\tDep\tDeprecated\t-\tDeprecated/S002_log.md\n");
-    fs::write(root.join(REG), reg).unwrap();
-    let r = run_validate(&root).unwrap();
-    assert_eq!(r.issues, 0, "{:?}", r.lines);
-    assert!(!r.lines.iter().any(|l| l.contains("multiple active")), "{:?}", r.lines);
-    assert!(!r.lines.iter().any(|l| l.contains("non-canonical")), "{:?}", r.lines);
-    // 같은 번호가 루트에도 있으면 중복
-    fs::write(root.join("2_Log/S002_log.md"), "# S002: dup\n").unwrap();
-    let r = run_validate(&root).unwrap();
-    assert!(r.lines.iter().any(|l| l.contains("duplicate log number S002") && l.contains("Deprecated/")), "{:?}", r.lines);
-}
-
-#[test]
-fn partial_file_is_neither_duplicate_nor_unregistered() {
-    let tmp = tempdir().unwrap();
-    let root = new_project(tmp.path());
-    fs::create_dir_all(root.join("2_Log/Deprecated")).unwrap();
-    fs::write(root.join("2_Log/Deprecated/S001_log.partial.md"), "---\ndeprecated: partial\nsource: 2_Log/S001_log.md\n---\n").unwrap();
-    fs::write(root.join("2_Log/Deprecated/S201-a_log.md"), "# bad\n").unwrap(); // 비정격 이름은 Deprecated/에서도 검출
-    let r = run_validate(&root).unwrap();
-    assert!(!r.lines.iter().any(|l| l.contains("duplicate")), "{:?}", r.lines);
-    assert!(!r.lines.iter().any(|l| l.contains("not in the registry")), "{:?}", r.lines);
-    assert!(r.lines.iter().any(|l| l.contains("malformed session log name: 2_Log/Deprecated/S201-a_log.md")), "{:?}", r.lines);
-}
-
-#[test]
-fn figure_embedded_in_partial_file_counts_for_the_session() {
+fn figure_embed_warnings() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
     fs::create_dir_all(root.join("6_Exp/64_Viz/S001")).unwrap();
-    fs::write(root.join("6_Exp/64_Viz/S001/a.png"), "png").unwrap();
-    let r = run_validate(&root).unwrap();
-    assert!(r.lines.iter().any(|l| l.contains("figure 'a.png'")), "{:?}", r.lines);
-    fs::create_dir_all(root.join("2_Log/Deprecated")).unwrap();
-    fs::write(
-        root.join("2_Log/Deprecated/S001_log.partial.md"),
-        "---\ndeprecated: partial\nsource: 2_Log/S001_log.md\n---\n\n## t01: x\n> **Deprecated**: 2026-10-08, S001-D01, t01\n\n<!-- deprecated:begin S001-D01 -->\n![a](../../6_Exp/64_Viz/S001/a.png)\n<!-- deprecated:end S001-D01 -->\n",
-    )
-    .unwrap();
-    let r = run_validate(&root).unwrap();
-    assert!(!r.lines.iter().any(|l| l.contains("figure 'a.png'")), "{:?}", r.lines);
-}
-
-// ── 빈 틀 경고 (v2.27) ──────────────────────────────
-
-fn trial_tpl() -> &'static str {
-    elf_cli::embed::TEMPLATES.get_file("log/trialTemplate.md").unwrap().contents_utf8().unwrap()
-}
-
-#[test]
-fn unfilled_title_and_phase1_template_are_flagged() {
-    use elf_cli::validate::unfilled_template_findings;
-    // 제목 없이 `elf trial new`를 실행한 직후의 stub 그대로
-    let stub = trial_tpl().replace("t{NN}", "t01").replace("S{NNN}", "S001");
-    let f = unfilled_template_findings(&stub, trial_tpl());
-    assert!(f.iter().any(|x| x.contains("t01: title is still the template placeholder")), "{f:?}");
-    for k in ["목표", "조건", "가설", "예상"] {
-        assert!(f.iter().any(|x| x.contains(&format!("'### {k}' still holds only the template text"))), "{k}: {f:?}");
+    for f in ["a.png", "b.png", "c.png"] {
+        fs::write(root.join(format!("6_Exp/64_Viz/S001/{f}")), b"x").unwrap();
     }
-    // Phase 2 절(관찰, 해석, 교훈, 생성 파일)은 대상 아님
-    for k in ["관찰", "해석", "교훈", "생성 파일"] {
-        assert!(!f.iter().any(|x| x.contains(&format!("'### {k}'"))), "{k}: {f:?}");
-    }
+    append(&root, "\n![Fig1](../../6_Exp/64_Viz/S001/a.png)\n| Figure | `../../6_Exp/64_Viz/S001/b.png` |\n<!-- noembed: c.png -->\n");
+    let (i, w, l) = lines(&root);
+    assert_eq!((i, w), (0, 1), "{l}");
+    assert!(l.contains("figure 'b.png'"), "table path is not an embed: {l}");
 }
 
 #[test]
-fn filled_sections_and_leftover_hint_lines_are_not_flagged() {
-    use elf_cli::validate::unfilled_template_findings;
-    let log = "## t01: 실제 제목\n\n### 목표 (Goal)\n- 실제 목표\n\n### 조건 (Conditions)\n- 파라미터 A = 1\n- [반복 개선(delta) trial이면: base = 직전 trial, delta = 변경점 + 변경 이유(직전 시도 문제)]\n\n### 가설 (Hypothesis)\n- 가설 1\n\n### 예상 (Prediction)\n- 예상 1\n";
-    let f = unfilled_template_findings(log, trial_tpl());
-    assert!(f.is_empty(), "{f:?}");
-}
-
-#[test]
-fn unfilled_trial_warns_in_check_logs_but_archive_is_exempt() {
+fn unfilled_phase1_template_warns_for_ongoing_only() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    let log = root.join("2_Log/S001_log.md");
-    let stub = trial_tpl().replace("t{NN}", "t01").replace("S{NNN}", "S001");
-    let t = fs::read_to_string(&log).unwrap();
-    fs::write(&log, format!("{t}\n{stub}")).unwrap();
-    let r = run_validate(&root).unwrap();
-    assert_eq!(r.issues, 0, "{:?}", r.lines);
-    assert!(r.lines.iter().any(|l| l.starts_with("warn: S001_log.md: t01: title is still")), "{:?}", r.lines);
+    let tpl = elf_cli::embed::TEMPLATES.get_file("log/trialTemplate.md").unwrap().contents_utf8().unwrap();
+    append(&root, &format!("\n{}", tpl.replace("t{NN}", "t01")));
+    let (_, _, l) = lines(&root);
+    assert!(l.contains("t01: title is still the template placeholder"), "{l}");
+    assert!(l.contains("'### 목표' still holds only the template text"), "{l}");
 }
 
+#[test]
+fn earlier_layout_is_one_issue_pointing_to_update() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::create_dir_all(root.join("2_Log/Archive")).unwrap();
+    fs::write(root.join("2_Log/S005_log.md"), "# S005: old\n").unwrap();
+    let r = run_validate(root).unwrap();
+    assert_eq!(r.issues, 1);
+    assert!(r.lines[0].contains("earlier log layout") && r.lines[0].contains("elf update"));
+}
+
+#[test]
+fn complete_without_conclusion_warns() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    let c = fs::read_to_string(log(&root)).unwrap().replace("status: ongoing", "status: complete");
+    fs::write(log(&root), c).unwrap();
+    let (_, _, l) = lines(&root);
+    assert!(l.contains("conclusion is empty while complete"), "{l}");
+}
+
+#[test]
+fn e2e_check_logs_exit_codes() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    assert_cmd::Command::cargo_bin("elf").unwrap().args(["check", "logs"]).current_dir(&root).assert().code(0);
+    append(&root, "\n[bad](nope.md)\n");
+    assert_cmd::Command::cargo_bin("elf").unwrap().args(["check", "logs"]).current_dir(&root).assert().code(4);
+    assert_cmd::Command::cargo_bin("elf").unwrap().args(["validate", "--strict"]).current_dir(&root).assert().code(2);
+}

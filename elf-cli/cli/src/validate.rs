@@ -1,14 +1,17 @@
-//! `elf check logs` — 세션/Registry/로그 정합 검사(구 이름 `elf validate` — 숨김 별칭, P012 t04). **읽기전용** — FS 무변경.
+//! `elf check logs` — 로그 점검(구 이름 `elf validate` — 숨김 별칭, P012 t04). **읽기전용** — FS 무변경.
 //!
-//! Registry TSV 파서(session.rs)는 공용 — **파싱 불가는 escalation(exit 5)**,
-//! 그 외 발견은 보고(`--check` 시 issue에 한해 exit 4). "검사 결과"와 "검사 불능"을 구분(P012 §0.1).
+//! 구조 개편(P022): `2_Log/S/`, `2_Log/G/`의 YAML 헤더, status별 값, 번호, 링크, figure embed, trial 구조,
+//! 생성 파일(Registry.md)과 헤더의 일치, 이전 형식 흔적. 손 편집과 구버전 기록의 감사가 주 용도
+//! (새로 쓰는 내용은 `trial new`/`trial write`/`session close`가 쓰기 전에 검사, S044 t33, t34).
 
 use std::collections::BTreeSet;
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use crate::session::{Escalation, LOG_DIRS, RegistryRow, log_num, parse_registry, session_num};
+use crate::header::{self, Status};
+use crate::logs::{self, Series};
+use crate::session::handoff_pending;
 
 #[derive(Debug, Default)]
 pub struct ValidateReport {
@@ -36,8 +39,6 @@ impl ValidateReport {
 
 #[derive(Debug)]
 pub enum ValidateError {
-    /// Registry 파싱 불가 — 검사 진행 무의미, 상위 에이전트 위임 (exit 5)
-    Escalation(Box<Escalation>),
     Io(io::Error),
 }
 
@@ -72,14 +73,6 @@ pub fn numbering_gaps(known: &BTreeSet<u32>) -> Vec<u32> {
         }
     }
     gaps
-}
-
-/// 활성(Complete, Deprecated 아님) 세션 ID 목록 (Registry status 기준 — session.rs의 종료 판정과 공용).
-pub fn active_sessions(reg: &[RegistryRow]) -> Vec<String> {
-    reg.iter()
-        .filter(|r| crate::session::is_open_status(&r.status))
-        .map(|r| r.session.clone())
-        .collect()
 }
 
 /// 마크다운 인라인 링크 `](target)`에서 **상대 .md 링크 대상** 추출(순수).
@@ -154,7 +147,7 @@ pub fn extract_image_targets(content: &str) -> Vec<String> {
 }
 
 /// 이미지 확장자 여부(case-insensitive) — gallery와 동일 집합(png/jpg/svg).
-fn is_image(name: &str) -> bool {
+pub(crate) fn is_image(name: &str) -> bool {
     let l = name.to_ascii_lowercase();
     l.ends_with(".png") || l.ends_with(".jpg") || l.ends_with(".svg")
 }
@@ -363,39 +356,7 @@ pub fn unfilled_template_findings(content: &str, template: &str) -> Vec<String> 
 
 // ── FS 실행기 ──────────────────────────────────────────────────
 
-/// dir의 `S###_log.md` → (번호, 경로), 번호 오름차순.
-fn scan_logs(dir: &Path) -> Vec<(u32, PathBuf)> {
-    let mut v = Vec::new();
-    if let Ok(entries) = fs::read_dir(dir) {
-        for e in entries.flatten() {
-            if let Some(n) = e.file_name().to_str().and_then(log_num) {
-                v.push((n, e.path()));
-            }
-        }
-    }
-    v.sort_by_key(|(n, _)| *n);
-    v
-}
-
-/// dir의 `*_log.md` 중 `S###` 정격이 아닌 파일명(예: `S201-a_log.md`) — 검사 체계 밖으로
-/// 침묵 이탈하는 세션 파일을 감지(S030: 세션 id 변형은 CLI 게이트가 차단, 규칙 문서 아님).
-fn scan_malformed_log_names(dir: &Path) -> Vec<String> {
-    let mut v = Vec::new();
-    if let Ok(entries) = fs::read_dir(dir) {
-        for e in entries.flatten() {
-            if let Some(name) = e.file_name().to_str()
-                && name.ends_with("_log.md")
-                && log_num(name).is_none()
-            {
-                v.push(name.to_string());
-            }
-        }
-    }
-    v.sort();
-    v
-}
-
-/// `6_Exp/64_Viz/S{NNN}/`의 이미지 파일명(정렬). 디렉토리 부재 시 빈 벡터.
+/// `6_Exp/64_Viz/<id>/`의 이미지 파일명(정렬). 디렉토리 부재 시 빈 벡터.
 fn scan_viz_images(viz: &Path) -> Vec<String> {
     let mut v = Vec::new();
     if let Ok(entries) = fs::read_dir(viz) {
@@ -411,123 +372,130 @@ fn scan_viz_images(viz: &Path) -> Vec<String> {
     v
 }
 
-/// `elf check logs`: Registry↔로그 정합, 번호 중복/gap, 활성 복수, cross-ref, figure-embed 검사. 읽기전용.
-/// figure-embed 누락과 trial 구조 발견은 warning(구 `--strict` 승격은 v2.26에서 삭제).
+/// `elf check logs`: 헤더 형식과 status별 값, 번호, 진행 중 세션 수, 링크, figure embed, trial 구조,
+/// Registry.md와 헤더의 일치, 폐기 표기와 보관 파일의 짝, 이전 형식 흔적. 읽기전용.
 pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
-    let reg_text = fs::read_to_string(root.join(crate::session::REGISTRY_REL)).unwrap_or_default();
-    let rows = parse_registry(&reg_text).map_err(ValidateError::Escalation)?;
-
-    // 로그 위치 = session::LOG_DIRS(루트, Archive, Deprecated) — 번호 정합, 중복, 비정격 이름은 세 위치,
-    // 링크 검사는 루트, Archive, 구조 검사는 루트(Deprecated/는 두 검사의 대상이 아님).
-    let [live, archive, deprecated] = LOG_DIRS.map(|d| scan_logs(&root.join(d)));
-
-    let log_set: BTreeSet<u32> =
-        live.iter().chain(archive.iter()).chain(deprecated.iter()).map(|(n, _)| *n).collect();
-    let reg_set: BTreeSet<u32> = rows.iter().filter_map(|r| session_num(&r.session)).collect();
-    // Status `Purged`(elf deprecate purge) = 로그 파일이 없는 것이 정의 — 정합 검사에서 파일을 요구하지 않음.
-    let purged: BTreeSet<u32> =
-        rows.iter().filter(|r| r.status.starts_with("Purged")).filter_map(|r| session_num(&r.session)).collect();
-
     let mut report = ValidateReport::default();
-
-    // ① Registry ↔ 로그 정합
-    for n in log_set.difference(&reg_set) {
-        report.issue(format!("S{n:03} log exists but is not in the registry"));
-    }
-    for n in reg_set.difference(&log_set) {
-        if purged.contains(n) {
-            continue;
-        }
-        report.issue(format!(
-            "S{n:03} is in the registry but has no log file (2_Log/, Archive/ or Deprecated/)"
-        ));
-    }
-
-    // ② 번호 중복 + gap + 비정격 파일명 (세 위치 — 부분 폐기 파일 `*.partial.md`는 이름이 달라 대상 아님)
-    let all_log_nums: Vec<u32> =
-        live.iter().chain(archive.iter()).chain(deprecated.iter()).map(|(n, _)| *n).collect();
-    for n in duplicate_nums(&all_log_nums) {
-        report.issue(format!("duplicate log number S{n:03} across 2_Log/, Archive/ and Deprecated/"));
-    }
-    for dir in LOG_DIRS {
-        let label = format!("{dir}/");
-        for name in scan_malformed_log_names(&root.join(dir)) {
+    let legacy = logs::legacy_markers(root);
+    let migrated = Series::ALL.iter().any(|s| root.join(s.dir()).is_dir());
+    if !legacy.is_empty() {
+        if migrated {
             report.issue(format!(
-                "malformed session log name: {label}{name} — session ids are plain S### (no suffix/variant); give each parallel session its own number and record relations in the 관련: header field"
+                "logs in the earlier layout remain ({}) — run `elf update` to move them (a log made by an older CLI is renumbered)",
+                legacy.join(", ")
+            ));
+        } else {
+            report.issue(format!(
+                "this project uses the earlier log layout ({}) — run `elf update` to migrate (LogConvention §7)",
+                legacy.join(", ")
+            ));
+            return Ok(report);
+        }
+    }
+
+    let mut structure_hit = false;
+    for s in Series::ALL {
+        let logs = logs::scan(root, s);
+        for name in logs::malformed_names(root, s) {
+            report.issue(format!(
+                "malformed session log name: {}/{name} — session ids are plain S###/G### (no suffix/variant); give each parallel session its own number",
+                s.dir()
             ));
         }
-    }
-    let known: BTreeSet<u32> = log_set.union(&reg_set).copied().collect();
-    for n in numbering_gaps(&known) {
-        report.warn(format!("gap in session numbering: S{n:03} missing"));
-    }
-
-    // ④ 활성 세션 복수
-    let active = active_sessions(&rows);
-    if active.len() > 1 {
-        report.warn(format!(
-            "multiple active sessions ({}) — close all but the current one",
-            active.join(", ")
-        ));
-    }
-
-    // ③ cross-ref (상대 .md 링크 대상 부재) + ⑤ figure-embed (plot=trial; 표 경로 ≠ 임베딩)
-    for (n, path) in live.iter().chain(archive.iter()) {
-        let content = fs::read_to_string(path)?;
-        let dir = path.parent().unwrap_or(root);
-        let fname = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
-        for target in extract_md_links(&content) {
-            if !dir.join(&target).exists() {
-                report.issue(format!("{fname}: broken cross-ref → {target}"));
-            }
+        let known: BTreeSet<u32> = logs.iter().map(|l| l.num).collect();
+        for n in numbering_gaps(&known) {
+            report.warn(format!("gap in session numbering: {} missing", logs::id_of(s, n)));
         }
-        // 동일 세션 64_Viz의 그림이 세션 문서(로그 + 부분 폐기 파일 `Deprecated/S###_log.partial.md`)에
-        // 인라인 임베딩되지 않으면 warning. 폐기된 블록의 embed도 그 세션의 embed로 센다.
-        let images = scan_viz_images(&root.join(format!("6_Exp/64_Viz/S{n:03}")));
-        if !images.is_empty() {
-            let partial = fs::read_to_string(root.join(format!("2_Log/Deprecated/S{n:03}_log.partial.md")))
-                .unwrap_or_default();
-            let mut targets = extract_image_targets(&content);
-            targets.extend(extract_image_targets(&partial));
-            let mut skip = noembed_filenames(&content);
-            skip.extend(noembed_filenames(&partial));
-            for img in images {
-                if skip.contains(&img) || embedded_basename(&targets, &img) {
-                    continue;
+        let mut ongoing = Vec::new();
+        for l in &logs {
+            let content = fs::read_to_string(&l.path)?;
+            let fname = format!("{}_log.md", l.id);
+            let parsed = header::parse(&content);
+            match &parsed {
+                Err(e) => report.issue(format!("{fname}: {e} (LogConvention §2)")),
+                Ok((h, _)) => match h.status {
+                    Status::Ongoing => {
+                        ongoing.push(l.id.clone());
+                        if h.goal.trim().is_empty() {
+                            report.warn(format!("{fname}: goal is empty while ongoing"));
+                        }
+                    }
+                    Status::Complete => {
+                        if h.conclusion.trim().is_empty() {
+                            report.warn(format!("{fname}: conclusion is empty while complete"));
+                        }
+                        if let Some(p) = handoff_pending(&h.handoff) {
+                            report.warn(format!("{fname}: handoff still lists pending items while complete: \"{p}\""));
+                        }
+                    }
+                    Status::Deprecated => {
+                        if !h.conclusion.is_empty() || !h.user_note.is_empty() {
+                            report.warn(format!(
+                                "{fname}: a deprecated log keeps conclusion and user_note empty (LogConvention §6)"
+                            ));
+                        }
+                    }
+                },
+            }
+            let dir = l.path.parent().unwrap_or(root);
+            for target in extract_md_links(&content) {
+                if !dir.join(&target).exists() {
+                    report.issue(format!("{fname}: broken cross-ref → {target}"));
                 }
-                let msg = format!(
-                    "S{n:03}: figure '{img}' exists in 64_Viz/ but is not embedded in the log body \
-                     (table path ≠ embed; add ![..](..) or `<!-- noembed: {img} -->`)"
-                );
-                report.warn(msg);
+            }
+            let images = scan_viz_images(&root.join(format!("6_Exp/64_Viz/{}", l.id)));
+            if !images.is_empty() {
+                let targets = extract_image_targets(&content);
+                let skip = noembed_filenames(&content);
+                for img in images {
+                    if skip.contains(&img) || embedded_basename(&targets, &img) {
+                        continue;
+                    }
+                    report.warn(format!(
+                        "{}: figure '{img}' exists in 64_Viz/ but is not embedded in the log body \
+                         (table path ≠ embed; add ![..](..) or `<!-- noembed: {img} -->`)",
+                        l.id
+                    ));
+                }
+            }
+            if matches!(&parsed, Ok((h, _)) if h.status == Status::Ongoing) {
+                for f in trial_structure_findings(&content) {
+                    structure_hit = true;
+                    report.warn(format!("{fname}: {f}"));
+                }
+                for f in unfilled_template_findings(&content, trial_template()) {
+                    report.warn(format!("{fname}: {f}"));
+                }
+            }
+        }
+        if ongoing.len() > 1 {
+            report.warn(format!("multiple active sessions ({}) — close all but the current one", ongoing.join(", ")));
+        }
+        if let Some(expected) = logs::expected_registry(root, s) {
+            let rel = logs::registry_rel(s);
+            match fs::read_to_string(root.join(&rel)) {
+                Err(_) => report.warn(format!("{rel} is missing — any elf command that changes a log regenerates it")),
+                Ok(actual) if actual != expected => report.warn(format!(
+                    "{rel} differs from the log headers (edited by hand?) — it is generated; any elf command that changes a log regenerates it"
+                )),
+                Ok(_) => {}
             }
         }
     }
-
-    // ⑥ trial 구조 (활성 로그만 — Archive 제외 = 소급 정책; 정본 헤딩, 순서, 해석 1줄, Phase 절)
-    let mut structure_hit = false;
-    for (_n, path) in &live {
-        let content = fs::read_to_string(path)?;
-        let fname = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
-        for f in trial_structure_findings(&content) {
-            structure_hit = true;
-            report.warn(format!("{fname}: {f}"));
-        }
-        // ⑦ 빈 틀 — 제목 placeholder, Phase 1 절이 템플릿 문구만 담은 trial(활성 로그만)
-        for f in unfilled_template_findings(&content, trial_template()) {
-            report.warn(format!("{fname}: {f}"));
+    for (kind, msg) in crate::deprecate::pairing_findings(root) {
+        match kind {
+            'i' => report.issue(msg),
+            'w' => report.warn(msg),
+            _ => report.lines.push(format!("info: {msg}")),
         }
     }
     if structure_hit {
         report.lines.push(
-            "hint: add trials with `elf trial new` (appends the canonical stub) — spec: LogConvention.md §2".into(),
+            "hint: write trials with `elf trial new --from` and `elf trial write` (checked before writing) — spec: LogConvention.md §2, §5.1".into(),
         );
     }
-
     if report.lines.is_empty() {
-        report
-            .lines
-            .push("ok: registry, logs, numbering, and cross-refs are consistent".into());
+        report.lines.push("ok: log headers, numbering, cross-refs, and Registry.md are consistent".into());
     }
     Ok(report)
 }
@@ -535,18 +503,6 @@ pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn row(session: &str, status: &str) -> RegistryRow {
-        RegistryRow {
-            line: 0,
-            session: session.into(),
-            date: "2026-01-01".into(),
-            title: "t".into(),
-            status: status.into(),
-            key_finding: "-".into(),
-            archive_path: "-".into(),
-        }
-    }
 
     #[test]
     fn duplicates_found_sorted() {
@@ -561,17 +517,6 @@ mod tests {
         let consec: BTreeSet<u32> = [1u32, 2, 3].into_iter().collect();
         assert!(numbering_gaps(&consec).is_empty());
         assert!(numbering_gaps(&BTreeSet::new()).is_empty());
-    }
-
-    #[test]
-    fn active_excludes_complete() {
-        let rows = vec![
-            row("S001", "★ 활성"),
-            row("S002", "Complete"),
-            row("S003", "Complete (archived)"),
-            row("S004", "In Progress"),
-        ];
-        assert_eq!(active_sessions(&rows), vec!["S001", "S004"]);
     }
 
     #[test]

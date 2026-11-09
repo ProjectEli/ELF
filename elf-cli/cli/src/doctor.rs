@@ -72,7 +72,8 @@ pub fn run_doctor(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
         ),
         Some(root) => {
             r.add(Health::Ok, "ELF project", format!("root: {}", root.display()));
-            check_elf(&root, env, &mut r);
+            check_manifest_version(&root, env, &mut r);
+            check_elf(&root, &mut r);
             check_claudeignore(&root, &mut r);
             check_experimental(&root, &mut r);
             check_status(&root, &mut r);
@@ -90,15 +91,9 @@ pub fn run_doctor(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
     r
 }
 
-/// `elf check setup` — CLI 버전, 설치 receipt, git과 훅, (프로젝트 안이면) autoread, experimental.
-pub fn setup_checks(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
+/// `elf check setup` — git과 훅, (프로젝트 안이면) autoread, experimental. CLI와 프로젝트 버전은 `check version`.
+pub fn setup_checks(cwd: &Path, _env: &DoctorEnv) -> DoctorReport {
     let mut r = DoctorReport::default();
-    r.add(Health::Info, "elf version", env.version.clone());
-    if env.receipt_present {
-        r.add(Health::Ok, "install receipt", "found — `elf self update` works");
-    } else {
-        r.add(Health::Info, "install receipt", "absent — `elf self update` unavailable (dev/manual build)");
-    }
     match update::find_project_root(cwd) {
         None => r.add(Health::Info, "ELF project", "not inside an ELF project (.elf/ not found) — project settings skipped"),
         Some(root) => {
@@ -113,9 +108,9 @@ pub fn setup_checks(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
 
 /// `elf check files`의 진단 묶음 — `.elf` 기록, `.claudeignore`, 언어 파일, overlay, AGENTS 연결, tsa.
 /// 관리 파일 상태(status)는 호출 측이 이어 붙임.
-pub fn files_checks(root: &Path, env: &DoctorEnv) -> DoctorReport {
+pub fn files_checks(root: &Path, _env: &DoctorEnv) -> DoctorReport {
     let mut r = DoctorReport::default();
-    check_elf(root, env, &mut r);
+    check_elf(root, &mut r);
     check_claudeignore(root, &mut r);
     check_i18n(root, &mut r);
     check_overlay(root, &mut r);
@@ -128,30 +123,15 @@ pub fn files_checks(root: &Path, env: &DoctorEnv) -> DoctorReport {
     r
 }
 
-fn check_elf(root: &Path, env: &DoctorEnv, r: &mut DoctorReport) {
+/// 구 이름 `elf doctor` 전용 — `check version`과 같은 판정을 한 항목으로.
+fn check_manifest_version(root: &Path, env: &DoctorEnv, r: &mut DoctorReport) {
+    let v = crate::version::verdict_with(root, &env.version);
+    let (k, line) = crate::version::verdict_line(&v, &env.version);
+    r.add(if k == 'o' { Health::Ok } else { Health::Warn }, "project manifest", line);
+}
+
+fn check_elf(root: &Path, r: &mut DoctorReport) {
     let elf = root.join(".elf");
-    match fs::read_to_string(elf.join("manifest.json")) {
-        Ok(text) => match manifest::parse(&text) {
-            Ok(_) => r.add(Health::Ok, ".elf stamp", "manifest.json parses"),
-            Err(e) => r.add(Health::Warn, ".elf stamp", format!("manifest.json malformed: {e}")),
-        },
-        Err(e) => r.add(Health::Warn, ".elf stamp", format!("manifest.json unreadable: {e}")),
-    }
-    match fs::read_to_string(elf.join("version")) {
-        Ok(v) => {
-            let v = v.trim();
-            if v == env.version {
-                r.add(Health::Ok, ".elf version", format!("{v} (= CLI)"));
-            } else {
-                r.add(
-                    Health::Warn,
-                    ".elf version",
-                    format!("{v} ≠ CLI {} — run `elf update`", env.version),
-                );
-            }
-        }
-        Err(_) => r.add(Health::Warn, ".elf version", "version stamp missing — run `elf update`"),
-    }
     if elf.join("baseline").is_dir() {
         r.add(Health::Ok, ".elf baseline", "present (hybrid block diffing enabled)");
     } else {
@@ -501,8 +481,19 @@ fn check_autoread(root: &Path, r: &mut DoctorReport) {
         .filter(|(_, ok)| !ok)
         .map(|(e, _)| e.as_str())
         .collect();
-    if missing.is_empty() {
+    let outdated = autoread::hooks_outdated(root);
+    if missing.is_empty() && outdated.is_empty() {
         r.add(Health::Ok, "autoread", "enabled — Claude Code hooks installed");
+    } else if missing.is_empty() {
+        // 설치는 되어 있으나 정의가 예전 것(예: SessionStart matcher에 startup 없음 — S044 t29)
+        r.add(
+            Health::Warn,
+            "autoread",
+            format!(
+                "hook(s) outdated: {} — run `elf update` to refresh them",
+                outdated.join(", ")
+            ),
+        );
     } else {
         r.add(
             Health::Warn,
@@ -514,10 +505,33 @@ fn check_autoread(root: &Path, r: &mut DoctorReport) {
         );
     }
     // fulltext 선언 실효성 — 부재, 트리 이탈 경로는 주입 시 fail-open 스킵되므로 여기서만 드러남 (S031 t16).
-    let broken: Vec<String> = autoread::fulltext_list(root)
-        .into_iter()
+    let declared = autoread::fulltext_list(root);
+    let broken: Vec<String> = declared
+        .iter()
         .filter(|rel| !autoread::fulltext_path_ok(rel) || !root.join(rel).is_file())
+        .cloned()
         .collect();
+    if !declared.is_empty() {
+        // digest 상한(Claude Code 훅 출력 상한) 안에 들어가는지 — 넘치는 fulltext는 잘리거나 빠짐 (S044 t28)
+        let digest = autoread::build_digest_for(root, "check", false);
+        if digest.contains("autoread limit") {
+            r.add(
+                Health::Warn,
+                "autoread fulltext",
+                format!(
+                    "declared file(s) do not fit the autoread limit of {} chars (Claude Code hook output cap): trimmed or left out — shorten `autoread_fulltext`",
+                    autoread::DIGEST_CAP
+                ),
+            );
+        }
+        if declared.iter().any(|p| p.ends_with("LogConvention.md")) {
+            r.add(
+                Health::Info,
+                "autoread fulltext",
+                "the LogConvention §0 core summary is included by default — declaring the full LogConvention.md is no longer needed",
+            );
+        }
+    }
     if !broken.is_empty() {
         r.add(
             Health::Warn,

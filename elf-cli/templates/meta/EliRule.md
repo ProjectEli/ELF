@@ -10,12 +10,14 @@ README.md가 설계 원칙과 개요를 기술한다면, 이 문서는 실무 �
 ### Core (항상 포함)
 
 #### `.elf/` — ELF 제어 영역
-`elf` CLI가 프로젝트 상태(버전, 설정, 관리 파일 목록)를 기록하고, ELF 관리 규칙 정본 payload를 `.elf/managed/`에 배치하는 영역입니다. **직접 수정 금지** — `elf init`/`elf update`가 관리합니다.
+`elf` CLI가 프로젝트 상태(manifest = 관리 파일 목록과 `elf_version`, 설정)를 기록하고, ELF 관리 규칙 정본 payload를 `.elf/managed/`에 배치하는 영역입니다. **직접 수정 금지** — `elf init`/`elf update`와 elf 명령이 관리합니다. 예외: `elf update`가 만든 이관 결정 파일(`.elf/runtime/migration.yaml`)은 채움(LogConvention §7).
 - `.elf/managed/EliRule.md`: 이 문서 (폴더 구조 및 운영 가이드)
 - `.elf/managed/LogConvention.md`: 로깅 표준 규칙
-- `.elf/managed/AI_PARA_Framework.md`: 위치가 곧 상태인 파일 관리 규칙(진행 중, Wiki, Archive, Deprecated)과 AI 읽기 규칙. AI가 프로젝트 파일을 읽을 때 가장 중요한 기준 문서
+- `.elf/managed/AI_PARA_Framework.md`: 문서 종류별로 상태를 나타내는 곳(세션 로그 = 헤더 status, 계획 문서와 스크립트 = 폴더, 폐기 = 압축 보관과 흔적)과 AI 읽기 규칙. AI가 프로젝트 파일을 읽을 때 가장 중요한 기준 문서
 - `.elf/managed/highIFjournals.md`: 외부 문헌 검색용 high-IF 저널 화이트리스트 (§4 참조)
 - `.elf/managed/templates/`: 마크다운 스텁 (아래)
+- `.elf/deprecated/`: 폐기한 원문의 압축 보관 파일(`<ID>.md.xz`, git 추적, `elf deprecate`가 씀 — LogConvention §6)
+- `.elf/runtime/`: 도구 임시 상태(autoread 마커, 이관 결정 파일). git 추적 제외
 
 #### `0_Meta/` — 프로젝트 거버넌스 (사용자 영역)
 프로젝트 전용 규칙과 커스터마이즈를 두는 메타 구역입니다. `elf update`가 접근하지 않습니다.
@@ -29,25 +31,25 @@ README.md가 설계 원칙과 개요를 기술한다면, 이 문서는 실무 �
 - **`12_Planning/`**: 연구 기획, 로드맵, Figure 구성 스토리보드 (다중 세션, roadmap 단위)
   - Planning 문서는 `P###_제목.md` 형식으로 넘버링 (예: `P001_wavelength_optimization.md`)
   - `Wiki/`: 기획 단계 결론 및 핵심 규칙 요약
-  - `Archive/`: 종료된 계획 문서 보관, `Deprecated/`: 폐기한 계획 문서(`elf deprecate`, LogConvention §6)
+  - `Archive/`: 종료된 계획 문서 보관. 폐기는 원문을 `.elf/deprecated/`에 압축 보관하고 흔적을 남김(`elf deprecate`, LogConvention §6) — `Deprecated/` 폴더는 두지 않음
 - **`13_Ideas/`**: 세션화하기엔 작은 snippet, 초기 naive 아이디어. flat(Archive 없음, 폐기하지 않음). 구체화되면 Planning 문서나 세션 trial로 옮김.
 
 #### `2_Log/` — 세션 로그
-모든 종류의 작업(실험, 기획, SW 개발 등)을 기록하는 세션 로그의 최상위 공간입니다.
-- `S###_log.md`: 세션 로그 파일 (포맷: `.elf/managed/LogConvention.md` 참조)
-- `Wiki/`: 핵심 발견 요약 및 Session Registry
-- `Archive/`: 완료된 세션 로그 보관(종료된 유효 기록 — 읽기 허용)
-- `Deprecated/`: 폐기한 세션 로그, 블록(`elf deprecate` — 읽을 수 있으나 현재 판단의 근거로 쓰지 않음, LogConvention §6)
+모든 종류의 작업(실험, 기획, SW 개발 등)을 기록하는 세션 로그의 최상위 공간입니다. 로그는 상태와 무관하게 한 폴더에 두고 옮기지 않으며, 상태는 헤더 `status`(`ongoing`, `complete`, `deprecated`)로 나타냅니다(포맷: `.elf/managed/LogConvention.md` 참조).
+- `S/`: 연구 세션 로그 `S###_log.md`와 목록 `Registry.md`(헤더에서 elf가 만드는 생성 파일 — 직접 편집 금지)
+- `G/`: 거버넌스 세션 로그 `G###_log.md`(규칙, 구조, 템플릿, 도구 설정 변경)와 `Registry.md`. 첫 G 세션 때 생성
+- `Wiki/`: 여러 세션을 묶은 주제 문서(핵심 발견 요약). 갱신은 G 세션에서 사용자 승인 뒤
+- 종료된 로그(`complete`)는 유효한 기록이며 읽기 허용. 폐기한 로그와 블록은 원문을 `.elf/deprecated/`에 압축 보관하고 흔적만 남김(현재 판단의 근거로 쓰지 않음, LogConvention §6)
 
 #### `.elf/managed/templates/` — 마크다운 스텁
-- `sessionTemplate.md`: 새 세션 시작 시 `2_Log/S###_log.md`로 복사
-- `trialTemplate.md`: 진행 중 세션에 trial(t##) 추가 시 본문에 붙여넣기
+- `sessionTemplate.md`: `elf session new`가 `2_Log/S/S###_log.md`(G는 `2_Log/G/G###_log.md`)를 만들 때 쓰는 틀(헤더와 규범 주석)
+- `trialTemplate.md`: trial(t##)의 절 이름, 순서, 각 절 안내의 원본 — `elf trial new`, `elf trial write`가 이 틀로 trial을 만들고 검사함(LogConvention §2, §5.1). CLI가 없을 때는 본문에 붙여넣어 씀
 - **Planning 문서(`P###`)는 의도적 무템플릿** — trial은 재현성을 위해 템플릿 형식을 강제하나, planning은 연구자가 자유롭게 작성하는 문서라 형식을 강제하지 않음.
 - 루트 `templates/`는 ELF가 생성, 관리하지 않는 프로젝트 재량 폴더입니다.
 
 ### Modules (선택적 포함)
 
-> `elf init`의 `--preset`(full/experimental/software/minimal) 또는 `--modules` 선택으로 필요한 모듈만 포함 가능.
+> `elf init`의 `--preset`(full/exp/sw/minimal, 2.26 이전 이름 experimental/software도 받음) 또는 `--modules` 선택으로 필요한 모듈만 포함 가능.
 
 #### `3_HW/` — 하드웨어 설계
 장치의 물리적 설계를 컴포넌트와 통합 시스템으로 분리합니다.
@@ -70,13 +72,13 @@ README.md가 설계 원칙과 개요를 기술한다면, 이 문서는 실무 �
 #### `6_Exp/` — 실험 (Sim + Empirical + Analysis)
 시뮬레이션과 실측 데이터를 1:1 비교 검증할 수 있는 구조입니다.
 - **`61_Sim/`**: 시뮬레이션
-  - `Scripts/`: 시뮬레이션 코드 (`S###_sim.m` 등), `Archive/`: 폐기 스크립트 보관
+  - `Scripts/`: 시뮬레이션 코드 (`S###_sim.m` 등), `Archive/`: 일회용 스크립트 보관(AI_PARA_Framework §3)
   - `Data/`: 시뮬레이션 결과 (`Data/S###/`)
 - **`62_Empirical/`**: 실측 데이터
   - `Raw/`: 원본 센서 데이터 (**Read-Only, Git 추적 제외**)
   - `Processed/`: 1차 가공 데이터
 - **`63_Analysis/`**: 통합 분석
-  - `Scripts/`: 비교/검증 포스트프로세싱 코드, `Archive/`: 폐기 스크립트 보관
+  - `Scripts/`: 비교/검증 포스트프로세싱 코드, `Archive/`: 일회용 스크립트 보관(AI_PARA_Framework §3)
 - **`64_Viz/`**: 자동 생성된 시각화 추출물 (Figure PNG 등)
 
 #### `7_Paper/` — 논문 & 발표
@@ -89,20 +91,20 @@ README.md가 설계 원칙과 개요를 기술한다면, 이 문서는 실무 �
 
 ## 2. 운영 규칙
 
-> **기록 원칙 (Traceability)**: 가급적 **모든 작업, 변경, 결정은 세션 로그(`2_Log/S###`)에 기록**함을 원칙으로 한다. 의미 있는 코드, 데이터, 문서 변경과 그 시도와 결과(실패 포함)는 그 작업 turn에 남겨 재현성과 추적성을 확보한다 — 사소한 수정(오타, 경로)까지 강제하지는 않으나 산출물, 결론, 방향에 영향을 주는 변경은 누락하지 않는다. 상세 포맷과 base-delta 규칙은 `LogConvention.md` 참조.
+> **기록 원칙 (Traceability)**: 가급적 **모든 작업, 변경, 결정은 세션 로그(`2_Log/S/S###`, 규칙, 구조, 템플릿, 도구 설정 변경은 `2_Log/G/G###`)에 기록**함을 원칙으로 한다. 로그는 elf 명령(`elf trial new`, `elf trial write`, `elf session close --from`)으로 쓰고 손 편집은 내용 절의 오탈자 정도로 자제한다. 의미 있는 코드, 데이터, 문서 변경과 그 시도와 결과(실패 포함)는 그 작업 turn에 남겨 재현성과 추적성을 확보한다 — 사소한 수정(오타, 경로)까지 강제하지는 않으나 산출물, 결론, 방향에 영향을 주는 변경은 누락하지 않는다. 상세 포맷과 base-delta 규칙은 `LogConvention.md` 참조.
 
 ### 2.1 Raw Data 무결성
 - `6_Exp/62_Empirical/Raw/`에 저장된 파일은 **읽기 전용(Read-Only)**입니다.
 - 스크립트에서 읽기만 수행하며, 원본을 절대 덮어쓰지 않습니다.
 
 ### 2.2 Git 분리 전략
-- **Git 추적 대상**: 코드, 메타데이터, 로그, 분석 Figure, 원고 등 프로젝트 산출물 전반
-- **Git 추적 제외**: `6_Exp/62_Empirical/Raw/` (대용량 원본 센서 데이터), 도구 임시 파일
+- **Git 추적 대상**: 코드, 메타데이터, 로그, 분석 Figure, 원고 등 프로젝트 산출물 전반. 폐기 보관 파일(`.elf/deprecated/`)도 추적하며, 로그 변경과 같은 커밋에 넣음(LogConvention §6)
+- **Git 추적 제외**: `6_Exp/62_Empirical/Raw/` (대용량 원본 센서 데이터), 도구 임시 파일(`.elf/runtime/` 등)
 - 대용량 설계 파일(`3_HW/`)은 Git LFS 또는 별도 드라이브 관리를 권장합니다.
 - 분석 Figure(`.png` 등)와 원고(`.docx` 등)는 Git으로 추적하여 버전 관리합니다.
 
 ### 2.3 Naming Convention
-- **Session-Trial**: `S###_t##` (예: `S001_t1.csv`)
+- **Session-Trial**: `S###_t##` (예: `S001_t01.csv`). 거버넌스 세션은 `G###`(참조 `G004 t03`)
 - 파일 이름에 실험 조건/변수 정보 나열 **금지** — 모든 조건은 로그에 기록
 - Planning 문서: `P###_제목.md` (예: `P001_experiment_roadmap.md`)
 - 시뮬레이션 스크립트: `S###_sim.m`
@@ -127,12 +129,13 @@ README.md가 설계 원칙과 개요를 기술한다면, 이 문서는 실무 �
 | 구분 | 파일 | `elf update` 동작 |
 |------|------|-------------------|
 | **ELF 관리** | `.elf/managed/`의 `EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`(companion 포함), 루트 `AGENTS.md` | 새 버전으로 교체. **직접 수정한 경우 덮어쓰지 않고** 새 버전을 `<파일>.elf-new`로 생성(병합은 사용자 몫, `--force`로 강제 교체 가능) |
-| **사용자 소유** | `ProjectRule.md`, `Session_Registry.tsv`, `README.md`, 모든 연구 데이터, 로그 | **절대 미접근** |
+| **사용자 소유** | `ProjectRule.md`, `README.md`, 모든 연구 데이터, 로그 | **절대 미접근**(로그 구조 이관 때만 예외 — 사용자 확인 뒤 1회, LogConvention §7) |
 | **포인터(생성만)** | `CLAUDE.md` | 없으면 생성, 있으면 **절대 불변경**(내용 무관 — 기존 파일 소유권 보존). `@AGENTS.md` 로드 여부는 `elf check files`가 점검 |
-| **부분 관리** | `.gitignore` | 마커블록(`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) 안쪽만 교체, 블록 밖 사용자 규칙 보존 |
+| **부분 관리** | `.gitignore`, `.vscode/settings.json` | `.gitignore`는 마커블록(`# >>> ELF managed >>>` ~ `# <<< ELF managed <<<`) 안쪽만 교체, 블록 밖 사용자 규칙 보존. `.vscode/settings.json`은 file nesting 키만 병합(로그 상태가 바뀔 때 elf가 다시 씀) |
+| **도구 생성** | `2_Log/S/Registry.md`, `2_Log/G/Registry.md` | 로그를 바꾸는 elf 명령이 헤더에서 다시 만듦. 직접 편집 금지 |
 
 - 프로젝트 규칙 커스터마이즈는 ELF 관리 파일을 고치는 대신 **`ProjectRule.md`에 작성**하는 것을 권장합니다(갱신 충돌 없음).
-- 상태 확인: `elf check files` (변경 없이 진단만, 문제 발견 시 종료 코드 4 — CI/훅 게이트로 사용 가능).
+- 상태 확인: `elf check files` (변경 없이 진단만, 문제 발견 시 종료 코드 4 — CI/훅 게이트로 사용 가능). 버전 확인: `elf check version`(CLI와 프로젝트 manifest 비교, 할 일을 한 줄로).
 
 #### Data overlay — `<이름>.project.md` (data 파일 커스터마이즈)
 
@@ -148,10 +151,10 @@ data 성격의 ELF 관리 파일(manifest에 `overlayable`로 명시 — 현행:
 
 ### 2.8 세션 소유권 — 1세션 1작성자 (멀티에이전트)
 
-- **세션 로그 1개의 작성자는 항상 1명**(에이전트 또는 사람). 같은 세션 로그를 복수 에이전트, 터미널이 동시에 작성하지 않습니다 — 세션 로그는 작성자 1명의 순차 기록이며, 동시 작성은 trial 추가, 헤더 Handoff 갱신에서 조용한 상호 덮어쓰기(lost update)를 일으킵니다.
-- 병렬 작업은 **에이전트별 세션 분리**: 각자 `elf session new`로 번호를 받습니다. 관계는 번호가 아니라 헤더 `관련:` 필드에 기록합니다(참조 사유 1구 병기, 예: `S200(분기 원본 — 접근 A 담당)`).
-- 타 에이전트의 세션 로그는 **읽기 전용** 참조 — 남의 로그, Handoff를 수정하지 않습니다.
-- 병렬 세션들의 결론 통합은 별도 세션(또는 원본 세션)에서 **단일 작성자**로 수행하고, 입력이 된 세션들을 `관련:`에 명시합니다.
+- **세션 로그 1개의 작성자는 항상 1명**(에이전트 또는 사람). 같은 세션 로그를 복수 에이전트, 터미널이 동시에 작성하지 않습니다 — 세션 로그는 작성자 1명의 순차 기록이며, 동시 작성은 trial 추가, 헤더 handoff 갱신에서 조용한 상호 덮어쓰기(lost update)를 일으킵니다.
+- 병렬 작업은 **에이전트별 세션 분리**: 각자 `elf session new`로 번호를 받습니다. 관계는 번호가 아니라 첫 trial의 `### 배경`에 기록합니다(참조 사유 1구 병기, 예: `S200(분기 원본 — 접근 A 담당)`). 헤더에는 관련 필드가 없습니다(LogConvention §2).
+- 타 에이전트의 세션 로그는 **읽기 전용** 참조 — 남의 로그, handoff를 수정하지 않습니다.
+- 병렬 세션들의 결론 통합은 별도 세션(또는 원본 세션)에서 **단일 작성자**로 수행하고, 입력이 된 세션들을 그 trial의 `### 배경`에 명시합니다.
 
 ### 2.9 외부 반출과 공개 통제 (Egress Control)
 
@@ -202,5 +205,5 @@ data 성격의 ELF 관리 파일(manifest에 `overlayable`로 명시 — 현행:
   4. 저널명 명시 쿼리: 쿼리에 저널명 토큰 추가하여 랭킹 상향.
   5. preprint 경유: high-IF 게재작 full text는 arXiv, bioRxiv, medRxiv.
   6. 저-IF OA 배제(선택): tier 강제 필요 시 검색 도구 도메인 배제 기능 사용. 단 정당 venue 동반 배제 주의 — 무조건 배제 금지.
-  7. 인용 전 검증: "검색 노출 ≠ 고품질". venue+인용수 cross-check. 미확인 ref 날조 금지 (`AI_PARA_Framework.md` hallucination 방지 정합).
+  7. 인용 전 검증: "검색 노출 ≠ 고품질". venue+인용수 cross-check. 미확인 ref 날조 금지.
 - **Reference**: 도메인 화이트리스트, OA 미러, bibliometric API 전체 목록 = `.elf/managed/highIFjournals.md` (rule 문서는 참조만). 프로젝트별 도메인 추가, 제외 = data overlay `0_Meta/highIFjournals.project.md`(§2.7); 목록 자체의 갱신은 ELF 코어 반영.

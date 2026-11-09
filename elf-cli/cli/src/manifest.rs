@@ -1,9 +1,13 @@
-//! 배포 명세(manifest) 파싱 — elf-cli/manifest.json (schema: elf-manifest/1).
+//! 배포 명세(manifest) 파싱 — elf-cli/manifest.json (schema: elf-manifest/2).
+//! 프로젝트 manifest(`.elf/manifest.json`) = 정본 manifest + `elf_version`(기록한 CLI 버전, P022 §8).
+//! schema 1(2.27 이하)은 읽기만 함 — 이관 대상 판정과 계획용. 2.27 이하 CLI는 schema 2를 거부(되돌림 차단).
 //! src = CLI 번들 상대(templates/...), dest = 프로젝트 루트 상대. (P009 §3)
 
 use serde::Deserialize;
 
-pub const SCHEMA: &str = "elf-manifest/1";
+pub const SCHEMA: &str = "elf-manifest/2";
+/// 이전 형식(2.27 이하, `elf_version` 없음 — 버전은 `.elf/version`)
+pub const SCHEMA_V1: &str = "elf-manifest/1";
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Manifest {
@@ -12,6 +16,9 @@ pub struct Manifest {
     pub generated: String,
     #[serde(default)]
     pub note: String,
+    /// 프로젝트 manifest에만 — 이 manifest를 기록한 CLI 버전(`v2.28.0` 형식). 정본 manifest에는 없음
+    #[serde(default)]
+    pub elf_version: Option<String>,
     pub files: Vec<Entry>,
     /// 폴더 scaffold 데이터 (S007 결정 2026-06-12: 하드코딩 대신 manifest로 단일소스화)
     #[serde(default)]
@@ -80,7 +87,7 @@ pub enum Role {
 
 pub fn parse(json: &str) -> Result<Manifest, String> {
     let m: Manifest = serde_json::from_str(json).map_err(|e| format!("manifest parse: {e}"))?;
-    if m.schema != SCHEMA {
+    if m.schema != SCHEMA && m.schema != SCHEMA_V1 {
         return Err(format!("unsupported manifest schema: {} (expect {SCHEMA})", m.schema));
     }
     Ok(m)
@@ -151,12 +158,21 @@ pub fn embedded_kind(kind: Kind) -> Manifest {
     }
 }
 
-/// 계보별 정본 manifest JSON 원문 — `.elf/manifest.json` stamp 기록용 (init, update re-stamp 공용).
+/// 계보별 정본 manifest JSON 원문.
 pub fn kind_json(kind: Kind) -> &'static str {
     match kind {
         Kind::Research => crate::embed::MANIFEST_JSON,
         Kind::Qa => crate::embed::MANIFEST_QA_JSON,
     }
+}
+
+/// 프로젝트 manifest(`.elf/manifest.json`) 원문 — 정본 manifest의 schema 줄 다음에 `elf_version`을 넣음
+/// (init, update 공용). 정본 원문의 나머지 바이트는 그대로(sha 비교, 계획에 영향 없음).
+pub fn project_json(kind: Kind) -> String {
+    let src = kind_json(kind);
+    let line = format!("\"schema\": \"{SCHEMA}\",");
+    let at = src.find(&line).map(|i| i + line.len()).expect("canonical manifest has the schema line");
+    format!("{}\n  \"elf_version\": \"{}\",{}", &src[..at], crate::embed::version(), &src[at..])
 }
 
 /// BCP-47 태그 → primary subtag(소문자). "en-US"→"en", "ko-KR"→"ko", ""→"".
@@ -211,6 +227,7 @@ impl Manifest {
             schema: self.schema.clone(),
             generated: self.generated.clone(),
             note: self.note.clone(),
+            elf_version: self.elf_version.clone(),
             files,
             dirs: self.dirs.clone(),
         }
@@ -229,7 +246,7 @@ mod tests {
 
     #[test]
     fn parses_minimal_entry() {
-        let json = r#"{ "schema": "elf-manifest/1", "files": [
+        let json = r#"{ "schema": "elf-manifest/2", "files": [
             { "src": "templates/x.md", "dest": "0_Meta/x.md", "tier": "managed", "sha256": "ab" }
         ] }"#;
         let m = parse(json).unwrap();
@@ -239,7 +256,7 @@ mod tests {
 
     #[test]
     fn overlayable_parses_and_defaults_false() {
-        let json = r#"{ "schema": "elf-manifest/1", "files": [
+        let json = r#"{ "schema": "elf-manifest/2", "files": [
             { "src": "templates/meta/LLMcliche.md", "dest": "0_Meta/LLMcliche.md", "tier": "managed", "sha256": "ab", "overlayable": true },
             { "src": "templates/meta/EliRule.md", "dest": "0_Meta/EliRule.md", "tier": "managed", "sha256": "cd" }
         ] }"#;
@@ -251,7 +268,7 @@ mod tests {
     /// tier `user`(현행)와 구 이름 `seed`(v2.26 이전 stamp)가 같은 값으로 판독됨.
     #[test]
     fn user_tier_accepts_legacy_seed_name() {
-        let json = r#"{ "schema": "elf-manifest/1", "files": [
+        let json = r#"{ "schema": "elf-manifest/2", "files": [
             { "src": "a", "dest": "b", "tier": "user", "sha256": "ab" },
             { "src": "c", "dest": "d", "tier": "seed", "sha256": "cd" }
         ] }"#;
@@ -261,7 +278,7 @@ mod tests {
 
     #[test]
     fn rejects_unknown_tier() {
-        let json = r#"{ "schema": "elf-manifest/1", "files": [
+        let json = r#"{ "schema": "elf-manifest/2", "files": [
             { "src": "a", "dest": "b", "tier": "wild", "sha256": "ab" }
         ] }"#;
         assert!(parse(json).is_err());
@@ -294,5 +311,18 @@ mod tests {
         for k in [Kind::Research, Kind::Qa] {
             assert_eq!(parse(kind_json(k)).unwrap().src_signature(), k);
         }
+    }
+
+    #[test]
+    fn project_json_adds_elf_version_and_reads_schema_1() {
+        for k in [Kind::Research, Kind::Qa] {
+            let m = parse(&project_json(k)).unwrap();
+            assert_eq!(m.schema, SCHEMA);
+            assert_eq!(m.elf_version.as_deref(), Some(crate::embed::version()));
+            assert_eq!(m.files.len(), parse(kind_json(k)).unwrap().files.len());
+        }
+        assert!(parse(kind_json(Kind::Research)).unwrap().elf_version.is_none(), "canonical manifest has no version");
+        let v1 = parse(r#"{ "schema": "elf-manifest/1", "files": [] }"#).unwrap();
+        assert_eq!((v1.schema.as_str(), v1.elf_version), (SCHEMA_V1, None));
     }
 }

@@ -30,6 +30,10 @@ pub enum UpdateError {
     BadStamp(String),
     /// config 선언 preset과 stamp 실체(src 시그니처)의 계보 모순 — 이종 manifest 계획 차단 (S026)
     PresetMismatch { config: String, stamp: manifest::Kind },
+    /// 프로젝트 manifest가 이 CLI보다 높음 — 되돌림 차단(exit 3, P022 §8)
+    NewerProject(String),
+    /// 구조 이관 경고 또는 전제 미충족 — 아무것도 쓰지 않음, 보고 줄(exit 3, LogConvention §7)
+    Migration(Vec<String>),
     /// 내장 데이터 불일치 등 — 손상된 설치 의심 (panic 대신 안내, t09 정책)
     Internal(String),
     Io(io::Error),
@@ -48,6 +52,8 @@ impl std::fmt::Display for UpdateError {
                 f,
                 "preset mismatch: .elf/config.json declares \"{config}\" but the stamp (.elf/manifest.json) is a {stamp} manifest — refusing to plan against the wrong template set. Fix \"preset\" in .elf/config.json (expected \"{stamp}\") and re-run"
             ),
+            UpdateError::NewerProject(s) => write!(f, "{s}"),
+            UpdateError::Migration(v) => write!(f, "{}", v.join("\n")),
             UpdateError::Internal(s) => write!(
                 f,
                 "internal: {s} — corrupted install? run `elf self update` or reinstall"
@@ -179,12 +185,38 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
     // stamp는 init이 전체 JSON으로 찍으므로, 같은 lang으로 필터해야 obsolete 오탐 방지.
     let lang = read_config_lang(root);
     let stamp_full = manifest::parse(&stamp_text).map_err(UpdateError::BadStamp)?;
+    if let v @ crate::version::Verdict::Newer(_) = crate::version::verdict_with(root, embed::version()) {
+        return Err(UpdateError::NewerProject(format!(
+            "{} — updating would write older ELF files over it (details: `elf check version`)",
+            crate::version::verdict_line(&v, embed::version()).1
+        )));
+    }
     // 계보 해석 — preset별 정본 세트 선택 + 모순 시 거부 (S026: 이종 manifest 계획 금지)
     let (kind, kind_source) = resolve_kind(root, &stamp_full)?;
     let stamp = stamp_full.for_lang(&lang);
     let new_m = manifest::embedded_kind(kind).for_lang(&lang);
 
     let mut report = UpdateReport::default();
+    // 구조 이관(이전 형식 로그) — 경고나 전제 미충족이면 update 전체를 쓰지 않음(P022 §7)
+    let mut migrated = false;
+    if crate::migrate::needed(root) {
+        use crate::migrate::Outcome;
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let lines = match crate::migrate::run(root, opts.dry_run, &today)? {
+            Outcome::Blocked(lines) => return Err(UpdateError::Migration(lines)),
+            Outcome::Applied(lines) => {
+                migrated = true;
+                lines
+            }
+            Outcome::Planned(lines) => lines,
+        };
+        for l in lines {
+            match l.strip_prefix("warn: ") {
+                Some(w) => report.warn(w.to_string()),
+                None => report.note(l),
+            }
+        }
+    }
     match kind_source {
         KindSource::Config => {
             let cfg = read_config_preset(root);
@@ -229,7 +261,10 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
             }
         }
     }
-    warn_if_git_dirty(root, &mut report);
+    // 이관을 적용했으면 전제에서 깨끗함을 확인했고 지금의 변경은 이관 자신의 것 — 경고하지 않음
+    if !migrated {
+        warn_if_git_dirty(root, &mut report);
+    }
     warn_if_legacy_leftovers(root, &mut report);
 
     // 현재 상태 수집 (new manifest의 dest들)
@@ -251,12 +286,13 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
 
     // re-stamp는 무조건 (t02 재점검 §2: NoChange여도 stamp 해시는 구버전) — 반드시 같은 계보로 (S026)
     if !opts.dry_run {
-        fs::write(&stamp_path, manifest::kind_json(kind))?;
-        fs::write(
-            root.join(".elf").join("version"),
-            format!("{}\n", embed::version()),
-        )?;
-        report.note(format!("re-stamped .elf/ to ELF {}", embed::version()));
+        fs::write(&stamp_path, manifest::project_json(kind))?;
+        report.note(format!("project manifest: .elf/manifest.json → ELF {} (schema 2)", embed::version()));
+        // 이전 형식의 버전 파일 — 버전은 manifest의 elf_version으로 옮김(P022 §8)
+        if root.join(".elf").join("version").is_file() {
+            fs::remove_file(root.join(".elf").join("version"))?;
+            report.note("removed .elf/version (the version is now elf_version in .elf/manifest.json)".into());
+        }
     }
 
     // autoread 훅 보장 (기본 켬의 "설치 자동화" 지점 — S031 t06): config on(부재=on)이면

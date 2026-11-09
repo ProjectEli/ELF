@@ -1,8 +1,5 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use elf_cli::{
-    autoread, check, deprecate, doctor, embed, gallery, init, manifest, selfupdate, session, status, trial,
-    tsa, update, validate,
-};
+use elf_cli::{autoread, check, deprecate, doctor, embed, gallery, init, logcmd, manifest, migrate, selfupdate, session, status, trial, tsa, update, validate, version};
 
 /// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드, 갱신 CLI (research project scaffold & update CLI)
 #[derive(Parser)]
@@ -45,10 +42,10 @@ enum Commands {
         #[arg(long)]
         lang: Option<String>,
     },
-    /// 프로젝트의 ELF managed/hybrid 파일을 현 CLI 버전으로 갱신 / Update this project's ELF-managed files
-    /// (elf 실행 파일 자체는 `elf self update` / for the binary itself)
+    /// 프로젝트의 ELF 관리 파일 갱신과 이전 형식 로그 이관 / Update this project's ELF-managed files and migrate
+    /// earlier-layout logs (LogConvention §7; elf 실행 파일 자체는 `elf self update` / for the binary itself)
     Update {
-        /// 변경 없이 작업 목록만 출력 / dry-run (preview only)
+        /// 변경 없이 계획만 출력(이관 포함) / dry-run: print the plan, including the migration, write nothing
         #[arg(long)]
         dry_run: bool,
         /// 사용자 편집 무시 강제 갱신 / force overwrite (managed 덮어쓰기, hybrid 블록 교체)
@@ -67,19 +64,24 @@ enum Commands {
     /// (구 이름) `elf self update`와 같음 / same as `elf self update`
     #[command(name = "self-update", alias = "selfupdate", hide = true)]
     SelfUpdate,
-    /// 세션 수명주기 / Session lifecycle (new / close / fix-headers)
+    /// 세션 수명주기 / Session lifecycle (new / close)
     Session {
         #[command(subcommand)]
         cmd: SessionCmd,
     },
-    /// trial 스캐폴드 / Trial scaffold (활성 로그에 정본 stub 추가 / append the canonical stub)
+    /// trial 만들기와 쓰기 / Create a trial and write its sections (new / write)
     Trial {
         #[command(subcommand)]
         cmd: TrialCmd,
     },
-    /// 점검 / Check setup, ELF-managed files, and session logs (범위 생략 = 전체, 읽기전용/read-only; 문제 시 exit 4)
+    /// 세션 로그 목록과 보기(읽기 전용) / List session logs, or show one (read-only)
+    Log {
+        #[command(subcommand)]
+        cmd: Option<LogCmd>,
+    },
+    /// 점검 / Check versions, setup, ELF-managed files, and session logs (범위 생략 = 전체, 읽기전용/read-only; 문제 시 exit 4)
     Check {
-        /// 범위 / scope: setup (설치, 설정), files (ELF 관리 파일), logs (세션 로그, Registry) — 생략 = 전체 요약
+        /// 범위 / scope: version (CLI와 프로젝트 manifest), setup (git, 훅, autoread), files (ELF 관리 파일), logs (세션 로그, Registry.md) — 생략 = 전체 요약
         #[arg(value_enum)]
         scope: Option<CheckScope>,
     },
@@ -114,28 +116,28 @@ enum Commands {
         #[arg(long)]
         quiet: bool,
     },
-    /// compact 후 거버넌스 자동 재독 / Governance digest re-injection after context reconstruction (기본 켬/default-on) — 하위 명령 없음 = digest 출력 / no subcommand = print the digest
+    /// 세션 시작, compact 후 거버넌스 자동 주입 / Governance digest at session start and after context reconstruction (기본 켬/default-on) — 하위 명령 없음 = digest 출력 / no subcommand = print the digest
     Autoread {
         #[command(subcommand)]
         cmd: Option<AutoreadCmd>,
     },
-    /// 폐기 이동, 복원, 목록 / Deprecate or restore content (session logs, planning docs → `Deprecated/`); 인수 없음 = 목록 / no arguments = list
+    /// 폐기, 복원, 보기, 목록 / Deprecate content (removed from the document, stored compressed in .elf/deprecated/), restore, show; 인수 없음 = 목록 / no arguments = list
     #[command(args_conflicts_with_subcommands = true)]
     Deprecate {
         #[command(subcommand)]
         cmd: Option<DeprecateCmd>,
-        /// 대상 / target: S### | P### | project-relative path (omit = list; omit with --restore)
+        /// 대상 / target: S### | G### | P### | project-relative path (omit = list; omit with --restore)
         target: Option<String>,
-        /// trial 단위 / move one trial (e.g. t03) — keeps the heading, leaves a move marker
+        /// trial 단위 / one trial (e.g. t03) — leaves the numbered heading and a marker line
         #[arg(long, value_name = "tNN")]
         trial: Option<String>,
-        /// 절 단위 / move one section of --trial (e.g. 해석) — heading moves with the body
+        /// 절 단위 / one section of --trial (e.g. 해석) — the heading goes with the body
         #[arg(long, value_name = "NAME", requires = "trial")]
         section: Option<String>,
-        /// 표시 블록 / move every block wrapped in <!-- deprecate:begin --> … <!-- deprecate:end -->
+        /// 표시 블록 / the block wrapped in <!-- deprecate:begin --> … <!-- deprecate:end -->
         #[arg(long)]
         marked: bool,
-        /// 줄 범위 / move lines A-B (1-based, inclusive); requires --expect
+        /// 줄 범위 / lines A-B (1-based, inclusive); requires --expect
         #[arg(long, value_name = "A-B")]
         lines: Option<String>,
         /// 줄 범위 확인 / exact text of line A (guards --lines against drift)
@@ -150,7 +152,7 @@ enum Commands {
         /// 변경 없이 출력만 / preview only, write nothing
         #[arg(long = "dry-run")]
         dry_run: bool,
-        /// 복원 / restore a block (S012-D01) or a whole document (S012, P007, path)
+        /// 복원 / restore a deprecation id (S012-D01) and delete its store file
         #[arg(long, value_name = "ID", conflicts_with_all = ["target", "trial", "marked", "lines"])]
         restore: Option<String>,
     },
@@ -164,7 +166,9 @@ enum SelfCmd {
 
 #[derive(Clone, Copy, ValueEnum)]
 enum CheckScope {
-    /// 설치, 설정 / CLI, install, git and hooks, autoread, experimental
+    /// 버전 / CLI and project manifest versions, one-line verdict (elf update or elf self update)
+    Version,
+    /// 설정 / git and hooks, autoread, experimental
     Setup,
     /// ELF 관리 파일 / managed files, .elf record, overlay, AGENTS link, tsa
     Files,
@@ -177,13 +181,10 @@ enum DeprecateCmd {
     /// (구 이름) 목록 = 인수 없는 `elf deprecate` / list (same as `elf deprecate` with no arguments)
     #[command(hide = true)]
     List,
-    /// 영구 삭제(experimental, 기본 비활성) / Permanently remove a deprecated block or document (experimental; enable with "experimental": ["deprecate_purge"] in .elf/config.json)
-    Purge {
-        /// 블록 ID 또는 문서 / block id (S012-D01) or document (S012, P007, path under Deprecated/)
+    /// 보관 원문 보기(사용자가 요청할 때만) / Print the stored original (only when the user asks)
+    Show {
+        /// 폐기 ID / deprecation id (e.g. S012-D01)
         id: String,
-        /// 변경 없이 출력만 / preview only, write nothing
-        #[arg(long = "dry-run")]
-        dry_run: bool,
     },
 }
 
@@ -232,44 +233,68 @@ enum TsaCmd {
 
 #[derive(Subcommand)]
 enum SessionCmd {
-    /// 새 세션 로그 생성 + Registry 등록 / Create + register a new session log (S### 자동 증번)
+    /// 새 세션 로그 / Create a session log (2_Log/S/S###, --gov = 2_Log/G/G###) with a YAML header
     New {
-        /// 세션 제목 / session title (Registry 기록 — 탭 불가)
+        /// 세션 제목 / session title
         title: String,
-    },
-    /// 활성 세션 종료 / Close the active session (→ Complete + Archive + registry, cross-ref 보정)
-    Close {
-        /// 닫을 세션 ID / session id (생략 시 유일 활성 자동 선택)
-        id: Option<String>,
-        /// 호환용(무효과) / accepted for compatibility, no effect since 2.20 (the next-section gate was removed)
+        /// 세션 목표 1-2문장(필수) / the session goal in 1-2 sentences (required)
         #[arg(long)]
+        goal: String,
+        /// 거버넌스 세션 / governance session (rules, structure, templates, tool settings) → 2_Log/G/
+        #[arg(long)]
+        gov: bool,
+    },
+    /// 세션 종료 / Close a session: status complete + conclusion (required) from a file
+    Close {
+        /// 닫을 세션 ID / session id (S### or G###; 생략 시 진행 중 세션이 하나일 때 그것)
+        id: Option<String>,
+        /// 종료 파일 / close file: YAML block with conclusion (required), user_note, handoff
+        #[arg(long, value_name = "FILE")]
+        from: Option<std::path::PathBuf>,
+        /// 호환용(무효과) / accepted for compatibility, no effect
+        #[arg(long, hide = true)]
         force: bool,
     },
-    /// 세션 로그 헤더 hard break(`\`) 보정 / Repair session-log header hard breaks
-    #[command(name = "fix-headers")]
-    FixHeaders {
-        /// 변경 없이 대상 파일만 출력 / dry-run (list targets only)
-        #[arg(long)]
-        dry_run: bool,
+}
+
+#[derive(Subcommand)]
+enum LogCmd {
+    /// 헤더와 trial 목록, 또는 한 trial 본문 / Header and trial list, or one trial's text
+    Show {
+        /// S### | G###
+        id: String,
+        /// tNN — 그 trial 본문 / print this trial's text
+        trial: Option<String>,
     },
 }
 
 #[derive(Subcommand)]
 enum TrialCmd {
-    /// 활성 세션 로그에 현행 trialTemplate stub 추가 / Append the current canonical trial stub to the active session log
+    /// 새 trial / Create the next trial (title, Phase 1 template); --from = then write Phase 1 from a file
     New {
         /// trial 제목 / trial title (생략 시 placeholder 유지 / omit = keep placeholder)
         title: Option<String>,
-        /// 대상 세션 / target session (S### — 생략 시 유일 활성 자동 선택)
+        /// 대상 세션 / target session (S### or G### — 생략 시 진행 중 세션이 하나일 때 그것)
         #[arg(long)]
         session: Option<String>,
-        /// 본문 파일 / trial body file (`### ` 절; 첫 줄 `> **Handoff**:` = 헤더 Handoff 교체 / a first `> **Handoff**:` line replaces the header Handoff)
+        /// Phase 1 파일 / Phase 1 sections file (top YAML block: handoff only)
         #[arg(long, value_name = "FILE")]
         from: Option<std::path::PathBuf>,
     },
+    /// trial 절 쓰기 / Write the sections in a file into a trial: Phase 1 (replace, until Phase 2 exists) or Phase 2 (once)
+    Write {
+        /// 대상 trial / target trial (tNN — 생략 시 그 세션의 마지막 trial)
+        trial: Option<String>,
+        /// 대상 세션 / target session (S### or G###)
+        #[arg(long)]
+        session: Option<String>,
+        /// 절 파일 / sections file (one phase; top YAML block: handoff only)
+        #[arg(long, value_name = "FILE")]
+        from: std::path::PathBuf,
+    },
 }
 
-// exit code 규약: 0=성공, 1=실행 오류, 2=usage(clap 기본), 3=refuse, 4=check 발견, 5=escalation(상위 에이전트 위임).
+// exit code 규약: 0=성공, 1=실행 오류, 2=usage(clap 기본), 3=refuse(이관 경고 포함), 4=check 발견. (5 escalation은 Registry TSV 폐지로 없어짐, P022)
 fn main() {
     let cli = Cli::parse();
     // autoread 배너 — 재구성 마커 대기 중이면 모든 명령 출력 선두 1행(보조 주입 채널: auto-compact
@@ -431,6 +456,35 @@ fn main() {
         Commands::Update { dry_run, force, update_self: false } => {
             let cwd = std::env::current_dir().expect("cwd");
             let Some(root) = update::find_project_root(&cwd) else {
+                // 로그만 있는 폴더(`.elf/` 없음, 예: 프레임워크 `_dev`) — 구조 이관만
+                if let Some(lr) = session::find_log_root(&cwd)
+                    && migrate::needed(&lr)
+                {
+                    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+                    match migrate::run(&lr, dry_run, &today) {
+                        Ok(migrate::Outcome::Blocked(lines)) => {
+                            for l in &lines {
+                                println!("[elf] {l}");
+                            }
+                            std::process::exit(3);
+                        }
+                        Ok(migrate::Outcome::Applied(lines) | migrate::Outcome::Planned(lines)) => {
+                            for l in &lines {
+                                println!("[elf] {l}");
+                            }
+                            if dry_run {
+                                println!("[elf] log-only folder (no .elf/) — the migration covers the logs only (dry-run — nothing written)");
+                            } else {
+                                println!("[elf] log-only folder (no .elf/) — migrated the logs only");
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[elf] io error: {e}");
+                            std::process::exit(1);
+                        }
+                    }
+                    return;
+                }
                 eprintln!("[elf] error: not an ELF project (no .elf/manifest.json upward from {})", cwd.display());
                 std::process::exit(1);
             };
@@ -447,6 +501,16 @@ fn main() {
                         report.warnings,
                         if dry_run { " (dry-run — nothing written)" } else { "" }
                     );
+                }
+                Err(update::UpdateError::NewerProject(m)) => {
+                    eprintln!("[elf] refuse: {m}");
+                    std::process::exit(3);
+                }
+                Err(update::UpdateError::Migration(lines)) => {
+                    for l in &lines {
+                        println!("[elf] {l}");
+                    }
+                    std::process::exit(3);
                 }
                 Err(e) => {
                     eprintln!("[elf] error: {e}");
@@ -612,47 +676,22 @@ fn main() {
         }
         Commands::Deprecate { cmd, target, trial, section, marked, lines, expect, replaced_by, reason, dry_run, restore } => {
             let root = log_root_or_exit();
-            let purge_dry = matches!(&cmd, Some(DeprecateCmd::Purge { dry_run: true, .. }));
+            if cmd.is_none() && (restore.is_some() || target.is_some()) && !dry_run {
+                gate_write_or_exit();
+            }
             let result = match cmd {
-                Some(DeprecateCmd::Purge { id, dry_run: dr }) => {
-                    let date = chrono::Local::now().format("%Y-%m-%d").to_string();
-                    deprecate::run_purge(&root, &id, dr, &date)
-                }
                 Some(DeprecateCmd::List) => deprecate::run_list(&root),
+                Some(DeprecateCmd::Show { id }) => deprecate::run_show(&root, &id),
                 None => {
                     if let Some(id) = restore {
                         deprecate::run_restore(&root, &id)
-                    } else {
-                        let Some(target) = target else {
-                            // 인수 없음 = 목록(읽기전용). 대상 없이 이동 옵션만 준 경우는 usage 오류.
-                            let bare = trial.is_none()
-                                && section.is_none()
-                                && !marked
-                                && lines.is_none()
-                                && expect.is_none()
-                                && replaced_by.is_none()
-                                && reason.is_none()
-                                && !dry_run;
-                            if !bare {
-                                eprintln!("[elf] error: a target is required (S### | P### | path), or use --restore <ID>");
-                                std::process::exit(2);
-                            }
-                            match deprecate::run_list(&root) {
-                                Ok(rep) => {
-                                    for l in &rep.lines {
-                                        println!("[elf] {l}");
-                                    }
-                                    return;
-                                }
-                                Err(e) => {
-                                    eprintln!("[elf] error: {e:?}");
-                                    std::process::exit(1);
-                                }
-                            }
-                        };
+                    } else if let Some(target) = target {
                         let lines = match lines.as_deref() {
                             None => None,
-                            Some(s) => match s.split_once('-').and_then(|(a, b)| Some((a.trim().parse::<usize>().ok()?, b.trim().parse::<usize>().ok()?))) {
+                            Some(s) => match s
+                                .split_once('-')
+                                .and_then(|(a, b)| Some((a.trim().parse::<usize>().ok()?, b.trim().parse::<usize>().ok()?)))
+                            {
                                 Some(r) => Some(r),
                                 None => {
                                     eprintln!("[elf] error: --lines expects A-B (1-based line numbers), got \"{s}\"");
@@ -665,6 +704,21 @@ fn main() {
                             &root,
                             &deprecate::DeprecateOptions { target, trial, section, marked, lines, expect, replaced_by, reason, dry_run, date },
                         )
+                    } else {
+                        // 인수 없음 = 목록(읽기전용). 대상 없이 단위 옵션만 준 경우는 usage 오류.
+                        let bare = trial.is_none()
+                            && section.is_none()
+                            && !marked
+                            && lines.is_none()
+                            && expect.is_none()
+                            && replaced_by.is_none()
+                            && reason.is_none()
+                            && !dry_run;
+                        if !bare {
+                            eprintln!("[elf] error: a target is required (S### | G### | P### | path), or use --restore <ID>");
+                            std::process::exit(2);
+                        }
+                        deprecate::run_list(&root)
                     }
                 }
             };
@@ -673,8 +727,10 @@ fn main() {
                     for l in &rep.lines {
                         println!("[elf] {l}");
                     }
-                    if (dry_run || purge_dry) && !rep.changed {
+                    if dry_run && !rep.changed {
                         println!("[elf] dry-run — nothing written");
+                    } else if rep.changed {
+                        println!("[elf] note: commit the document change and its .elf/deprecated/ store file together (LogConvention §6)");
                     }
                 }
                 Err(deprecate::DeprecateError::Refuse(m)) => {
@@ -684,10 +740,6 @@ fn main() {
                 Err(deprecate::DeprecateError::NotFound(m)) => {
                     eprintln!("[elf] not found: {m}");
                     std::process::exit(1);
-                }
-                Err(deprecate::DeprecateError::Escalation(e)) => {
-                    eprintln!("[elf] {e}");
-                    std::process::exit(5);
                 }
                 Err(deprecate::DeprecateError::Io(e)) => {
                     eprintln!("[elf] io error: {e}");
@@ -729,10 +781,6 @@ fn main() {
                         std::process::exit(4);
                     }
                 }
-                Err(validate::ValidateError::Escalation(e)) => {
-                    eprintln!("[elf] {e}");
-                    std::process::exit(5);
-                }
                 Err(validate::ValidateError::Io(e)) => {
                     eprintln!("[elf] io error: {e}");
                     std::process::exit(1);
@@ -740,189 +788,165 @@ fn main() {
             }
         }
         Commands::Session { cmd } => match cmd {
-            SessionCmd::New { title } => {
+            SessionCmd::New { title, goal, gov } => {
                 let root = log_root_or_exit();
+                gate_write_or_exit();
                 let date = chrono::Local::now().format("%Y-%m-%d").to_string();
-                let opts = session::SessionNewOptions { title, date };
+                let opts = session::SessionNewOptions { title, date, goal, gov };
                 match session::run_session_new(&root, &opts) {
                     Ok(res) => {
                         for w in &res.warnings {
                             println!("[elf] warn: {w}");
                         }
-                        println!("[elf] created {} ({}) + registry row", res.log_rel, res.id);
-                        // v2.22: 로그는 헤더만 — 첫 trial은 `elf trial new`(t01). 안내가 곧 작업 위치(S035 t02 교훈)
-                        println!("[elf] next: elf trial new \"<title>\" → t01 — the log holds the header only; fill Phase 1, then stop before execution (LogConvention §5.1)");
+                        println!("[elf] created {} ({}) + Registry.md", res.log_rel, res.id);
+                        println!(
+                            "[elf] note: S = work on its own output; G = a change to rules, structure, templates, or tool settings for all later work (LogConvention §1)"
+                        );
+                        println!(
+                            "[elf] next: write Phase 1 to a file, then `elf trial new \"<title>\" --from <file>` → t01; stop for the user's confirmation before running (LogConvention §5.1)"
+                        );
                     }
-                    Err(session::SessionError::Escalation(e)) => {
-                        eprintln!("[elf] {e}");
-                        std::process::exit(5);
-                    }
-                    Err(session::SessionError::Exists(p)) => {
-                        eprintln!("[elf] refuse: {p} already exists");
-                        std::process::exit(3);
-                    }
-                    Err(session::SessionError::BadTitle(m)) => {
-                        eprintln!("[elf] error: {m}");
-                        std::process::exit(1);
-                    }
-                    Err(session::SessionError::Io(e)) => {
-                        eprintln!("[elf] io error: {e}");
-                        std::process::exit(1);
-                    }
-                    // close 전용 변형은 new 경로에서 발생 불가 (공용 enum 망라용)
-                    Err(
-                        e @ (session::SessionError::NoOpenSession
-                        | session::SessionError::MultipleOpen(_)
-                        | session::SessionError::NotFound(_)
-                        | session::SessionError::Rejected(_)),
-                    ) => unreachable!("session new cannot yield close-only error: {e:?}"),
+                    Err(e) => session_exit(e, "elf session new"),
                 }
             }
-            SessionCmd::Close { id, force } => {
+            SessionCmd::Close { id, from, force: _ } => {
                 let root = log_root_or_exit();
-                match session::run_session_close(&root, &session::CloseOptions { id, force }) {
+                gate_write_or_exit();
+                let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+                let body = from.as_ref().map(|p| read_input(p));
+                match session::run_session_close(&root, &session::CloseOptions { id, body, date }) {
                     Ok(r) => {
                         for w in &r.warnings {
                             println!("[elf] warn: {w}");
                         }
-                        println!(
-                            "[elf] closed {} → {} (Status: Complete, registry updated)",
-                            r.id, r.archived_to
-                        );
-                        println!(
-                            "[elf] note: rewrite the registry key finding as the session's final conclusion, replacing the previous text (LogConvention §5.2)"
-                        );
+                        println!("[elf] closed {} ({}) — status complete, Registry.md updated (the file is not moved)", r.id, r.log_rel);
                     }
-                    Err(session::SessionError::Escalation(e)) => {
-                        eprintln!("[elf] {e}");
-                        std::process::exit(5);
-                    }
-                    Err(session::SessionError::NoOpenSession) => {
-                        eprintln!("[elf] nothing to close: no open session in 2_Log/ (all Complete)");
-                        std::process::exit(1);
-                    }
-                    Err(session::SessionError::MultipleOpen(ids)) => {
-                        eprintln!(
-                            "[elf] multiple open sessions ({}) — specify one: elf session close <S###>",
-                            ids.join(", ")
-                        );
-                        std::process::exit(1);
-                    }
-                    Err(session::SessionError::NotFound(id)) => {
-                        eprintln!("[elf] session not found: {id}");
-                        std::process::exit(1);
-                    }
-                    Err(session::SessionError::Exists(p)) => {
-                        eprintln!("[elf] refuse: {p} already exists");
-                        std::process::exit(3);
-                    }
-                    Err(session::SessionError::BadTitle(m)) => {
-                        eprintln!("[elf] error: {m}");
-                        std::process::exit(1);
-                    }
-                    Err(session::SessionError::Io(e)) => {
-                        eprintln!("[elf] io error: {e}");
-                        std::process::exit(1);
-                    }
-                    Err(e @ session::SessionError::Rejected(_)) => unreachable!("session close cannot yield a trial error: {e:?}"),
-                }
-            }
-            SessionCmd::FixHeaders { dry_run } => {
-                let root = log_root_or_exit();
-                match session::run_fix_headers(&root, dry_run) {
-                    Ok(files) => {
-                        for f in &files {
-                            println!("[elf] {} {}", if dry_run { "would fix" } else { "fixed" }, f.path);
-                        }
-                        println!(
-                            "[elf] {} file(s) {}",
-                            files.len(),
-                            if dry_run { "would change (dry-run)" } else { "changed" }
-                        );
-                    }
-                    Err(e) => {
-                        eprintln!("[elf] io error: {e}");
-                        std::process::exit(1);
-                    }
+                    Err(e) => session_exit(e, "elf session close <S###|G###>"),
                 }
             }
         },
-        Commands::Trial { cmd } => match cmd {
-            TrialCmd::New { title, session: sess, from } => {
-                let root = log_root_or_exit();
-                let date = chrono::Local::now().format("%Y-%m-%d").to_string();
-                let body = from.as_ref().map(|p| {
-                    std::fs::read_to_string(p).unwrap_or_else(|e| {
-                        eprintln!("[elf] cannot read {}: {e}", p.display());
-                        std::process::exit(1);
-                    })
-                });
-                let from_file = body.is_some();
-                let opts = trial::TrialNewOptions { title, session: sess, date, body };
-                match trial::run_trial_new(&root, &opts) {
-                    Ok(r) => {
-                        println!(
-                            "[elf] appended {} to {} ({}){}",
-                            r.trial,
-                            r.log_rel,
-                            r.session,
-                            if from_file { ", from file" } else { "" }
-                        );
-                        if r.handoff_replaced {
-                            println!("[elf] header Handoff replaced with the first line of the file");
-                        }
-                        if !from_file {
-                            println!(
-                                "[elf] next: Phase 1 — fill 목표/조건/가설/예상, then stop before execution (LogConvention §5.1)"
-                            );
-                        } else if !r.filled_from_template.is_empty() {
-                            println!(
-                                "[elf] next: Phase 2 sections ({}) hold the template text — stop before execution, fill them afterwards (LogConvention §5.1)",
-                                r.filled_from_template.join(", ")
-                            );
-                        }
-                        // 행동 시점 주입 (S027): 상시 문서의 embed 규칙은 발동 시점을 보장하지 못함 —
-                        // trial 시작(= figure 작성 이전이 보장되는 유일한 ELF 소유 시점)에 반복 주입
-                        println!(
-                            "[elf] note: list expected figures in 예상, and embed each into `### 관찰` the moment it is created — a table path is not an embed; sub-agent outputs included (LogConvention §2)"
-                        );
-                        println!(
-                            "[elf] note: keep the header Handoff a replace-style summary (state; pending; refs) — do not append history"
-                        );
-                    }
-                    Err(session::SessionError::NoOpenSession) => {
-                        eprintln!("[elf] no open session in 2_Log/ — start one with `elf session new \"<title>\"`");
-                        std::process::exit(1);
-                    }
-                    Err(session::SessionError::MultipleOpen(ids)) => {
-                        eprintln!(
-                            "[elf] multiple open sessions ({}) — specify one: elf trial new --session <S###>",
-                            ids.join(", ")
-                        );
-                        std::process::exit(1);
-                    }
-                    Err(session::SessionError::NotFound(id)) => {
-                        eprintln!("[elf] session not found: {id}");
-                        std::process::exit(1);
-                    }
-                    Err(session::SessionError::Rejected(reasons)) => {
-                        eprintln!("[elf] refuse: trial not appended (the log is unchanged):");
-                        for x in reasons {
-                            eprintln!("[elf]   {x}");
-                        }
-                        std::process::exit(3);
-                    }
-                    Err(session::SessionError::Io(e)) => {
-                        eprintln!("[elf] io error: {e}");
-                        std::process::exit(1);
-                    }
-                    Err(e) => {
-                        eprintln!("[elf] error: {e:?}");
-                        std::process::exit(1);
+        Commands::Log { cmd } => {
+            let root = log_root_or_exit();
+            let result = match cmd {
+                None => logcmd::run_list(&root),
+                Some(LogCmd::Show { id, trial }) => logcmd::run_show(&root, &id, trial.as_deref()),
+            };
+            match result {
+                Ok(lines) => {
+                    for l in lines {
+                        println!("[elf] {l}");
                     }
                 }
+                Err(e) => session_exit(e, "elf log show <S###|G###> [tNN]"),
             }
-        },
+        }
+        Commands::Trial { cmd } => {
+            let root = log_root_or_exit();
+            gate_write_or_exit();
+            let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+            let now = chrono::Local::now().fixed_offset();
+            let result = match cmd {
+                TrialCmd::New { title, session: sess, from } => {
+                    let body = from.as_ref().map(|p| read_input(p));
+                    trial::run_trial_new(&root, &trial::TrialNewOptions { title, session: sess, date, body, now })
+                }
+                TrialCmd::Write { trial: t, session: sess, from } => {
+                    let body = read_input(&from);
+                    trial::run_trial_write(&root, &trial::TrialWriteOptions { trial: t, session: sess, date, body, now })
+                }
+            };
+            match result {
+                Ok(r) => {
+                    for w in &r.warnings {
+                        println!("[elf] warn: {w}");
+                    }
+                    for n in &r.normalized {
+                        println!("[elf] corrected: {n}");
+                    }
+                    match r.phase {
+                        0 => {
+                            println!("[elf] appended {} to {} ({}) — Phase 1 template", r.trial, r.log_rel, r.session);
+                            println!("[elf] next: fill Phase 1 (목표/조건/가설/예상), or write it to a file and run `elf trial write --from <file>`; stop before running (LogConvention §5.1)");
+                        }
+                        1 => {
+                            println!(
+                                "[elf] {} Phase 1 written to {} ({}) — write {}",
+                                r.trial, r.log_rel, r.session, r.writes
+                            );
+                            println!("[elf] next: stop — show Phase 1 to the user and get confirmation; revise with `elf trial write --from <file>`; run only after approval (LogConvention §5.1)");
+                            println!("[elf] note: list expected figures in 예상, and embed each into `### 관찰` the moment it is created — a table path is not an embed; sub-agent outputs included (LogConvention §2)");
+                        }
+                        _ => {
+                            println!("[elf] {} Phase 2 written to {} ({})", r.trial, r.log_rel, r.session);
+                            println!("[elf] note: a rerun or a change that reflects these results is a new trial (LogConvention §2)");
+                        }
+                    }
+                    if r.handoff_replaced {
+                        println!("[elf] header handoff replaced from the file's YAML block");
+                    }
+                }
+                Err(e) => session_exit(e, "elf trial new|write --session <S###|G###>"),
+            }
+        }
+    }
+}
+
+/// `--from` 파일 읽기(실패 = exit 1).
+fn read_input(p: &std::path::Path) -> String {
+    std::fs::read_to_string(p).unwrap_or_else(|e| {
+        eprintln!("[elf] cannot read {}: {e}", p.display());
+        std::process::exit(1);
+    })
+}
+
+/// session, trial, log 명령 공용 오류 출력과 종료 코드(1 = 실행 오류, 3 = 거부).
+fn session_exit(e: session::SessionError, usage: &str) -> ! {
+    use session::SessionError as E;
+    match e {
+        E::Exists(p) => {
+            eprintln!("[elf] refuse: {p} already exists");
+            std::process::exit(3);
+        }
+        E::BadTitle(m) => {
+            eprintln!("[elf] error: {m}");
+            std::process::exit(1);
+        }
+        E::NoOpenSession => {
+            eprintln!("[elf] no ongoing session — start one with `elf session new \"<title>\" --goal '<goal>'`");
+            std::process::exit(1);
+        }
+        E::MultipleOpen(ids) => {
+            eprintln!("[elf] multiple ongoing sessions ({}) — specify one: {usage}", ids.join(", "));
+            std::process::exit(1);
+        }
+        E::NotFound(id) => {
+            eprintln!("[elf] not found: {id}");
+            std::process::exit(1);
+        }
+        E::Rejected(reasons) => {
+            eprintln!("[elf] refuse: nothing written (fix all of these, then run again):");
+            for x in reasons {
+                for (i, l) in x.lines().enumerate() {
+                    eprintln!("[elf] {}{l}", if i == 0 { "  " } else { "    " });
+                }
+            }
+            std::process::exit(3);
+        }
+        E::BadHeader(m) => {
+            eprintln!("[elf] refuse: {m} — the header is written only by elf commands; run `elf check logs`");
+            std::process::exit(3);
+        }
+        E::Legacy(m) => {
+            eprintln!(
+                "[elf] refuse: this project still has the earlier log layout ({}) — run `elf update` to migrate first (LogConvention §7)",
+                m.join(", ")
+            );
+            std::process::exit(3);
+        }
+        E::Io(x) => {
+            eprintln!("[elf] io error: {x}");
+            std::process::exit(1);
+        }
     }
 }
 
@@ -938,6 +962,15 @@ fn log_root_or_exit() -> std::path::PathBuf {
     }
 }
 
+/// 쓰기 명령 관문 — 프로젝트 manifest가 이 CLI보다 높으면 거부(exit 3, P022 §8). 프로젝트 밖(`_dev` 등)은 통과.
+fn gate_write_or_exit() {
+    let cwd = std::env::current_dir().expect("cwd");
+    if let Err(m) = version::gate_write(&cwd) {
+        eprintln!("[elf] refuse: {m}");
+        std::process::exit(3);
+    }
+}
+
 fn do_self_update() {
     match selfupdate::run_self_update() {
         Ok(msg) => println!("[elf] {msg}"),
@@ -950,16 +983,18 @@ fn do_self_update() {
 
 fn scope_of(s: CheckScope) -> check::Scope {
     match s {
+        CheckScope::Version => check::Scope::Version,
         CheckScope::Setup => check::Scope::Setup,
         CheckScope::Files => check::Scope::Files,
         CheckScope::Logs => check::Scope::Logs,
     }
 }
 
-/// `elf check` — 세 범위 요약: 범위별 요약 1줄 + 문제와 경고 줄, 마지막에 합계. 반환 = 종료 코드.
+/// `elf check` — 네 범위 요약: 범위별 요약 1줄 + 문제와 경고 줄, 마지막에 합계. 반환 = 종료 코드.
 fn print_check_all(cwd: &std::path::Path, env: &doctor::DoctorEnv) -> i32 {
-    let (mut issues, mut warnings, mut escalated) = (0, 0, false);
-    for scope in [check::Scope::Setup, check::Scope::Files, check::Scope::Logs] {
+    let (mut issues, mut warnings) = (0, 0);
+    // 버전이 맞지 않으면 다른 범위 결과가 틀릴 수 있어 version을 먼저(S044 t41)
+    for scope in [check::Scope::Version, check::Scope::Setup, check::Scope::Files, check::Scope::Logs] {
         let r = check::run_scope(cwd, env, scope);
         if let Some(why) = &r.skipped {
             println!("[elf] check {}: skipped — {why}", scope.name());
@@ -969,21 +1004,11 @@ fn print_check_all(cwd: &std::path::Path, env: &doctor::DoctorEnv) -> i32 {
         for item in r.items.iter().filter(|i| i.is_finding()) {
             println!("[elf]   {}", item.render());
         }
-        if let Some(e) = &r.escalation {
-            println!("[elf]   {e}");
-            escalated = true;
-        }
         issues += r.issues();
         warnings += r.warnings();
     }
     println!("[elf] check: {issues} issue(s), {warnings} warning(s)");
-    if escalated {
-        5
-    } else if issues > 0 {
-        4
-    } else {
-        0
-    }
+    if issues > 0 { 4 } else { 0 }
 }
 
 /// `elf check <scope>` — 그 범위의 전체 상세. 적용 불가 범위 = 오류(종료 1).
@@ -995,10 +1020,6 @@ fn print_check_scope(cwd: &std::path::Path, env: &doctor::DoctorEnv, scope: chec
     }
     for item in &r.items {
         println!("[elf] {}", item.render());
-    }
-    if let Some(e) = &r.escalation {
-        eprintln!("[elf] {e}");
-        return 5;
     }
     println!("[elf] check {}: {} issue(s), {} warning(s)", scope.name(), r.issues(), r.warnings());
     if r.issues() > 0 {

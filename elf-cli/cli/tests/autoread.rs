@@ -29,13 +29,15 @@ fn settings_path(root: &Path) -> PathBuf {
     root.join(".claude").join("settings.json")
 }
 
-/// 활성 세션 로그를 직접 배치 (헤더 형식 = sessionTemplate 동형 — 파서 대상 필드만).
+/// 진행 중 세션 로그를 직접 배치 (YAML 헤더 — header.rs 형식).
 fn write_active_log(root: &Path, num: u32, handoff: &str) {
     let id = format!("S{num:03}");
-    let content = format!(
-        "# {id}: test session {num}\n\n> **Created**: 2026-07-16\\\n> **Modified**: 2026-07-16\\\n> **Status**: ★ 활성\\\n> **목표**: t\\\n> **관련**: -\\\n> **Handoff**: {handoff}\n\n---\n"
-    );
-    fs::write(root.join("2_Log").join(format!("{id}_log.md")), content).expect("write log");
+    let mut h = elf_cli::header::Header::new("2026-07-16", "t");
+    h.handoff = handoff.to_string();
+    let content = format!("{}# {id}: test session {num}
+", elf_cli::header::render(&h));
+    fs::create_dir_all(root.join("2_Log/S")).unwrap();
+    fs::write(root.join("2_Log/S").join(format!("{id}_log.md")), content).expect("write log");
 }
 
 fn session_start_stdin(session_id: &str, source: &str) -> String {
@@ -76,7 +78,7 @@ fn init_installs_hooks_and_install_is_idempotent() {
     let text = fs::read_to_string(settings_path(&root)).unwrap();
     assert!(text.contains("elf autoread hook session-start"));
     assert!(text.contains("elf autoread hook prompt"));
-    assert!(text.contains("compact|resume|clear"));
+    assert!(text.contains("startup|compact|resume|clear"));
     for (_, installed) in autoread::hook_states(&root) {
         assert!(installed);
     }
@@ -142,7 +144,7 @@ fn session_start_marks_and_prompt_injects_exactly_once() {
     assert!(digest.contains("context was reconstructed (compact)"));
     // CLAUDE.md `@AGENTS.md` import 유효 → Claude Code가 AGENTS.md를 다시 읽으므로 상시 의무는 1줄 안내 (S043)
     assert!(digest.contains("standing duties not repeated here"), "{digest}");
-    assert!(!digest.contains("컨텍스트 재구성 후 상태 복원"));
+    assert!(!digest.contains("시작과 컨텍스트 재구성"));
     assert!(digest.contains("S002")); // 활성 세션 Handoff
     assert!(digest.contains("check logs:")); // 카운트
     // 두 번째 프롬프트 = 침묵 (마커 소모됨)
@@ -153,7 +155,7 @@ fn session_start_marks_and_prompt_injects_exactly_once() {
 fn digest_keeps_standing_duties_when_agents_md_is_not_imported() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    let full = |d: &str| d.contains("AGENTS.md standing duties (canonical digest)") && d.contains("컨텍스트 재구성 후 상태 복원");
+    let full = |d: &str| d.contains("AGENTS.md standing duties (canonical digest)") && d.contains("시작과 컨텍스트 재구성");
     // 다른 하네스, 사람 터미널(세션 ID 없음) = 블록 유지
     assert!(full(&autoread::run_manual_for(&root, None)));
     // Claude Code + 유효 import = 1줄 안내
@@ -178,16 +180,23 @@ fn markers_are_per_session_no_cross_fire() {
 }
 
 #[test]
-fn startup_source_and_disabled_config_stay_silent() {
+fn startup_injects_session_start_digest_and_disabled_stays_silent() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    // startup = 신규 세션(CLAUDE.md 체인 fresh 로드) — 재정렬 대상 아님
+    // startup = 새 세션 — LogConvention §0 핵심 요약과 진행 중 Handoff를 첫 프롬프트에 받음(S044 t29)
     autoread::run_hook(&root, "session-start", &session_start_stdin("s", "startup"));
+    let b = autoread::pending_banner_for(&root, Some("s")).expect("banner");
+    assert!(b.contains("new session") && !b.contains("reconstructed"), "{b}");
+    let d = autoread::run_hook(&root, "prompt", &prompt_stdin("s")).expect("startup digest");
+    assert!(d.contains("session start") && !d.contains("context was reconstructed"), "{d}");
+    assert!(d.contains("LogConvention §0 core summary"), "{d}");
     assert!(autoread::run_hook(&root, "prompt", &prompt_stdin("s")).is_none());
     // disabled → 훅 전체 no-op (훅 잔존, config 게이트)
     autoread::run_disable(&root).unwrap();
     autoread::run_hook(&root, "session-start", &session_start_stdin("s2", "compact"));
     assert!(autoread::run_hook(&root, "prompt", &prompt_stdin("s2")).is_none());
+    autoread::run_hook(&root, "session-start", &session_start_stdin("s3", "startup"));
+    assert!(autoread::run_hook(&root, "prompt", &prompt_stdin("s3")).is_none());
 }
 
 #[test]
@@ -379,4 +388,130 @@ fn e2e_bare_autoread_prints_digest_and_ack_is_gone() {
     assert!(out.status.success());
     assert!(String::from_utf8_lossy(&out.stdout).contains("context was reconstructed (manual)"));
     assert_cmd::Command::cargo_bin("elf").unwrap().args(["autoread", "ack"]).current_dir(&root).assert().code(2);
+}
+
+// ── LogConvention §0 핵심 요약과 digest 상한 (S044 t28, t29) ─────────────────────
+
+#[test]
+fn digest_includes_logconvention_core_and_stays_under_cap() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    let d = autoread::build_digest_for(&root, "compact", true);
+    assert!(d.contains("--- LogConvention §0 core summary"), "{d}");
+    assert!(d.contains("S와 G 구분"), "core items present");
+    assert!(!d.contains("## 1. 로그 파일 위치"), "only §0, not the body");
+    assert!(!d.trim_end().ends_with("---"));
+    assert!(d.chars().count() <= autoread::DIGEST_CAP);
+
+    // 최악 조건: AGENTS 상시 의무 블록(다른 하네스) + 활성 8개 긴 Handoff + 큰 fulltext 2건
+    for n in 2..=9 {
+        write_active_log(&root, n, &"나".repeat(400));
+    }
+    fs::create_dir_all(root.join("0_Meta")).ok();
+    fs::write(root.join("0_Meta/Big1.md"), "a".repeat(30_000)).unwrap();
+    fs::write(root.join("0_Meta/Big2.md"), "b".repeat(30_000)).unwrap();
+    declare_fulltext(&root, &["0_Meta/Big1.md", "0_Meta/Big2.md"]);
+    let worst = autoread::build_digest(&root, "manual");
+    assert!(worst.chars().count() <= autoread::DIGEST_CAP, "{}", worst.chars().count());
+    assert!(worst.contains("autoread limit"));
+    assert!(worst.contains("LogConvention §0 core summary"), "core never dropped");
+    assert!(worst.contains("\nnext: "), "tail kept");
+}
+
+#[test]
+fn digest_points_to_logconvention_when_core_section_is_missing() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    fs::write(root.join(".elf/managed/LogConvention.md"), "# LC\n\n## 1. 위치\n- body\n").unwrap();
+    let d = autoread::build_digest(&root, "compact");
+    assert!(d.contains("core summary not found"), "{d}");
+    // 규약 파일이 없으면(qa 등) 블록도 안내도 없음
+    fs::remove_file(root.join(".elf/managed/LogConvention.md")).unwrap();
+    let d2 = autoread::build_digest(&root, "compact");
+    assert!(!d2.contains("core summary"), "{d2}");
+}
+
+#[test]
+fn outdated_hook_definition_is_detected_and_refreshed() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    assert!(autoread::hooks_outdated(&root).is_empty());
+    // 이전 정의(startup 없는 matcher)로 설치된 상태 재현
+    let text = fs::read_to_string(settings_path(&root)).unwrap();
+    fs::write(settings_path(&root), text.replace("startup|compact|resume|clear", "compact|resume|clear")).unwrap();
+    assert_eq!(autoread::hooks_outdated(&root), vec!["SessionStart".to_string()]);
+    // update(또는 enable)가 elf 소유 항목을 최신 정의로 교체
+    run_update(&root, &UpdateOptions { dry_run: false, force: false }).unwrap();
+    assert!(autoread::hooks_outdated(&root).is_empty());
+}
+
+/// 배포 템플릿의 §0 핵심 요약: 모든 §참조가 실제 절을 가리키고, 길이가 예산 안(정본 KO, 번역 EN).
+#[test]
+fn template_logconvention_core_refs_resolve_and_size_is_bounded() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../templates/meta");
+    for name in ["LogConvention.md", "LogConvention.en.md"] {
+        let text = fs::read_to_string(dir.join(name)).unwrap();
+        let start = text.find("\n## 0. ").expect("§0 heading") + 1;
+        let end = start + text[start..].find("\n## 1. ").expect("§1 heading");
+        let core = &text[start..end];
+        assert!(core.chars().count() <= 3_000, "{name}: §0 is {} chars", core.chars().count());
+        let mut refs = 0;
+        for (i, _) in core.match_indices('§') {
+            let tail = &core[i + '§'.len_utf8()..];
+            let num: String = tail.chars().take_while(|c| c.is_ascii_digit() || *c == '.').collect();
+            let num = num.trim_end_matches('.');
+            if num.is_empty() || num == "0" {
+                continue;
+            }
+            refs += 1;
+            let found = if num.contains('.') {
+                text.lines().any(|l| l.starts_with(&format!("### {num} ")))
+            } else {
+                text.lines().any(|l| l.starts_with(&format!("## {num}. ")))
+            };
+            assert!(found, "{name}: §{num} has no matching section heading");
+        }
+        assert!(refs >= 10, "{name}: expected § references on summary lines, found {refs}");
+    }
+}
+
+/// CLI 메시지와 AGENTS가 가리키는 `LogConvention §N`이 정본(한국어)의 실제 절인지 — 재배치 뒤 참조 깨짐 방지(S044 t31).
+#[test]
+fn logconvention_section_refs_in_cli_and_agents_resolve() {
+    let base = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let lc = fs::read_to_string(base.join("../templates/meta/LogConvention.md")).unwrap();
+    let mut sources: Vec<(String, String)> = Vec::new();
+    for e in fs::read_dir(base.join("src")).unwrap().flatten() {
+        let p = e.path();
+        if p.extension().is_some_and(|x| x == "rs") {
+            sources.push((p.display().to_string(), fs::read_to_string(&p).unwrap()));
+        }
+    }
+    for name in ["AGENTS.md", "AGENTS.en.md"] {
+        let p = base.join("../templates/root").join(name);
+        sources.push((p.display().to_string(), fs::read_to_string(&p).unwrap()));
+    }
+    let mut checked = 0;
+    for (file, text) in &sources {
+        for (i, _) in text.match_indices("LogConvention") {
+            let tail: String = text[i + "LogConvention".len()..].chars().take(8).collect();
+            let Some(pos) = tail.find('§') else { continue };
+            let num: String = tail[pos + '§'.len_utf8()..]
+                .chars()
+                .take_while(|c| c.is_ascii_digit() || *c == '.')
+                .collect();
+            let num = num.trim_end_matches('.');
+            if num.is_empty() {
+                continue;
+            }
+            checked += 1;
+            let found = if num.contains('.') {
+                lc.lines().any(|l| l.starts_with(&format!("### {num} ")))
+            } else {
+                lc.lines().any(|l| l.starts_with(&format!("## {num}. ")))
+            };
+            assert!(found, "{file}: LogConvention §{num} has no matching section");
+        }
+    }
+    assert!(checked >= 10, "expected many § references, found {checked}");
 }

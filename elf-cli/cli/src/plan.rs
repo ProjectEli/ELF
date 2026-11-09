@@ -183,6 +183,7 @@ mod tests {
             schema: crate::manifest::SCHEMA.into(),
             generated: String::new(),
             note: String::new(),
+            elf_version: None,
             files,
             dirs: Default::default(),
         }

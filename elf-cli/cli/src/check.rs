@@ -1,6 +1,7 @@
-//! `elf check [setup|files|logs]` — 진단 통합 (구 `doctor`, `status`, `validate`). **읽기전용**.
+//! `elf check [version|setup|files|logs]` — 진단 통합 (구 `doctor`, `status`, `validate`). **읽기전용**.
 //!
-//! 범위: setup = CLI, 설치, git과 훅, autoread, experimental / files = ELF 관리 파일, `.elf` 기록,
+//! 범위: version = CLI와 프로젝트 manifest, 판정 한 줄(S044 t41) / setup = git과 훅, autoread, experimental /
+//! files = ELF 관리 파일, `.elf` 기록,
 //! overlay, AGENTS 연결, tsa / logs = 세션 로그, Registry, figure embed. 기존 검사 함수를 재사용해
 //! 판정은 바꾸지 않고 범위로 묶기만 한다. 판정 = issue(종료 4), warn, ok, info.
 //! 범위마다 적용 가능 여부를 따로 판정 — `.elf/`가 없으면 files, `2_Log/`가 없으면 logs를 건너뜀
@@ -8,10 +9,11 @@
 
 use std::path::Path;
 
-use crate::{doctor, session, status, update, validate};
+use crate::{doctor, status, update, validate, version};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Scope {
+    Version,
     Setup,
     Files,
     Logs,
@@ -20,6 +22,7 @@ pub enum Scope {
 impl Scope {
     pub fn name(self) -> &'static str {
         match self {
+            Scope::Version => "version",
             Scope::Setup => "setup",
             Scope::Files => "files",
             Scope::Logs => "logs",
@@ -68,13 +71,11 @@ pub struct ScopeReport {
     pub items: Vec<Item>,
     /// 적용 불가 사유(`.elf/` 없음 등) — Some이면 검사하지 않음
     pub skipped: Option<String>,
-    /// 검사 불능(Registry 파싱 불가 등 — 종료 5)
-    pub escalation: Option<String>,
 }
 
 impl ScopeReport {
     fn new(scope: Scope) -> Self {
-        ScopeReport { scope, items: Vec::new(), skipped: None, escalation: None }
+        ScopeReport { scope, items: Vec::new(), skipped: None }
     }
 
     pub fn issues(&self) -> usize {
@@ -88,6 +89,7 @@ impl ScopeReport {
 
 pub fn run_scope(cwd: &Path, env: &doctor::DoctorEnv, scope: Scope) -> ScopeReport {
     match scope {
+        Scope::Version => run_version(cwd, env),
         Scope::Setup => run_setup(cwd, env),
         Scope::Files => run_files(cwd, env),
         Scope::Logs => run_logs(cwd),
@@ -103,6 +105,39 @@ fn push_doctor(r: &mut ScopeReport, d: doctor::DoctorReport) {
         };
         r.items.push(Item::new(level, format!("{}: {}", c.label, c.detail)));
     }
+}
+
+/// CLI(버전, 설치 기록), 프로젝트 manifest(형식, `elf_version`), 판정 한 줄. 프로젝트 밖 = CLI 항목만.
+fn run_version(cwd: &Path, env: &doctor::DoctorEnv) -> ScopeReport {
+    let mut r = ScopeReport::new(Scope::Version);
+    r.items.push(Item::new(Level::Info, format!("CLI: elf {}", env.version)));
+    if env.receipt_present {
+        r.items.push(Item::new(Level::Ok, "install receipt: found — `elf self update` works"));
+    } else {
+        r.items.push(Item::new(Level::Info, "install receipt: absent — `elf self update` unavailable (dev/manual build)"));
+    }
+    let v = match update::find_project_root(cwd) {
+        Some(root) => version::verdict_with(&root, &env.version),
+        None => version::Verdict::NoProject,
+    };
+    match &v {
+        version::Verdict::Earlier(_) => {
+            r.items.push(Item::new(Level::Info, "project manifest: .elf/manifest.json — earlier format (schema 1)"))
+        }
+        version::Verdict::Same(p) | version::Verdict::Older(p) | version::Verdict::Newer(p) => {
+            r.items.push(Item::new(Level::Info, format!("project manifest: .elf/manifest.json — schema 2, elf_version {p}")))
+        }
+        _ => {}
+    }
+    let (k, line) = version::verdict_line(&v, &env.version);
+    let level = match k {
+        'o' => Level::Ok,
+        'w' => Level::Warn,
+        'i' => Level::Issue,
+        _ => Level::Info,
+    };
+    r.items.push(Item::new(level, format!("verdict: {line}")));
+    r
 }
 
 fn run_setup(cwd: &Path, env: &doctor::DoctorEnv) -> ScopeReport {
@@ -140,7 +175,7 @@ fn run_files(cwd: &Path, env: &doctor::DoctorEnv) -> ScopeReport {
 
 fn run_logs(cwd: &Path) -> ScopeReport {
     let mut r = ScopeReport::new(Scope::Logs);
-    let Some(root) = session::find_log_root(cwd) else {
+    let Some(root) = crate::session::find_log_root(cwd) else {
         r.skipped = Some("no 2_Log/ directory found".into());
         return r;
     };
@@ -153,7 +188,7 @@ fn run_logs(cwd: &Path) -> ScopeReport {
                     Item::new(Level::Warn, x)
                 } else if let Some(x) = line.strip_prefix("ok: ") {
                     Item::new(Level::Ok, x)
-                } else if let Some(x) = line.strip_prefix("hint: ") {
+                } else if let Some(x) = line.strip_prefix("hint: ").or_else(|| line.strip_prefix("info: ")) {
                     Item::new(Level::Info, x)
                 } else {
                     Item::new(Level::Info, line)
@@ -161,7 +196,6 @@ fn run_logs(cwd: &Path) -> ScopeReport {
                 r.items.push(item);
             }
         }
-        Err(validate::ValidateError::Escalation(e)) => r.escalation = Some(e.to_string()),
         Err(validate::ValidateError::Io(e)) => r.items.push(Item::new(Level::Issue, format!("io error: {e}"))),
     }
     r

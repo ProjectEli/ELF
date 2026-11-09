@@ -35,7 +35,7 @@ fn outside_project_reports_env_only_no_warnings() {
     let tmp = tempdir().unwrap();
     let r = run_doctor(tmp.path(), &env(false));
     assert!(check(&r, "ELF project").detail.contains("not inside"));
-    assert!(!r.checks.iter().any(|c| c.label == ".elf stamp")); // 프로젝트 검사 스킵
+    assert!(!r.checks.iter().any(|c| c.label == "project manifest")); // 프로젝트 검사 스킵
     assert!(r.checks.iter().any(|c| c.label == "elf version")); // 환경 검사 수행
     assert_eq!(r.warnings(), 0, "{:?}", r.checks);
 }
@@ -45,8 +45,8 @@ fn clean_project_all_ok_no_warnings() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
     let r = run_doctor(&root, &env(true));
-    assert_eq!(check(&r, ".elf stamp").health, Health::Ok);
-    assert_eq!(check(&r, ".elf version").health, Health::Ok);
+    assert_eq!(check(&r, "project manifest").health, Health::Ok);
+    assert!(!root.join(".elf/version").exists(), "version lives in manifest elf_version (P022 §8)");
     assert_eq!(check(&r, "managed files").health, Health::Ok);
     assert_eq!(check(&r, "install receipt").health, Health::Ok);
     assert_eq!(r.warnings(), 0, "{:?}", r.checks);
@@ -86,10 +86,13 @@ fn ko_project_has_no_i18n_check() {
 fn version_mismatch_is_warn() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    fs::write(root.join(".elf/version"), "0.0.0-fake\n").unwrap();
+    let m = fs::read_to_string(root.join(".elf/manifest.json")).unwrap();
+    let m = m.replace(&format!("\"elf_version\": \"{}\"", elf_cli::embed::version()), "\"elf_version\": \"v0.1.0\"");
+    fs::write(root.join(".elf/manifest.json"), m).unwrap();
     let r = run_doctor(&root, &env(true));
-    assert_eq!(check(&r, ".elf version").health, Health::Warn);
-    assert!(r.warnings() >= 1);
+    let c = check(&r, "project manifest");
+    assert_eq!(c.health, Health::Warn);
+    assert!(c.detail.contains("older") && c.detail.contains("elf update"), "{}", c.detail);
 }
 
 #[test]
@@ -98,7 +101,7 @@ fn malformed_stamp_is_warn() {
     let root = new_project(tmp.path());
     fs::write(root.join(".elf/manifest.json"), "{ not json").unwrap();
     let r = run_doctor(&root, &env(true));
-    assert_eq!(check(&r, ".elf stamp").health, Health::Warn);
+    assert_eq!(check(&r, "project manifest").health, Health::Warn);
 }
 
 #[test]
@@ -190,7 +193,7 @@ fn e2e_doctor_in_project_reports_elf() {
         .args(["doctor"])
         .assert()
         .success()
-        .stdout(predicates::str::contains(".elf stamp"));
+        .stdout(predicates::str::contains("project manifest"));
 }
 
 #[test]

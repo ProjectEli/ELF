@@ -1,134 +1,196 @@
-//! `elf trial new` — 활성 세션 로그에 현행 정본 trialTemplate stub을 append (S021 t03, t07).
+//! `elf trial new` / `elf trial write` — trial 만들기와 절 쓰기 (S021 t03, t07; S044 t33~t40).
 //!
-//! 스캐폴드 원리: 규칙 텍스트를 복제하지 않고 **정본 구조를 인스턴스화** — 에이전트의
-//! 선례 모방 행동이 참조할 대상을 항상 현행 정본으로 유지한다(모방 대상의 자동 갱신).
-//! CLI 바이너리가 현행 템플릿을 embed하므로 생성 stub은 개정 시점과 무관하게 최신.
-//!
-//! `--from <파일>`(S044): 에이전트가 파일 쓰기 도구로 쓴 trial 본문을 검사 후 덧붙임 — 틀을 붙인 뒤
-//! 셸이나 스크립트로 채우는 단계의 escape 실패와 큰 로그 전체 읽기를 없앰. 첫 줄 Handoff 교체.
+//! - `trial new "<제목>"`: 새 번호, 제목, 도구 주석, Phase 1 틀(정본 trialTemplate의 Phase 1 부분).
+//!   `--from <파일>`은 new 다음 write와 같은 줄임 표기.
+//! - `trial write [tNN] --from <파일>`: 파일에 든 `### ` 절을 trial에 씀(동작 하나). Phase 1 절은 Phase 2가
+//!   생기기 전까지 여러 번(교체), Phase 2 절은 한 번(덧붙임). 한 파일에는 한 Phase의 절만.
+//! - 쓰기 전 검사(관문): 문제를 모두 모아 한 번에 보고하고 아무것도 쓰지 않음. 정확한 동의어 표의 절 이름과
+//!   해석 첫 줄 라벨은 바로잡고 알림. 절 순서는 고치지 않음(Phase 위반의 신호일 수 있음).
+//! - 도구 주석(trial 제목 다음 줄): Phase 1 첫 쓰기와 마지막 쓰기 시각, 쓰기 횟수, Phase 2 시각.
+//!   마지막 Phase 1 쓰기 뒤 생긴 그 세션 산출물 = 실행의 흔적 → Phase 1 수정 거부, 그 뒤 생긴 그림은 Phase 2 본문 필수.
 
 use std::fs;
 use std::path::Path;
+use std::time::UNIX_EPOCH;
 
-use crate::embed;
-use crate::session::{SessionError, header_status, is_open_status, log_num, session_num};
+use chrono::{DateTime, FixedOffset};
+
+use crate::header;
+use crate::logs::{self, LogFile};
+use crate::session::{SessionError, refuse_legacy};
+use crate::validate::{
+    INTERP_LABEL, INTERP_LABEL_LEGACY, extract_image_targets, noembed_filenames, section_key, trial_structure_findings,
+    trial_template, unfilled_template_findings,
+};
+
+/// Phase 1 절(배경은 선택). Phase 2 절(시행착오는 선택).
+pub const PHASE1: [&str; 5] = ["배경", "목표", "조건", "가설", "예상"];
+pub const PHASE1_REQUIRED: [&str; 4] = ["목표", "조건", "가설", "예상"];
+pub const PHASE2: [&str; 5] = ["관찰", "해석", "교훈", "생성 파일", "시행착오"];
+pub const PHASE2_REQUIRED: [&str; 4] = ["관찰", "해석", "교훈", "생성 파일"];
+
+/// 정본 절 제목(한국어 키, 영어 표기).
+const CANON: [(&str, &str); 10] = [
+    ("배경", "Background"),
+    ("목표", "Goal"),
+    ("조건", "Conditions"),
+    ("가설", "Hypothesis"),
+    ("예상", "Prediction"),
+    ("관찰", "Observation"),
+    ("해석", "Interpretation"),
+    ("교훈", "Lessons"),
+    ("생성 파일", "Files"),
+    ("시행착오", "Trial-and-Error"),
+];
+
+const META_PREFIX: &str = "<!-- elf-trial:";
 
 pub struct TrialNewOptions {
-    /// trial 제목 — None이면 template placeholder(`[작업 제목]`) 유지
+    /// trial 제목 — None이면 `[작업 제목]` 유지(틀만 붙일 때)
     pub title: Option<String>,
-    /// 대상 세션(S###) — None이면 유일 활성 세션 자동 선택
     pub session: Option<String>,
-    /// YYYY-MM-DD — 헤더 Modified 갱신용(주입형; 테스트 결정성)
+    /// YYYY-MM-DD — 헤더 modified
     pub date: String,
-    /// `--from` 파일 내용 — `### ` 절로 된 trial 본문. 첫 줄이 `> **Handoff**:`이면 헤더 Handoff 교체
+    /// `--from` 파일 내용(Phase 1 절, 맨 앞 YAML 블록은 handoff만)
     pub body: Option<String>,
+    pub now: DateTime<FixedOffset>,
+}
+
+pub struct TrialWriteOptions {
+    /// 대상 trial `tNN` — None이면 그 세션의 마지막 trial
+    pub trial: Option<String>,
+    pub session: Option<String>,
+    pub date: String,
+    pub body: String,
+    pub now: DateTime<FixedOffset>,
 }
 
 #[derive(Debug)]
-pub struct TrialNewResult {
+pub struct TrialResult {
     pub session: String,
-    /// 생성된 trial id (예: "t09")
     pub trial: String,
     pub log_rel: String,
-    /// `--from`이 Phase 1 절만 담았을 때 틀에서 채운 Phase 2 절
-    pub filled_from_template: Vec<String>,
-    /// `--from` 첫 줄로 헤더 Handoff를 교체했는가
+    /// 0 = 틀만, 1 = Phase 1, 2 = Phase 2
+    pub phase: u8,
+    /// Phase 1 쓰기 횟수(이번 포함)
+    pub writes: u32,
     pub handoff_replaced: bool,
+    /// 바로잡은 표기(절 이름, 해석 첫 줄 라벨)
+    pub normalized: Vec<String>,
+    pub warnings: Vec<String>,
 }
 
-/// Phase 2 절 — `--from`이 Phase 1 절만 담으면 틀 문구로 채움(실행 뒤 작성).
-const PHASE2_SECTIONS: [&str; 4] = ["관찰", "해석", "교훈", "생성 파일"];
-const HANDOFF_PREFIX: &str = "> **Handoff**:";
+// ── 도구 주석 ─────────────────────────────────────────────────────
 
-/// `--from` 내용 → (Handoff 줄, 본문). BOM 제거, CRLF → LF. 첫 비어 있지 않은 줄이 Handoff 줄이면 분리.
-pub fn split_handoff(text: &str) -> (Option<String>, String) {
-    let text = text.trim_start_matches('\u{feff}').replace("\r\n", "\n");
-    let mut lines = text.lines().skip_while(|l| l.trim().is_empty()).peekable();
-    let handoff = match lines.peek() {
-        Some(l) if l.starts_with(HANDOFF_PREFIX) => lines.next().map(|l| l.trim_end().to_string()),
-        _ => None,
-    };
-    let body: Vec<&str> = lines.collect();
-    (handoff, body.join("\n").trim_matches('\n').to_string())
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TrialMeta {
+    pub p1_first: Option<String>,
+    pub p1_last: Option<String>,
+    pub writes: u32,
+    pub p2: Option<String>,
 }
 
-/// 틀(렌더된 stub)에서 `### <key>` 절 블록(다음 `### ` 전까지) 추출.
-fn template_section(stub: &str, key: &str) -> Option<String> {
-    let mut out: Option<Vec<&str>> = None;
-    for l in stub.lines() {
-        if let Some(k) = crate::validate::section_key(l) {
-            if out.is_some() {
-                break;
+impl TrialMeta {
+    pub fn render(&self) -> String {
+        let p1 = match (&self.p1_first, &self.p1_last) {
+            (Some(f), Some(l)) => format!("phase1 {f} ~ {l} ({} writes)", self.writes),
+            _ => "phase1 -".into(),
+        };
+        let p2 = self.p2.as_deref().map(|t| format!("; phase2 {t}")).unwrap_or_default();
+        format!("{META_PREFIX} {p1}{p2} -->")
+    }
+
+    pub fn parse(line: &str) -> Option<TrialMeta> {
+        let inner = line.trim().strip_prefix(META_PREFIX)?.strip_suffix("-->")?.trim();
+        let mut m = TrialMeta::default();
+        for part in inner.split("; ") {
+            if let Some(r) = part.strip_prefix("phase1 ") {
+                if let Some((range, writes)) = r.split_once(" (") {
+                    if let Some((f, l)) = range.split_once(" ~ ") {
+                        m.p1_first = Some(f.trim().to_string());
+                        m.p1_last = Some(l.trim().to_string());
+                    }
+                    m.writes = writes.trim_end_matches(" writes)").trim().parse().unwrap_or(0);
+                }
+            } else if let Some(t) = part.strip_prefix("phase2 ") {
+                m.p2 = Some(t.trim().to_string());
             }
-            if k == key {
-                out = Some(vec![l]);
-            }
+        }
+        Some(m)
+    }
+}
+
+fn epoch(rfc3339: &str) -> Option<i64> {
+    DateTime::parse_from_rfc3339(rfc3339).ok().map(|d| d.timestamp_millis())
+}
+
+fn mtime(p: &Path) -> Option<i64> {
+    fs::metadata(p).ok()?.modified().ok()?.duration_since(UNIX_EPOCH).ok().map(|d| d.as_millis() as i64)
+}
+
+// ── 템플릿 ────────────────────────────────────────────────────────
+
+/// 틀의 Phase 1 부분(첫 Phase 2 절 앞까지, 제목 줄 제외)과 Phase 2 부분.
+fn template_parts() -> (String, String) {
+    let tpl = trial_template();
+    let mut lines = tpl.lines();
+    lines.next(); // `## t{NN}: [작업 제목]`
+    let rest: Vec<&str> = lines.collect();
+    let cut = rest.iter().position(|l| section_key(l).is_some_and(|k| PHASE2.contains(&k))).unwrap_or(rest.len());
+    let p1 = rest[..cut].join("\n").trim_matches('\n').to_string();
+    let p2 = rest[cut..].join("\n").trim_matches('\n').to_string();
+    (p1, p2)
+}
+
+// ── 바로잡기(정확한 동의어 표만) ───────────────────────────────────
+
+/// `### 목표`, `### Goal`, `### Goal (목표)` → `### 목표 (Goal)`; 해석 첫 줄의 이전 라벨 → `예상 일치 정도:`.
+pub fn normalize(body: &str) -> (String, Vec<String>) {
+    let mut notes = Vec::new();
+    let mut out = Vec::new();
+    let mut interp_pending = false;
+    for line in body.lines() {
+        let l = line.trim_end_matches('\r');
+        if let Some(rest) = l.strip_prefix("### ") {
+            let rest = rest.trim();
+            let hit = CANON.iter().find(|(ko, en)| {
+                rest == *ko || rest.eq_ignore_ascii_case(en) || rest == format!("{en} ({ko})")
+            });
+            let fixed = match hit {
+                Some((ko, en)) => {
+                    let canon = format!("### {ko} ({en})");
+                    if l != canon {
+                        notes.push(format!("heading '{l}' → '{canon}'"));
+                    }
+                    canon
+                }
+                None => l.to_string(),
+            };
+            interp_pending = section_key(&fixed) == Some("해석");
+            out.push(fixed);
             continue;
         }
-        if let Some(v) = out.as_mut() {
-            v.push(l);
-        }
-    }
-    out.map(|v| v.join("\n").trim_end().to_string())
-}
-
-/// `--from` 본문 → trial 텍스트(`## tNN: 제목` + 본문, Phase 1만이면 Phase 2 틀 추가) 또는 덧붙이지 않을 이유.
-/// 검사: `#`, `## ` 제목 금지, Phase 1 절 4개 필수, Phase 2 절은 전부 있거나 전부 없음, 정본 절 이름과 순서,
-/// 해석 첫 줄, Phase 1 절이 틀 문구 그대로인지(`check logs`와 같은 검사 재사용).
-pub fn compose_trial(body: &str, trial_id: &str, session_id: &str, title: &str) -> Result<(String, Vec<String>), Vec<String>> {
-    let tpl = crate::validate::trial_template();
-    let mut problems = Vec::new();
-    for (n, l) in body.lines().enumerate() {
-        // 코드 블록 안도 금지 — trial 번호 수집과 check logs가 블록을 구분하지 않음
-        if l.starts_with("# ") || l.starts_with("## ") {
-            problems.push(format!(
-                "line {}: '{}' — the body holds only '### ' sections; the trial heading comes from the title argument",
-                n + 1,
-                l.chars().take(40).collect::<String>()
-            ));
-        }
-    }
-    let keys: Vec<&str> = body.lines().filter_map(crate::validate::section_key).collect();
-    for k in crate::validate::PHASE1_SECTIONS {
-        if !keys.contains(&k) {
-            problems.push(format!("missing '### {k}' — Phase 1 sections are required (LogConvention §5.1)"));
-        }
-    }
-    let phase2: Vec<&str> = PHASE2_SECTIONS.into_iter().filter(|k| keys.contains(k)).collect();
-    let stub = render_stub(tpl, trial_id, session_id, Some(title));
-    let mut text = format!("## {trial_id}: {title}\n\n{}", body.trim_matches('\n'));
-    let mut filled = Vec::new();
-    if phase2.is_empty() {
-        for k in PHASE2_SECTIONS {
-            if let Some(sec) = template_section(&stub, k) {
-                text.push_str("\n\n");
-                text.push_str(&sec);
-                filled.push(k.to_string());
+        if interp_pending && !l.trim().is_empty() {
+            interp_pending = false;
+            let t = l.trim_start();
+            let lead = &l[..l.len() - t.len()];
+            let mut fixed = None;
+            for old in [format!("- {INTERP_LABEL_LEGACY}:"), "- Prediction match:".to_string()] {
+                if let Some(v) = t.strip_prefix(&old) {
+                    notes.push(format!("interpretation label '{old}' → '- {INTERP_LABEL}:'"));
+                    fixed = Some(format!("{lead}- {INTERP_LABEL}:{v}"));
+                    break;
+                }
             }
+            out.push(fixed.unwrap_or_else(|| l.to_string()));
+            continue;
         }
-    } else if phase2.len() < PHASE2_SECTIONS.len() {
-        for k in PHASE2_SECTIONS.into_iter().filter(|k| !phase2.contains(k)) {
-            problems.push(format!(
-                "missing '### {k}' — give all Phase 2 sections (관찰, 해석, 교훈, 생성 파일) or none (Phase 1 only)"
-            ));
-        }
+        out.push(l.to_string());
     }
-    text.push('\n');
-    problems.extend(crate::validate::trial_structure_findings(&text));
-    problems.extend(crate::validate::unfilled_template_findings(&text, tpl));
-    if problems.is_empty() { Ok((text, filled)) } else { Err(problems) }
+    (out.join("\n"), notes)
 }
 
-/// 헤더 `> **Handoff**:` 줄을 new_line으로 교체(끝 `\`, `\r` 보존). 줄이 없으면 None.
-pub fn replace_handoff(content: &str, new_line: &str) -> Option<String> {
-    let core = new_line.trim_end().trim_end_matches('\\').trim_end();
-    let mut out: Vec<String> = content.split('\n').map(str::to_string).collect();
-    let line = out.iter_mut().find(|l| l.starts_with(HANDOFF_PREFIX))?;
-    let cr = line.ends_with('\r');
-    let hard = line.trim_end_matches('\r').ends_with('\\');
-    *line = format!("{core}{}{}", if hard { "\\" } else { "" }, if cr { "\r" } else { "" });
-    Some(out.join("\n"))
-}
+// ── trial 위치 ────────────────────────────────────────────────────
 
 /// 로그 본문의 `## t{NN}:` trial 번호 수집 (순수).
 pub fn trial_numbers(content: &str) -> Vec<u32> {
@@ -146,25 +208,29 @@ pub fn trial_numbers(content: &str) -> Vec<u32> {
         .collect()
 }
 
-/// 다음 trial 번호 = max+1 (trial 없으면 1).
 pub fn next_trial_number(content: &str) -> u32 {
     trial_numbers(content).into_iter().max().map_or(1, |m| m + 1)
 }
 
-/// trialTemplate 렌더 — `t{NN}`, `S{NNN}` 치환 + 제목(옵션).
-fn render_stub(tpl: &str, trial_id: &str, session_id: &str, title: Option<&str>) -> String {
-    let mut s = tpl.replace("t{NN}", trial_id).replace("S{NNN}", session_id);
-    if let Some(t) = title {
-        s = s.replace("[작업 제목]", t);
+/// trial 범위(줄 인덱스): (제목 줄, 내용 끝 — 뒤쪽 빈 줄과 구분선 `---` 제외).
+fn trial_span(lines: &[&str], trial_id: &str) -> Option<(usize, usize)> {
+    let head = format!("## {trial_id}:");
+    let h = lines.iter().position(|l| l.trim_end_matches('\r').starts_with(&head))?;
+    let mut end = lines[h + 1..].iter().position(|l| l.starts_with("## ")).map_or(lines.len(), |i| h + 1 + i);
+    while end > h + 1 {
+        let t = lines[end - 1].trim();
+        if t.is_empty() || t == "---" {
+            end -= 1;
+        } else {
+            break;
+        }
     }
-    s
+    Some((h, end))
 }
 
-/// stub 삽입 위치: 구 로그(≤ v2.19 템플릿)에 `## 다음 세션 후보` 헤딩이 있으면 그 직전(그 앞 trial 구분과 동일한
-/// `---` 경계 유지 — 하위호환), 없으면(v2.20 템플릿 기본) EOF에 `---` 구분과 함께 append. 기존 본문 불변(순수).
+/// stub 삽입 위치: 구 로그의 `## 다음 세션 후보` 헤딩 직전, 없으면 EOF(`---` 구분과 함께). 기존 본문 불변.
 pub fn insert_trial(content: &str, stub: &str) -> String {
     let stub = stub.trim_end_matches('\n');
-    // `## 다음 세션 후보` 헤딩 라인의 시작 바이트 탐색
     let mut heading_start: Option<usize> = None;
     let mut pos = 0;
     for line in content.split_inclusive('\n') {
@@ -175,11 +241,9 @@ pub fn insert_trial(content: &str, stub: &str) -> String {
         pos += line.len();
     }
     match heading_start {
-        // `...---\n\n` + [stub + `\n\n---\n\n`] + `## 다음 세션 후보...`
         Some(h) => format!("{}{}\n\n---\n\n{}", &content[..h], stub, &content[h..]),
         None => {
             let trimmed = content.trim_end_matches('\n');
-            // 헤더만 있는 로그(v2.22 — 템플릿 t01 stub 제거): 규범 주석 뒤에 바로 t01 (구분선 중복 방지)
             if trimmed.ends_with("---") || trial_numbers(content).is_empty() {
                 format!("{trimmed}\n\n{stub}\n")
             } else {
@@ -189,220 +253,451 @@ pub fn insert_trial(content: &str, stub: &str) -> String {
     }
 }
 
-/// 헤더 `> **Modified**:` 값을 date로 갱신 (트레일링 `\`, `\r` 보존). 변경 없으면 None.
-pub fn update_modified(content: &str, date: &str) -> Option<String> {
-    let mut out: Vec<String> = content.split('\n').map(str::to_string).collect();
-    let mut changed = false;
-    for line in out.iter_mut() {
-        let trimmed = line.strip_suffix('\r').unwrap_or(line);
-        if !trimmed.starts_with("> **Modified**:") {
-            continue;
+// ── 쓰기 전 검사 ──────────────────────────────────────────────────
+
+/// 파일 내용 → (handoff, 본문). YAML 블록 키는 handoff만.
+fn split_input(raw: &str) -> Result<(Option<String>, String), Vec<String>> {
+    let (pairs, body) = header::split_block(raw).map_err(|e| vec![e])?;
+    let mut problems = Vec::new();
+    let mut handoff = None;
+    for (k, v) in pairs {
+        if k == "handoff" {
+            handoff = Some(v);
+        } else {
+            problems.push(format!("YAML block key '{k}' is not allowed here — only handoff (LogConvention §5.1)"));
         }
-        let mut new = format!("> **Modified**: {date}");
-        if trimmed.ends_with('\\') {
-            new.push('\\');
-        }
-        if line.ends_with('\r') {
-            new.push('\r');
-        }
-        if *line != new {
-            *line = new;
-            changed = true;
-        }
-        break;
     }
-    if changed { Some(out.join("\n")) } else { None }
+    if body.lines().any(|l| l.trim_start().starts_with("> **Handoff**:")) {
+        problems.push("the old '> **Handoff**:' line is not used — put `handoff: '…'` in a YAML block at the top of the file".into());
+    }
+    if problems.is_empty() { Ok((handoff, body)) } else { Err(problems) }
 }
 
-/// `elf trial new`: 대상 세션 결정(명시 또는 유일 활성) → 현행 trialTemplate stub append.
-pub fn run_trial_new(root: &Path, opts: &TrialNewOptions) -> Result<TrialNewResult, SessionError> {
-    let target = match &opts.session {
-        Some(id) => {
-            if session_num(id).is_none() {
-                return Err(SessionError::NotFound(id.clone()));
-            }
-            id.clone()
+fn keys_of(body: &str) -> Vec<String> {
+    body.lines().filter_map(section_key).map(str::to_string).collect()
+}
+
+/// 본문(바로잡은 뒤) 공통 검사: 제목 줄 금지, 정본 절 이름, Phase 혼합. 반환 = 이 본문의 Phase(1 또는 2).
+fn common_checks(body: &str, problems: &mut Vec<String>) -> Option<u8> {
+    for (n, l) in body.lines().enumerate() {
+        if l.starts_with("# ") || l.starts_with("## ") {
+            problems.push(format!(
+                "line {}: '{}' — the body holds only '### ' sections; the trial heading comes from the title",
+                n + 1,
+                l.chars().take(40).collect::<String>()
+            ));
         }
+    }
+    let keys = keys_of(body);
+    for k in &keys {
+        if !PHASE1.contains(&k.as_str()) && !PHASE2.contains(&k.as_str()) {
+            problems.push(format!(
+                "non-canonical heading '### {k}' — canonical: 배경/목표/조건/가설/예상 (Phase 1), 관찰/해석/교훈/생성 파일/시행착오 (Phase 2)"
+            ));
+        }
+    }
+    let p1 = keys.iter().any(|k| PHASE1.contains(&k.as_str()));
+    let p2 = keys.iter().any(|k| PHASE2.contains(&k.as_str()));
+    match (p1, p2) {
+        (true, true) => {
+            problems.push("one file holds the sections of one phase only — write Phase 1, stop for the user's confirmation, run, then write Phase 2 with `elf trial write` (LogConvention §5.1)".into());
+            None
+        }
+        (true, false) => Some(1),
+        (false, true) => Some(2),
+        (false, false) => {
+            problems.push("no '### ' sections found in the file".into());
+            None
+        }
+    }
+}
+
+fn required(body: &str, req: &[&str], phase: u8, problems: &mut Vec<String>) {
+    let keys = keys_of(body);
+    for k in req {
+        if !keys.iter().any(|x| x == k) {
+            problems.push(format!("missing '### {k}' — Phase {phase} needs {} (LogConvention §5.1)", req.join(", ")));
+        }
+    }
+}
+
+/// `6_Exp/` 아래 이름이 `id`인 폴더의 파일 중 `since`(epoch ms)보다 새 파일(최대 n개, 루트 기준 경로).
+fn newer_outputs(root: &Path, id: &str, since: i64, n: usize) -> Vec<String> {
+    #[allow(clippy::too_many_arguments)]
+    fn walk(dir: &Path, root: &Path, id: &str, since: i64, inside: bool, depth: u8, out: &mut Vec<String>, n: usize) {
+        if depth > 6 || out.len() >= n {
+            return;
+        }
+        let Ok(rd) = fs::read_dir(dir) else { return };
+        for e in rd.flatten() {
+            let p = e.path();
+            let here = inside || e.file_name().to_string_lossy() == id;
+            if p.is_dir() {
+                walk(&p, root, id, since, here, depth + 1, out, n);
+            } else if inside && mtime(&p).is_some_and(|t| t > since) {
+                out.push(p.strip_prefix(root).unwrap_or(&p).to_string_lossy().replace('\\', "/"));
+                if out.len() >= n {
+                    return;
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(&root.join("6_Exp"), root, id, since, false, 0, &mut out, n);
+    out
+}
+
+// ── 실행기 ────────────────────────────────────────────────────────
+
+fn read_ongoing(root: &Path, session: Option<&str>) -> Result<(LogFile, header::Header, String), SessionError> {
+    refuse_legacy(root)?;
+    let target = logs::resolve(root, session)?;
+    let (h, content) = logs::read(&target)?;
+    if h.status != header::Status::Ongoing {
+        return Err(SessionError::Rejected(vec![format!(
+            "{} is {} — trials are written only to an ongoing session",
+            target.id,
+            h.status.as_str()
+        )]));
+    }
+    Ok((target, h, content))
+}
+
+fn finish(
+    root: &Path,
+    target: &LogFile,
+    mut h: header::Header,
+    content: &str,
+    date: &str,
+    handoff: &Option<String>,
+) -> Result<Vec<String>, SessionError> {
+    h.modified = date.to_string();
+    if let Some(x) = handoff {
+        h.handoff = header::one_line(x);
+    }
+    let rel = logs::rel_of(target);
+    let out = header::replace(content, &h).map_err(|e| SessionError::BadHeader(format!("{rel}: {e}")))?;
+    fs::write(&target.path, out)?;
+    Ok(logs::refresh(root)?)
+}
+
+/// `elf trial new`: 새 trial(제목, 도구 주석, Phase 1 틀). `--from`이면 이어서 Phase 1을 씀.
+pub fn run_trial_new(root: &Path, opts: &TrialNewOptions) -> Result<TrialResult, SessionError> {
+    let (target, h, content) = read_ongoing(root, opts.session.as_deref())?;
+    let n = next_trial_number(&content);
+    let trial_id = format!("t{n:02}");
+    let title = opts.title.as_deref().map(str::trim).filter(|t| !t.is_empty());
+    if opts.body.is_some() && title.is_none() {
+        return Err(SessionError::Rejected(vec!["--from needs a trial title: elf trial new \"<title>\" --from <file>".into()]));
+    }
+    let title = title.unwrap_or("[작업 제목]");
+    let (p1_tpl, _) = template_parts();
+    let p1_tpl = p1_tpl.replace("S{NNN}", &target.id);
+    let stub = format!("## {trial_id}: {title}\n{}\n\n{p1_tpl}\n", TrialMeta::default().render());
+    match &opts.body {
         None => {
-            let mut open = Vec::new();
-            if let Ok(entries) = fs::read_dir(root.join("2_Log")) {
-                for e in entries.flatten() {
-                    let name = e.file_name().to_string_lossy().to_string();
-                    if let Some(n) = log_num(&name) {
-                        let st = fs::read_to_string(e.path())
-                            .ok()
-                            .and_then(|c| header_status(&c))
-                            .unwrap_or_default();
-                        if is_open_status(&st) {
-                            open.push(format!("S{n:03}"));
-                        }
+            let updated = insert_trial(&content, &stub);
+            let warnings = finish(root, &target, h, &updated, &opts.date, &None)?;
+            Ok(TrialResult {
+                session: target.id.clone(),
+                trial: trial_id,
+                log_rel: logs::rel_of(&target),
+                phase: 0,
+                writes: 0,
+                handoff_replaced: false,
+                normalized: Vec::new(),
+                warnings,
+            })
+        }
+        Some(raw) => {
+            // new 다음 write와 같음 — 검사를 먼저 해서, 거부되면 trial도 만들지 않음
+            let (handoff, body) = split_input(raw).map_err(SessionError::Rejected)?;
+            let (body, normalized) = normalize(&body);
+            let mut problems = Vec::new();
+            let phase = common_checks(&body, &mut problems);
+            if phase == Some(2) {
+                problems.push("`elf trial new --from` takes Phase 1 sections; Phase 2 goes in `elf trial write` after the run".into());
+            }
+            required(&body, &PHASE1_REQUIRED, 1, &mut problems);
+            let text = format!("## {trial_id}: {title}\n\n{body}\n");
+            problems.extend(trial_structure_findings(&text));
+            problems.extend(unfilled_template_findings(&text, trial_template()));
+            if !problems.is_empty() {
+                return Err(SessionError::Rejected(problems));
+            }
+            let now = opts.now.to_rfc3339();
+            let meta = TrialMeta { p1_first: Some(now.clone()), p1_last: Some(now), writes: 1, p2: None };
+            let trial = format!("## {trial_id}: {title}\n{}\n\n{body}\n", meta.render());
+            let updated = insert_trial(&content, &trial);
+            let warnings = finish(root, &target, h, &updated, &opts.date, &handoff)?;
+            Ok(TrialResult {
+                session: target.id.clone(),
+                trial: trial_id,
+                log_rel: logs::rel_of(&target),
+                phase: 1,
+                writes: 1,
+                handoff_replaced: handoff.is_some(),
+                normalized,
+                warnings,
+            })
+        }
+    }
+}
+
+/// `elf trial write [tNN] --from <파일>`: Phase 1 절(교체, Phase 2 전까지) 또는 Phase 2 절(덧붙임, 한 번).
+pub fn run_trial_write(root: &Path, opts: &TrialWriteOptions) -> Result<TrialResult, SessionError> {
+    let (target, h, content) = read_ongoing(root, opts.session.as_deref())?;
+    let nums = trial_numbers(&content);
+    let trial_id = match &opts.trial {
+        Some(t) => {
+            let n: u32 = t.strip_prefix('t').and_then(|d| d.parse().ok()).ok_or_else(|| SessionError::NotFound(t.clone()))?;
+            if !nums.contains(&n) {
+                return Err(SessionError::NotFound(format!("{} {t}", target.id)));
+            }
+            format!("t{n:02}")
+        }
+        None => match nums.iter().max() {
+            Some(n) => format!("t{n:02}"),
+            None => return Err(SessionError::Rejected(vec![format!("{} has no trial yet — start one with `elf trial new \"<title>\" --from <file>`", target.id)])),
+        },
+    };
+    let (handoff, body) = split_input(&opts.body).map_err(SessionError::Rejected)?;
+    let (body, normalized) = normalize(&body);
+
+    let lines: Vec<&str> = content.split('\n').collect();
+    let (hi, end) = trial_span(&lines, &trial_id).ok_or_else(|| SessionError::NotFound(format!("{} {trial_id}", target.id)))?;
+    let title_line = lines[hi].trim_end_matches('\r');
+    let meta_idx = (hi + 1..end).find(|&i| lines[i].trim().starts_with(META_PREFIX));
+    let mut meta = meta_idx.and_then(|i| TrialMeta::parse(lines[i])).unwrap_or_default();
+    let existing: Vec<&str> = lines[meta_idx.map_or(hi + 1, |i| i + 1)..end].to_vec();
+    let existing_text = existing.join("\n");
+    let has_p2 = keys_of(&existing_text).iter().any(|k| PHASE2.contains(&k.as_str()));
+    let since = meta.p1_last.as_deref().and_then(epoch);
+
+    let mut problems = Vec::new();
+    let phase = common_checks(&body, &mut problems);
+    let now = opts.now.to_rfc3339();
+    let new_block: String;
+    match phase {
+        Some(1) => {
+            if has_p2 {
+                return Err(SessionError::Rejected(vec![format!(
+                    "{trial_id} already has Phase 2 — Phase 1 is fixed after the run; a change that reflects results is a new trial"
+                )]));
+            }
+            required(&body, &PHASE1_REQUIRED, 1, &mut problems);
+            if let Some(s) = since {
+                let newer = newer_outputs(root, &target.id, s, 5);
+                if !newer.is_empty() {
+                    problems.push(format!(
+                        "outputs of {} appeared after the last Phase 1 write ({}) — Phase 1 is not revised after seeing results; start a new trial for a change that reflects them",
+                        target.id,
+                        newer.join(", ")
+                    ));
+                }
+            }
+            let text = format!("{title_line}\n\n{body}\n");
+            problems.extend(trial_structure_findings(&text));
+            problems.extend(unfilled_template_findings(&text, trial_template()));
+            meta.p1_first.get_or_insert_with(|| now.clone());
+            meta.p1_last = Some(now.clone());
+            meta.writes += 1;
+            new_block = format!("{title_line}\n{}\n\n{body}", meta.render());
+        }
+        Some(2) => {
+            if has_p2 {
+                // 덧붙이면 생길 순서 지적은 소음 — 원인 하나만 알림
+                return Err(SessionError::Rejected(vec![format!(
+                    "{trial_id} already has Phase 2 — a rerun is a new trial (LogConvention §2 trial and error)"
+                )]));
+            }
+            required(&body, &PHASE2_REQUIRED, 2, &mut problems);
+            let p1_keys = keys_of(&existing_text);
+            for k in PHASE1_REQUIRED {
+                if !p1_keys.iter().any(|x| x == k) {
+                    problems.push(format!("{trial_id} has no '### {k}' — write Phase 1 first"));
+                }
+            }
+            let full = format!("{title_line}\n\n{}\n\n{body}\n", existing_text.trim_matches('\n'));
+            problems.extend(unfilled_template_findings(&full, trial_template()).into_iter().map(|f| format!("{f} (Phase 1 is still the template)")));
+            problems.extend(trial_structure_findings(&full));
+            if let Some(s) = since {
+                let viz = root.join(format!("6_Exp/64_Viz/{}", target.id));
+                let mut targets = extract_image_targets(&full);
+                targets.extend(extract_image_targets(&content));
+                let skip = noembed_filenames(&full);
+                if let Ok(rd) = fs::read_dir(&viz) {
+                    let mut missing: Vec<String> = rd
+                        .flatten()
+                        .filter(|e| mtime(&e.path()).is_some_and(|t| t > s))
+                        .map(|e| e.file_name().to_string_lossy().into_owned())
+                        .filter(|n| crate::validate::is_image(n))
+                        .filter(|n| !skip.contains(n) && !targets.iter().any(|t| t.rsplit('/').next() == Some(n.as_str())))
+                        .collect();
+                    missing.sort();
+                    if !missing.is_empty() {
+                        problems.push(format!(
+                            "figures created after Phase 1 are not embedded: {} — embed each in '### 관찰' with a Fig number and a one-line alt (or `<!-- noembed: name -->`)",
+                            missing.join(", ")
+                        ));
                     }
                 }
             }
-            open.sort();
-            match open.len() {
-                0 => return Err(SessionError::NoOpenSession),
-                1 => open.pop().unwrap(),
-                _ => return Err(SessionError::MultipleOpen(open)),
-            }
+            meta.p2 = Some(now.clone());
+            new_block = format!("{title_line}\n{}\n\n{}\n\n{body}", meta.render(), existing_text.trim_matches('\n'));
         }
-    };
-
-    let log_rel = format!("2_Log/{target}_log.md");
-    let log_path = root.join(&log_rel);
-    if !log_path.is_file() {
-        return Err(SessionError::NotFound(target));
+        _ => new_block = String::new(),
     }
-    let content = fs::read_to_string(&log_path)?;
-
-    let n = next_trial_number(&content);
-    let trial_id = format!("t{n:02}");
-
-    let tpl = embed::TEMPLATES
-        .get_file("log/trialTemplate.md")
-        .and_then(|f| f.contents_utf8())
-        .expect("trialTemplate embedded (gated by tests)");
-    let mut filled_from_template = Vec::new();
-    let mut handoff = None;
-    let stub = match &opts.body {
-        None => render_stub(tpl, &trial_id, &target, opts.title.as_deref()),
-        Some(raw) => {
-            let Some(title) = opts.title.as_deref().filter(|t| !t.trim().is_empty()) else {
-                return Err(SessionError::Rejected(vec![
-                    "--from needs a trial title: elf trial new \"<title>\" --from <file>".into(),
-                ]));
-            };
-            let (h, body) = split_handoff(raw);
-            let (text, filled) = compose_trial(&body, &trial_id, &target, title).map_err(SessionError::Rejected)?;
-            if h.is_some() && !content.lines().any(|l| l.starts_with(HANDOFF_PREFIX)) {
-                return Err(SessionError::Rejected(vec![format!(
-                    "{log_rel} has no '{HANDOFF_PREFIX}' header line to replace — remove the first line of the file or fix the header"
-                )]));
-            }
-            filled_from_template = filled;
-            handoff = h;
-            text
-        }
-    };
-
-    let updated = insert_trial(&content, &stub);
-    let updated = match &handoff {
-        Some(h) => replace_handoff(&updated, h).unwrap_or(updated),
-        None => updated,
-    };
-    let updated = update_modified(&updated, &opts.date).unwrap_or(updated);
-    fs::write(&log_path, updated)?;
-
-    Ok(TrialNewResult { session: target, trial: trial_id, log_rel, filled_from_template, handoff_replaced: handoff.is_some() })
+    if !problems.is_empty() {
+        return Err(SessionError::Rejected(problems));
+    }
+    let mut out: Vec<String> = Vec::with_capacity(lines.len() + 8);
+    out.extend(lines[..hi].iter().map(|s| s.to_string()));
+    out.push(new_block);
+    out.extend(lines[end..].iter().map(|s| s.to_string()));
+    let updated = out.join("\n");
+    let warnings = finish(root, &target, h, &updated, &opts.date, &handoff)?;
+    Ok(TrialResult {
+        session: target.id.clone(),
+        trial: trial_id,
+        log_rel: logs::rel_of(&target),
+        phase: phase.unwrap_or(0),
+        writes: meta.writes,
+        handoff_replaced: handoff.is_some(),
+        normalized,
+        warnings,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::session::{SessionNewOptions, run_session_new};
 
-    const LOG: &str = "# S021: T\n\n> **Created**: 2026-07-01\\\n> **Modified**: 2026-07-01\\\n> **Status**: ★ 활성\\\n> **Handoff**: -\n\n---\n\n## t01: 첫 작업\n\n### 목표 (Goal)\n- x\n\n---\n\n## 다음 세션 후보 (Next-Session Hypothesis)\n\n### 가설 후보\n- [후속 가설 1-3항]\n";
+    fn now(h: u32) -> DateTime<FixedOffset> {
+        DateTime::parse_from_rfc3339(&format!("2026-11-09T{h:02}:00:00+09:00")).unwrap()
+    }
 
-    #[test]
-    fn trial_numbers_parse_only_trial_headers() {
-        let c = "## t01: a\n## t2: b\n## t10: c\n## tXX: d\n### t03: not-a-trial\n## t04 no-colon\n";
-        assert_eq!(trial_numbers(c), vec![1, 2, 10]);
-        assert_eq!(next_trial_number(c), 11);
-        assert_eq!(next_trial_number("no trials"), 1);
+    const P1: &str = "### 목표 (Goal)\n- 파장별 SNR\n\n### 조건 (Conditions)\n- 광자 1e8\n\n### 가설 (Hypothesis)\n- 810 우위\n\n### 예상 (Prediction)\n- 810 최대\n";
+    const P2: &str = "### 관찰 (Observation)\n- 810 최대\n\n### 해석 (Interpretation)\n- 예상 일치 정도: 일치\n\n### 교훈 (Lessons)\n- ok\n\n### 생성 파일 (Files)\n- 없음\n";
+
+    fn project() -> tempfile::TempDir {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(tmp.path().join("2_Log")).unwrap();
+        run_session_new(tmp.path(), &SessionNewOptions { title: "t".into(), date: "2026-11-09".into(), goal: "g".into(), gov: false }).unwrap();
+        tmp
+    }
+
+    fn new(root: &Path, title: Option<&str>, body: Option<&str>) -> Result<TrialResult, SessionError> {
+        run_trial_new(root, &TrialNewOptions { title: title.map(str::to_string), session: None, date: "2026-11-10".into(), body: body.map(str::to_string), now: now(10) })
+    }
+
+    fn write(root: &Path, body: &str, h: u32) -> Result<TrialResult, SessionError> {
+        run_trial_write(root, &TrialWriteOptions { trial: None, session: None, date: "2026-11-10".into(), body: body.into(), now: now(h) })
+    }
+
+    fn log(root: &Path) -> String {
+        fs::read_to_string(root.join("2_Log/S/S001_log.md")).unwrap()
     }
 
     #[test]
-    fn render_substitutes_ids_and_title() {
-        let tpl = "## t{NN}: [작업 제목]\n![x](../6_Exp/64_Viz/S{NNN}/f.png)\n";
-        let s = render_stub(tpl, "t05", "S021", Some("제목A"));
-        assert!(s.contains("## t05: 제목A"));
-        assert!(s.contains("64_Viz/S021/"));
-        // 제목 생략 시 placeholder 유지
-        let p = render_stub(tpl, "t05", "S021", None);
-        assert!(p.contains("## t05: [작업 제목]"));
+    fn meta_roundtrip() {
+        let m = TrialMeta { p1_first: Some("a".into()), p1_last: Some("b".into()), writes: 3, p2: Some("c".into()) };
+        assert_eq!(TrialMeta::parse(&m.render()), Some(m));
+        assert_eq!(TrialMeta::parse(&TrialMeta::default().render()), Some(TrialMeta::default()));
     }
 
     #[test]
-    fn insert_before_next_session_section() {
-        let out = insert_trial(LOG, "## t02: 새 작업\n\n### 목표 (Goal)\n- y\n");
-        let t02 = out.find("## t02").unwrap();
-        let next = out.find("## 다음 세션 후보").unwrap();
-        let t01 = out.find("## t01").unwrap();
-        assert!(t01 < t02 && t02 < next, "순서: t01 < t02 < 다음 세션 후보");
-        // t02와 다음 세션 후보 사이 `---` 경계 존재
-        assert!(out[t02..next].contains("\n---\n"));
-        // 기존 본문 보존
-        assert!(out.contains("## t01: 첫 작업"));
-        assert!(out.contains("### 가설 후보"));
+    fn new_without_from_appends_phase1_template_only() {
+        let tmp = project();
+        let r = new(tmp.path(), None, None).unwrap();
+        assert_eq!((r.trial.as_str(), r.phase), ("t01", 0));
+        let text = log(tmp.path());
+        assert!(text.contains("## t01: [작업 제목]\n<!-- elf-trial: phase1 - -->"));
+        assert!(text.contains("### 예상 (Prediction)"));
+        assert!(!text.contains("### 관찰"), "Phase 2 template is not appended");
     }
 
     #[test]
-    fn insert_appends_at_eof_without_next_section() {
-        let log = "# S001: T\n\n## t01: a\n\n### 목표 (Goal)\n- x\n";
-        let out = insert_trial(log, "## t02: b\n");
-        assert!(out.ends_with("## t02: b\n"));
-        assert!(out.contains("- x\n\n---\n\n## t02"));
-        // 이미 `---`로 끝나면 중복 구분선 없음
-        let log2 = "# S001: T\n\n## t01: a\n\n---\n";
-        let out2 = insert_trial(log2, "## t02: b\n");
-        assert!(out2.contains("---\n\n## t02: b\n"));
-        assert!(!out2.contains("---\n\n---"));
-    }
-
-    const PHASE1: &str = "### 목표 (Goal)\n- g\n\n### 조건 (Conditions)\n- c\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n";
-
-    #[test]
-    fn compose_phase1_only_gets_phase2_template() {
-        let (text, filled) = compose_trial(PHASE1, "t03", "S044", "제목").unwrap();
-        assert!(text.starts_with("## t03: 제목\n\n### 목표 (Goal)\n- g"));
-        assert_eq!(filled, ["관찰", "해석", "교훈", "생성 파일"]);
-        assert!(text.contains("### 관찰 (Observation)\n- [Phase 2") && text.contains("64_Viz/S044/"));
-        assert!(text.ends_with("| Figure | `경로` |\n"));
-    }
-
-    #[test]
-    fn compose_full_trial_passes_unchanged() {
-        let body = format!("{PHASE1}\n### 관찰 (Observation)\n- o\n\n### 해석 (Interpretation)\n- 예상 일치 정도: 일치\n\n### 교훈 (Lessons)\n- l\n\n### 생성 파일 (Files)\n\n| 유형 | 파일 |\n|---|---|\n| (없음) | - |\n");
-        let (text, filled) = compose_trial(&body, "t01", "S001", "T").unwrap();
-        assert!(filled.is_empty());
-        assert_eq!(text, format!("## t01: T\n\n{}\n", body.trim_matches('\n')));
+    fn new_from_writes_phase1_and_write_revises_then_phase2() {
+        let tmp = project();
+        let root = tmp.path();
+        let r = new(root, Some("sweep"), Some(&format!("---\nhandoff: 'h1; 미완료 = 확인 대기'\n---\n{P1}"))).unwrap();
+        assert_eq!((r.phase, r.writes, r.handoff_replaced), (1, 1, true));
+        assert!(log(root).contains("handoff: 'h1; 미완료 = 확인 대기'"));
+        // Phase 1 수정(교체) — 횟수 증가, 내용 교체
+        let r2 = write(root, &P1.replace("광자 1e8", "광자 1e9"), 11).unwrap();
+        assert_eq!((r2.phase, r2.writes), (1, 2));
+        let text = log(root);
+        assert!(text.contains("광자 1e9") && !text.contains("광자 1e8"));
+        assert!(text.contains("(2 writes)"));
+        // Phase 2
+        let r3 = write(root, P2, 12).unwrap();
+        assert_eq!(r3.phase, 2);
+        let text = log(root);
+        assert!(text.contains("; phase2 2026-11-09T12:00:00+09:00"));
+        assert!(text.find("### 예상").unwrap() < text.find("### 관찰").unwrap());
+        // Phase 2 이후 Phase 1 수정 거부, Phase 2 재쓰기 거부
+        assert!(matches!(write(root, P1, 13), Err(SessionError::Rejected(v)) if v.iter().any(|x| x.contains("already has Phase 2"))));
+        assert!(matches!(write(root, P2, 13), Err(SessionError::Rejected(_))));
     }
 
     #[test]
-    fn compose_rejects_bad_bodies() {
-        let has = |r: Result<(String, Vec<String>), Vec<String>>, s: &str| {
-            let e = r.unwrap_err();
-            assert!(e.iter().any(|x| x.contains(s)), "{s} not in {e:?}");
-        };
-        has(compose_trial(&format!("## t09: x\n{PHASE1}"), "t01", "S001", "T"), "line 1: '## t09: x'");
-        has(compose_trial("### 목표 (Goal)\n- g\n", "t01", "S001", "T"), "missing '### 가설'");
-        has(compose_trial(&format!("{PHASE1}\n### 관찰 (Observation)\n- o\n"), "t01", "S001", "T"), "missing '### 해석'");
-        has(compose_trial(&format!("{PHASE1}\n### 비정본\n- x\n"), "t01", "S001", "T"), "non-canonical heading");
-        let tpl_goal = PHASE1.replace("- g", "- [이 작업의 구체적 목표]");
-        has(compose_trial(&tpl_goal, "t01", "S001", "T"), "still holds only the template text");
-        // 코드 블록 안의 `## `도 거부(번호 수집이 블록을 구분하지 않음)
-        assert!(compose_trial(&format!("{PHASE1}- 예:\n```\n## t01: 예시\n```\n"), "t01", "S001", "T").is_err());
+    fn gate_reports_all_problems_and_writes_nothing() {
+        let tmp = project();
+        let root = tmp.path();
+        let before = log(root);
+        let bad = format!("## t09: x\n{P1}{P2}### 메모\n- y\n");
+        let Err(SessionError::Rejected(v)) = new(root, Some("x"), Some(&bad)) else { panic!() };
+        assert!(v.iter().any(|x| x.contains("heading comes from the title")));
+        assert!(v.iter().any(|x| x.contains("one phase only")));
+        assert!(v.iter().any(|x| x.contains("non-canonical heading '### 메모'")));
+        assert_eq!(log(root), before, "nothing written");
+        assert!(matches!(new(root, Some("x"), Some("---\ngoal: 'x'\n---\n### 목표\n- a\n")), Err(SessionError::Rejected(v)) if v[0].contains("only handoff")));
+        assert!(matches!(new(root, Some("x"), Some(&format!("> **Handoff**: old\n{P1}"))), Err(SessionError::Rejected(v)) if v.iter().any(|x| x.contains("YAML block"))));
     }
 
     #[test]
-    fn handoff_split_and_replace_keep_header_form() {
-        let (h, body) = split_handoff("\u{feff}\r\n> **Handoff**: 새 상태; 미완료 = X; 참조 t02\r\n\r\n### 목표 (Goal)\r\n- g\r\n");
-        assert_eq!(h.as_deref(), Some("> **Handoff**: 새 상태; 미완료 = X; 참조 t02"));
-        assert_eq!(body, "### 목표 (Goal)\n- g");
-        assert_eq!(split_handoff("### 목표 (Goal)\n").0, None);
-        let out = replace_handoff(LOG, h.as_deref().unwrap()).unwrap();
-        assert!(out.contains("> **Handoff**: 새 상태; 미완료 = X; 참조 t02\n\n---"));
-        assert!(!out.contains("> **Handoff**: -"));
-        // 끝 `\`가 있던 줄은 유지
-        let hard = LOG.replace("> **Handoff**: -\n", "> **Handoff**: -\\\n> **결론**: k\n");
-        assert!(replace_handoff(&hard, "> **Handoff**: y").unwrap().contains("> **Handoff**: y\\\n> **결론**: k"));
-        assert!(replace_handoff("# no header\n", "> **Handoff**: y").is_none());
+    fn normalizes_exact_synonyms_only() {
+        let tmp = project();
+        let root = tmp.path();
+        let body = "### Goal\n- a\n\n### 조건\n- b\n\n### Hypothesis (가설)\n- c\n\n### 예상 (Prediction)\n- d\n";
+        let r = new(root, Some("x"), Some(body)).unwrap();
+        assert_eq!(r.normalized.len(), 3);
+        let text = log(root);
+        assert!(text.contains("### 목표 (Goal)\n- a") && text.contains("### 조건 (Conditions)") && text.contains("### 가설 (Hypothesis)"));
+        let p2 = P2.replace("- 예상 일치 정도: 일치", "- 가설 적중 여부: 일치");
+        let r2 = write(root, &p2, 12).unwrap();
+        assert!(r2.normalized.iter().any(|n| n.contains("interpretation label")));
+        assert!(log(root).contains("- 예상 일치 정도: 일치"));
     }
 
     #[test]
-    fn modified_updated_preserving_hardbreak() {
-        let out = update_modified(LOG, "2026-07-06").unwrap();
-        assert!(out.contains("> **Modified**: 2026-07-06\\\n"));
-        assert!(out.contains("> **Created**: 2026-07-01\\\n")); // 타 줄 불변
-        assert!(update_modified(&out, "2026-07-06").is_none()); // 멱등
+    fn phase1_revision_refused_after_outputs_and_phase2_needs_new_figures() {
+        let tmp = project();
+        let root = tmp.path();
+        new(root, Some("x"), Some(P1)).unwrap();
+        // 마지막 Phase 1 쓰기 뒤(과거 시각 기준) 생긴 산출물과 그림
+        fs::create_dir_all(root.join("6_Exp/64_Viz/S001")).unwrap();
+        fs::write(root.join("6_Exp/64_Viz/S001/fig1.png"), b"x").unwrap();
+        // 도구 주석 시각을 과거로(파일 mtime이 더 새로움)
+        let text = log(root).replace("2026-11-09T10:00:00+09:00 ~ 2026-11-09T10:00:00+09:00", "2000-01-01T00:00:00+09:00 ~ 2000-01-01T00:00:00+09:00");
+        fs::write(root.join("2_Log/S/S001_log.md"), text).unwrap();
+        assert!(matches!(write(root, P1, 11), Err(SessionError::Rejected(v)) if v.iter().any(|x| x.contains("appeared after the last Phase 1 write"))));
+        assert!(matches!(write(root, P2, 12), Err(SessionError::Rejected(v)) if v.iter().any(|x| x.contains("fig1.png"))));
+        let p2 = P2.replace("- 810 최대\n\n### 해석", "- 810 최대\n- ![Fig1: SNR](../../6_Exp/64_Viz/S001/fig1.png)\n\n### 해석");
+        assert_eq!(write(root, &p2, 12).unwrap().phase, 2);
+    }
+
+    #[test]
+    fn insert_trial_positions() {
+        let with_next = "# S\n\n## t01: a\n\n---\n\n## 다음 세션 후보\n- x\n";
+        let out = insert_trial(with_next, "## t02: b\n");
+        assert!(out.contains("## t02: b\n\n---\n\n## 다음 세션 후보"));
+        let plain = "# S\n\n<!-- c -->\n";
+        assert_eq!(insert_trial(plain, "## t01: a\n"), "# S\n\n<!-- c -->\n\n## t01: a\n");
+        let two = "# S\n\n## t01: a\n- x\n";
+        assert_eq!(insert_trial(two, "## t02: b"), "# S\n\n## t01: a\n- x\n\n---\n\n## t02: b\n");
+        assert_eq!(trial_numbers("## t01: a\n## t1x: b\n## t03: c\n"), vec![1, 3]);
     }
 }

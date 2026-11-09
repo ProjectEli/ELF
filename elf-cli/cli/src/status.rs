@@ -117,22 +117,13 @@ pub fn run_status_parts(root: &Path, with_version_tsa: bool) -> Result<StatusRep
     let stamp = stamp_full.for_lang(&lang);
     let new_m = manifest::embedded_kind(kind).for_lang(&lang);
 
-    // 버전 줄: 프로젝트 stamp vs CLI
-    let project_version = fs::read_to_string(root.join(".elf").join("version"))
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|_| "(unknown)".into());
-    if !with_version_tsa {
-        // check files: 버전은 `.elf` 기록 검사가 보고
-    } else if project_version == embed::version() {
-        report.push(LineKind::Info, format!("ELF {project_version} (project = CLI)"));
-    } else {
-        report.push(
-            LineKind::Warn,
-            format!(
-                "project ELF {project_version} ≠ CLI {} — run `elf update` to refresh stamp",
-                embed::version()
-            ),
-        );
+    // 버전 줄(구 이름 `status`만): 프로젝트 manifest vs CLI — `check files`는 싣지 않음(`check version` 소관)
+    if with_version_tsa {
+        let v = crate::version::verdict_with(root, embed::version());
+        match &v {
+            crate::version::Verdict::Same(p) => report.push(LineKind::Info, format!("ELF {p} (project = CLI)")),
+            _ => report.push(LineKind::Warn, crate::version::verdict_line(&v, embed::version()).1),
+        }
     }
 
     // tsa (opt-in — enabled일 때만 1줄; 상세는 `elf tsa status`/`elf check files`)

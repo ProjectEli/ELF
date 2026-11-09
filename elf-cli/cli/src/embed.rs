@@ -74,7 +74,7 @@ mod tests {
 
     #[test]
     fn manifest_is_embedded_and_lf() {
-        assert!(MANIFEST_JSON.contains("\"schema\": \"elf-manifest/1\""));
+        assert!(MANIFEST_JSON.contains("\"schema\": \"elf-manifest/2\""));
         assert!(!MANIFEST_JSON.contains('\r'), "CRLF in embedded manifest");
     }
 
