@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use elf_cli::{autoread, check, deprecate, doctor, embed, gallery, init, logcmd, manifest, migrate, selfupdate, session, status, trial, tsa, update, validate, version};
+use elf_cli::{autoread, check, deprecate, doctor, embed, gallery, init, legacy, logcmd, manifest, migrate, selfupdate, session, status, trial, tsa, update, validate, version};
 
 /// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드, 갱신 CLI (research project scaffold & update CLI)
 #[derive(Parser)]
@@ -186,6 +186,13 @@ enum DeprecateCmd {
         /// 폐기 ID / deprecation id (e.g. S012-D01)
         id: String,
     },
+    /// (2.27 형식 저장소 전용, experimental) 영구 삭제 / earlier layout only: purge (experimental)
+    #[command(hide = true)]
+    Purge {
+        id: String,
+        #[arg(long = "dry-run")]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -237,9 +244,9 @@ enum SessionCmd {
     New {
         /// 세션 제목 / session title
         title: String,
-        /// 세션 목표 1-2문장(필수) / the session goal in 1-2 sentences (required)
+        /// 세션 목표 1-2문장(필수 — 이전 형식 저장소에서는 쓰지 않음) / the session goal in 1-2 sentences (required; not used in a project still in the 2.27 layout)
         #[arg(long)]
-        goal: String,
+        goal: Option<String>,
         /// 거버넌스 세션 / governance session (rules, structure, templates, tool settings) → 2_Log/G/
         #[arg(long)]
         gov: bool,
@@ -254,6 +261,12 @@ enum SessionCmd {
         /// 호환용(무효과) / accepted for compatibility, no effect
         #[arg(long, hide = true)]
         force: bool,
+    },
+    /// (2.27 형식 저장소 전용) 헤더 줄바꿈 보정 / earlier layout only: repair blockquote header hard breaks
+    #[command(name = "fix-headers", hide = true)]
+    FixHeaders {
+        #[arg(long)]
+        dry_run: bool,
     },
 }
 
@@ -679,9 +692,54 @@ fn main() {
             if cmd.is_none() && (restore.is_some() || target.is_some()) && !dry_run {
                 gate_write_or_exit();
             }
+            if legacy::active(&root) {
+                let code = match cmd {
+                    Some(DeprecateCmd::Show { .. }) => legacy::cli::after_migration("elf deprecate show"),
+                    Some(DeprecateCmd::Purge { id, dry_run: dr }) => legacy::cli::deprecate(
+                        &root,
+                        legacy::cli::DeprecateArgs {
+                            purge: Some((id, dr)),
+                            list: false,
+                            target: None,
+                            trial: None,
+                            section: None,
+                            marked: false,
+                            lines: None,
+                            expect: None,
+                            replaced_by: None,
+                            reason: None,
+                            dry_run: false,
+                            restore: None,
+                        },
+                    ),
+                    Some(DeprecateCmd::List) | None => legacy::cli::deprecate(
+                        &root,
+                        legacy::cli::DeprecateArgs {
+                            purge: None,
+                            list: matches!(cmd, Some(DeprecateCmd::List)),
+                            target,
+                            trial,
+                            section,
+                            marked,
+                            lines,
+                            expect,
+                            replaced_by,
+                            reason,
+                            dry_run,
+                            restore,
+                        },
+                    ),
+                };
+                std::process::exit(code);
+            }
+            if matches!(cmd, Some(DeprecateCmd::Purge { .. })) {
+                eprintln!("[elf] error: `elf deprecate purge` was removed in 2.28 — deprecated content is kept compressed in .elf/deprecated/ (docs/deprecate.md)");
+                std::process::exit(2);
+            }
             let result = match cmd {
                 Some(DeprecateCmd::List) => deprecate::run_list(&root),
                 Some(DeprecateCmd::Show { id }) => deprecate::run_show(&root, &id),
+                Some(DeprecateCmd::Purge { .. }) => unreachable!("handled above"),
                 None => {
                     if let Some(id) = restore {
                         deprecate::run_restore(&root, &id)
@@ -768,6 +826,9 @@ fn main() {
         }
         Commands::Validate { check } => {
             let root = log_root_or_exit();
+            if legacy::active(&root) {
+                std::process::exit(legacy::cli::validate(&root, check));
+            }
             match validate::run_validate(&root) {
                 Ok(report) => {
                     for line in &report.lines {
@@ -791,6 +852,16 @@ fn main() {
             SessionCmd::New { title, goal, gov } => {
                 let root = log_root_or_exit();
                 gate_write_or_exit();
+                if legacy::active(&root) {
+                    if gov {
+                        std::process::exit(legacy::cli::after_migration("elf session new --gov"));
+                    }
+                    std::process::exit(legacy::cli::session_new(&root, title));
+                }
+                let Some(goal) = goal else {
+                    eprintln!("[elf] error: --goal is required: the session goal in 1-2 sentences (elf session new \"<title>\" --goal \"<goal>\")");
+                    std::process::exit(2);
+                };
                 let date = chrono::Local::now().format("%Y-%m-%d").to_string();
                 let opts = session::SessionNewOptions { title, date, goal, gov };
                 match session::run_session_new(&root, &opts) {
@@ -809,9 +880,15 @@ fn main() {
                     Err(e) => session_exit(e, "elf session new"),
                 }
             }
-            SessionCmd::Close { id, from, force: _ } => {
+            SessionCmd::Close { id, from, force } => {
                 let root = log_root_or_exit();
                 gate_write_or_exit();
+                if legacy::active(&root) {
+                    if from.is_some() {
+                        std::process::exit(legacy::cli::after_migration("elf session close --from"));
+                    }
+                    std::process::exit(legacy::cli::session_close(&root, id, force));
+                }
                 let date = chrono::Local::now().format("%Y-%m-%d").to_string();
                 let body = from.as_ref().map(|p| read_input(p));
                 match session::run_session_close(&root, &session::CloseOptions { id, body, date }) {
@@ -824,9 +901,20 @@ fn main() {
                     Err(e) => session_exit(e, "elf session close <S###|G###>"),
                 }
             }
+            SessionCmd::FixHeaders { dry_run } => {
+                let root = log_root_or_exit();
+                if !legacy::active(&root) {
+                    eprintln!("[elf] error: `elf session fix-headers` was removed in 2.28 — log headers are YAML now");
+                    std::process::exit(2);
+                }
+                std::process::exit(legacy::cli::fix_headers(&root, dry_run));
+            }
         },
         Commands::Log { cmd } => {
             let root = log_root_or_exit();
+            if legacy::active(&root) {
+                std::process::exit(legacy::cli::after_migration("elf log"));
+            }
             let result = match cmd {
                 None => logcmd::run_list(&root),
                 Some(LogCmd::Show { id, trial }) => logcmd::run_show(&root, &id, trial.as_deref()),
@@ -843,6 +931,16 @@ fn main() {
         Commands::Trial { cmd } => {
             let root = log_root_or_exit();
             gate_write_or_exit();
+            if legacy::active(&root) {
+                let code = match cmd {
+                    TrialCmd::New { title, session: sess, from } => {
+                        let body = from.as_ref().map(|p| read_input(p));
+                        legacy::cli::trial_new(&root, title, sess, body)
+                    }
+                    TrialCmd::Write { .. } => legacy::cli::after_migration("elf trial write"),
+                };
+                std::process::exit(code);
+            }
             let date = chrono::Local::now().format("%Y-%m-%d").to_string();
             let now = chrono::Local::now().fixed_offset();
             let result = match cmd {

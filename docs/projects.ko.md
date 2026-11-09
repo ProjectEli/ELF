@@ -65,7 +65,7 @@ elf check                # 팀이나 CI의 통과 조건. issue가 있으면 exi
 
 ### 로그 구조 이관 (2.28)
 
-2.28부터 로그는 YAML 헤더를 달고 `2_Log/S/`, `2_Log/G/`에 고정됩니다([세션과 trial](sessions.ko.md)). 이전에 만든 프로젝트는 `elf update`가 한 번 이관합니다. 인용 블록 헤더를 YAML 7키로 바꾸고, 로그를 `2_Log/`와 `2_Log/Archive/`에서 `2_Log/S/`로 옮기고, 링크를 다시 계산하고, 폐기 기록을 `.elf/deprecated/` 보관 파일로 바꾸고, `Registry.md`와 탐색기 중첩 설정을 만들고, `2_Log/Wiki/Session_Registry.tsv`를 지웁니다. 이관은 그 프로젝트의 AI 에이전트가 실행하고 경고를 처리합니다.
+2.28부터 로그는 YAML 헤더를 달고 `2_Log/S/`, `2_Log/G/`에 고정됩니다([세션과 trial](sessions.ko.md)). CLI를 갱신해도 이관되지 않으며, 이전에 만든 프로젝트는 그 안에서 `elf update`를 실행하기 전까지 2.27 명령으로 계속 기록합니다(2.28.1부터). 프로젝트마다 준비됐을 때 이관하면 되고, `elf update`가 한 번 이관합니다. 인용 블록 헤더를 YAML 7키로 바꾸고, 로그를 `2_Log/`와 `2_Log/Archive/`에서 `2_Log/S/`로 옮기고, 링크를 다시 계산하고, 폐기 기록을 `.elf/deprecated/` 보관 파일로 바꾸고, `Registry.md`와 탐색기 중첩 설정을 만들고, `2_Log/Wiki/Session_Registry.tsv`를 지웁니다. 이관은 그 프로젝트의 AI 에이전트가 실행하고 경고를 처리합니다.
 
 | 단계 | 내용 |
 |------|------|

@@ -17,10 +17,11 @@ Read-only checks in four scopes. With no scope, all four run in the order versio
 
 | Level | Finding |
 |---|---|
-| issue | Earlier log layout (one line naming what remains; run `elf update`), a header that does not have the 7 keys in order or has a wrong value (with the line number), a log name that is not `S###`/`G###`, a broken relative `.md` link, a deprecation marker without its store file in `.elf/deprecated/` |
+| issue | Logs left in the earlier layout in a migrated project (one line naming them; run `elf update`), a header that does not have the 7 keys in order or has a wrong value (with the line number), a log name that is not `S###`/`G###`, a broken relative `.md` link, a deprecation marker without its store file in `.elf/deprecated/` |
 | warn | A gap in numbering, more than one ongoing session in a series, `goal` empty while ongoing, `conclusion` empty while complete, pending items left in the handoff while complete, a figure in `6_Exp/64_Viz/S###/` that is not embedded in the log (a table path is not an embed), trial structure in ongoing logs (section names and order, the `예상 일치 정도` first line of 해석, Phase 1 sections missing while 관찰 exists), template text left in a section, `Registry.md` missing or different from the headers, a store file without a marker line |
 | info | A store file not yet tracked by git (commit it together with the log change) |
 
+- In a project not yet migrated, `logs` runs the 2.27 checks (registry and log files, numbering, links, figure embeds, trial structure) and adds an info line about the migration; the earlier layout itself is not an issue.
 - Exit code: **4** if there is any issue (use it as a pre-commit hook or CI gate), **0** with warnings only.
 - A scope that does not apply is skipped: without `.elf/` (outside an ELF project, or a folder that only keeps `2_Log/`), `files` is skipped and `logs` still runs. Naming a scope that does not apply exits **1**.
 - Exclude an intentional non-embed (SI, or a figure kept out of the body on purpose) with a `<!-- noembed: filename.png -->` comment in the log.

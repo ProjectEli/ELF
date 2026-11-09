@@ -179,9 +179,15 @@ fn run_logs(cwd: &Path) -> ScopeReport {
         r.skipped = Some("no 2_Log/ directory found".into());
         return r;
     };
-    match validate::run_validate(&root) {
-        Ok(v) => {
-            for line in v.lines {
+    // 이전 형식 저장소 = 2.27.4 검사(동결 모듈) + 이관 안내 info (v2.28.1)
+    let lines = if crate::legacy::active(&root) {
+        Ok(crate::legacy::cli::check_logs_lines(&root))
+    } else {
+        validate::run_validate(&root).map(|v| v.lines)
+    };
+    match lines {
+        Ok(lines) => {
+            for line in lines {
                 let item = if let Some(x) = line.strip_prefix("issue: ") {
                     Item::new(Level::Issue, x)
                 } else if let Some(x) = line.strip_prefix("warn: ") {

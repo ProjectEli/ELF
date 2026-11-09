@@ -4,6 +4,20 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [2.28.1] - 2026-11-10
+
+### Fixed
+- **Updating the CLI no longer stops recording in projects that are not migrated yet.** With 2.28.0, `elf self update`
+  made every project still in the 2.27 log layout refuse the commands that write logs until `elf update` migrated it.
+  Now the switch happens per project, when you run `elf update` there: until then the log commands work as in 2.27.4
+  (`elf session new "<title>"`, `elf session close` moving the log to `Archive/`, `elf trial new --from` with a first
+  `> **Handoff**:` line, `elf deprecate` with `Deprecated/` and `purge`, `elf validate`), the autoread digest lists the
+  ongoing sessions' Handoff again, and `elf check logs` runs the 2.27 checks with an info line about the migration
+  instead of an issue. Each write prints a one-line note. The new-structure commands (`elf trial write`, `elf log`,
+  `elf deprecate show`, `session new --gov`, `session close --from`) explain that they are available after the
+  migration (exit 3). Migrated and new projects behave exactly as in 2.28.0.
+- 2.28.0 is marked as a pre-release on GitHub, so `elf self update` from 2.27 goes to 2.28.1.
+
 ## [2.28.0] - 2026-11-10
 
 A structure release: session logs get a fixed location and a YAML header, and records are written through commands

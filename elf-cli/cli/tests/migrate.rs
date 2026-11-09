@@ -67,8 +67,9 @@ fn old_project(tmp: &Path) -> PathBuf {
 fn e2e_decision_file_roundtrip_then_apply() {
     let tmp = tempdir().unwrap();
     let root = old_project(tmp.path());
-    // 쓰기 명령은 이관 전 거부
-    assert_eq!(elf(&root, &["session", "new", "x", "--goal", "g"]).0, 3);
+    // 이관 전: 새 구조 전용 명령만 거부(2.27 명령은 동작 — tests/legacy.rs)
+    assert_eq!(elf(&root, &["log"]).0, 3);
+    assert_eq!(elf(&root, &["trial", "write", "--from", "x.md"]).0, 3);
     // 1차: 경고(S002 불일치) → 결정 파일만, 나머지 무변경
     let (code, out) = elf(&root, &["update"]);
     assert_eq!(code, 3, "{out}");

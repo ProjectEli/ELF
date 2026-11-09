@@ -77,7 +77,7 @@ elf check                # team/CI gate: exit 4 on issues (elf check logs for th
 
 ### Migrating the log layout (2.28)
 
-From 2.28, logs live in `2_Log/S/` and `2_Log/G/` with a YAML header and stay where they are ([Sessions and trials](sessions.md)). In a project made earlier, `elf update` migrates once: blockquote headers become the 7 YAML keys, logs move from `2_Log/` and `2_Log/Archive/` to `2_Log/S/`, links are recomputed, deprecation records become `.elf/deprecated/` store files, `Registry.md` and the explorer nesting are generated, and `2_Log/Wiki/Session_Registry.tsv` is removed. The project's own AI agent runs it and handles the warnings.
+From 2.28, logs live in `2_Log/S/` and `2_Log/G/` with a YAML header and stay where they are ([Sessions and trials](sessions.md)). Updating the CLI does not migrate anything: a project made earlier keeps recording with the 2.27 commands (2.28.1 and later) until you run `elf update` in it. Migrate each project when it is ready; `elf update` migrates once: blockquote headers become the 7 YAML keys, logs move from `2_Log/` and `2_Log/Archive/` to `2_Log/S/`, links are recomputed, deprecation records become `.elf/deprecated/` store files, `Registry.md` and the explorer nesting are generated, and `2_Log/Wiki/Session_Registry.tsv` is removed. The project's own AI agent runs it and handles the warnings.
 
 | Step | What happens |
 |------|--------------|

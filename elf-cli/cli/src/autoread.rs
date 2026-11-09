@@ -573,16 +573,14 @@ pub fn build_digest_for(root: &Path, source: &str, claude_code: bool) -> String 
         CoreSummary::NoFile => {}
     }
 
-    let legacy = crate::logs::legacy_markers(root);
-    if !legacy.is_empty() {
-        out.push_str(&format!(
-            "
-(this project still has the earlier log layout: {} — run `elf update` to migrate; sessions are not listed until then)
-",
-            legacy.join(", ")
-        ));
+    // 이전 형식 저장소 = 2.27.4 방식(루트 로그의 인용 블록 헤더 Handoff) + 이관 안내 1줄 (v2.28.1)
+    let legacy = crate::legacy::active(root);
+    if legacy {
+        out.push_str(&format!("
+({})
+", crate::legacy::NOTICE));
     }
-    let sessions = active_session_handoffs(root);
+    let sessions = if legacy { crate::legacy::active_session_handoffs(root) } else { active_session_handoffs(root) };
     if !sessions.is_empty() {
         out.push_str("\n--- active sessions (newest first; Handoff truncated) ---\n");
         let shown = sessions.len().min(ACTIVE_LIMIT);
@@ -596,12 +594,17 @@ pub fn build_digest_for(root: &Path, source: &str, claude_code: bool) -> String 
         }
     }
 
-    if let Ok(rep) = crate::validate::run_validate(root) {
+    let counts = if legacy {
+        crate::legacy::validate::run_validate(root).ok().map(|r| (r.issues, r.warnings))
+    } else {
+        crate::validate::run_validate(root).ok().map(|r| (r.issues, r.warnings))
+    };
+    if let Some((issues, warnings)) = counts {
         out.push_str(&format!(
             "\ncheck logs: {} issue(s), {} warning(s){}\n",
-            rep.issues,
-            rep.warnings,
-            if rep.issues > 0 { " — run `elf check logs` and resolve" } else { "" }
+            issues,
+            warnings,
+            if issues > 0 { " — run `elf check logs` and resolve" } else { "" }
         ));
     }
 

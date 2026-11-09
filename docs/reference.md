@@ -31,10 +31,10 @@ Global flags: `elf --version`, `elf --help`, `elf <command> --help`.
 | 0 | Success |
 | 1 | Runtime error (I/O, not an ELF project, a session or ID that does not exist, …) |
 | 2 | Usage error (bad flags or arguments) |
-| 3 | Refused, nothing written: a file that fails the checks (all reasons are printed), a project newer than the CLI, the earlier log layout before migration, a migration that needs decisions (the decision file is written) |
+| 3 | Refused, nothing written: a file that fails the checks (all reasons are printed), a project newer than the CLI, a command of the new structure in a project not yet migrated, a migration that needs decisions (the decision file is written) |
 | 4 | `elf check` found issues (also `--check` on the old `status` and `validate` names). A gate signal, distinct from a real error |
 
-Before 2.28, exit 5 (escalation) meant the TSV session registry could not be parsed. The TSV registry was replaced by the generated `Registry.md`, so exit 5 is no longer used.
+Exit 5 (escalation) means the TSV session registry of a project not yet migrated cannot be parsed (the 2.27 commands, which such a project keeps using). Migrated projects have no TSV registry, so exit 5 does not occur there.
 
 ---
 
