@@ -47,6 +47,12 @@ sfprj/
 
 # === Raw Data (원본 센서 데이터 — 절대 Git 추적 제외) ===
 6_Exp/62_Empirical/Raw/
+
+# === Python cache (프로젝트 스크립트 실행 캐시) ===
+__pycache__/
+*.py[cod]
+
+# (관리 블록 끝 — 사용자 규칙은 이 블록 안이 아니라 아래 '사용자 영역'에 추가. 블록 안을 고치면 elf check files가 block edited로 보고)
 # <<< ELF managed <<<
 
 # === 사용자 영역 (ELF가 건드리지 않습니다) ===

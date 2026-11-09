@@ -52,9 +52,14 @@ Update the ELF-managed files in the current project to the installed CLI version
 | Flag | Meaning |
 |------|---------|
 | `--dry-run` | Show the plan (including the migration) without writing anything |
+| `--out <folder>` | With `--dry-run`: write the migration's result files and tables (headers, link and code span changes, path mentions, warnings) to this folder. Inside the project, only under `.elf/runtime/` |
+| `--to <line>` | Target line, such as `3.0` (default: the line of the `elf` on PATH). Another line is run by that version from the version store |
+| `--approve <code>` | Apply a change of line with the approval code from the summary, after the user approved it |
 | `--force` | Overwrite user-edited managed files / replace hybrid blocks |
 
-The project manifest `.elf/manifest.json` records the ELF version that last updated the project (`elf_version`). If it is newer than the installed CLI (by MAJOR.MINOR), `elf update` and the commands that write logs refuse (exit 3) until `elf self update`; `elf check version` shows the verdict. After a project is updated to 2.28, every PC that works on the same repository needs `elf self update` before pulling.
+The project manifest `.elf/manifest.json` records the ELF version the project uses (`elf_version`), and the `elf` on PATH runs every command in the project with that line ([Versions per project](reference.md#versions-per-project)). Only `elf update` changes it. Within the same line, `elf update` refreshes the managed files at once.
+
+**Changing the line needs the user's approval.** A move to a higher line (a MINOR step, or a new structure generation with a log migration) writes nothing at first: `elf update` prints a summary (the current and target versions, the migration and managed-file plan, the effect on other PCs) and a six-character approval code, and exits 3. An AI agent shows the summary to the user and, only after the user approves, runs `elf update --to <line> --approve <code>`, quotes the approval in the session log, and commits the update by itself. If anything changed in between, the code no longer matches and a new summary is printed. Run in a terminal, `elf update` asks [y/N] instead. Moving to a lower line is refused (undo an update with git), and a migration goes one structure generation at a time. In a project still in the 2.27 layout, `elf update --to 2.27` refreshes the managed files with elf 2.27.x without migrating. A PC with elf 2.28.1 or older has no launcher and needs `elf self update` before pulling a project that was moved to 3.0 or later; `elf check version` shows the verdict.
 
 Behavior per file type → see [File ownership](#file-ownership).
 
@@ -77,16 +82,30 @@ elf check                # team/CI gate: exit 4 on issues (elf check logs for th
 
 ### Migrating the log layout (2.28)
 
-From 2.28, logs live in `2_Log/S/` and `2_Log/G/` with a YAML header and stay where they are ([Sessions and trials](sessions.md)). Updating the CLI does not migrate anything: a project made earlier keeps recording with the 2.27 commands (2.28.1 and later) until you run `elf update` in it. Migrate each project when it is ready; `elf update` migrates once: blockquote headers become the 7 YAML keys, logs move from `2_Log/` and `2_Log/Archive/` to `2_Log/S/`, links are recomputed, deprecation records become `.elf/deprecated/` store files, `Registry.md` and the explorer nesting are generated, and `2_Log/Wiki/Session_Registry.tsv` is removed. The project's own AI agent runs it and handles the warnings.
+From 2.28, logs live in `2_Log/S/` and `2_Log/G/` with a YAML header and stay where they are ([Sessions and trials](sessions.md)). Updating the CLI does not migrate anything. From 3.0, the `elf` on PATH runs a project that is not migrated yet with elf 2.27.x (downloaded on first use; if it cannot be downloaded, the built-in 2.27 compatibility mode runs instead), so the project keeps recording with the 2.27 commands until you run `elf update` in it. Migrate each project when it is ready; `elf update` migrates once: blockquote headers become the 7 YAML keys, logs move from `2_Log/` and `2_Log/Archive/` to `2_Log/S/`, links are recomputed, deprecation records become `.elf/deprecated/` store files, `Registry.md` and the explorer nesting are generated, and `2_Log/Wiki/Session_Registry.tsv` is removed. The project's own AI agent runs it and handles the warnings.
 
 | Step | What happens |
 |------|--------------|
 | Precondition | The git working tree must be clean (the migration is undone with git). Otherwise nothing is written |
+| Preview | `elf update --dry-run --out <folder>` writes the result files (`files/`), a table of the 7 header values per log with where goal and conclusion came from (`headers.tsv`), the recomputed links and code spans (`changes.tsv`), mentions of old paths and removed files that are not links, scripts included (`mentions.tsv`), and the warnings (`warnings.tsv`). Nothing is written to the project, so there is no need to rehearse on a copy |
 | Plan first | `elf update` plans the whole migration. If there is any warning, it writes only the decision file `.elf/runtime/migration.yaml` (not tracked by git), prints a summary, and exits 3; the managed files wait too |
 | Decide | Status warnings (header and Registry disagree, both missing, a value that is not canonical) get a `status` field to fill with `ongoing`, `complete` or `deprecated`, judged from the evidence shown and confirmed with the user. Other warnings (a link target that does not exist, two logs with one number) list a file to fix |
-| Apply | Run `elf update` again. It applies everything at once and deletes the decision file. Then `elf check`, review with the user, and commit |
+| Approve and apply | With the decisions done, `elf update` prints the summary and an approval code. After the user approves, `elf update --to 3.0 --approve <code>` applies everything at once and deletes the decision file. Then `elf check`, review with the user, and commit |
 
-Header values map to the 7 keys (`Created` or `Date` → created, `목표` or `Goal` → goal, `Handoff` → handoff, `결론` or the Registry key finding → conclusion; status `★ 활성` → ongoing, `Complete` → complete, `Deprecated` or `Purged` → deprecated). Other header fields (such as `관련`) are kept as one body line under the title (`> 이관 전 헤더: …`), so their values and links stay. Links and code spans that hold a single relative path are recomputed for the new location when they point to an existing file. A log that an older CLI creates in `2_Log/` after the migration is moved to `2_Log/S/` under the next free number by the next `elf update`. A folder with `2_Log/` but no `.elf/` (logs only) is migrated the same way.
+#### Migration guideline
+
+The guideline gives the direction only. The details differ from project to project and are left to the project's AI agent and the user: how to tidy irregular headers before the migration, what to do with header fields outside the 7 keys, whether a history note should keep the path it recorded, which project scripts to fix, and how to record the migration work itself.
+
+| Direction | Content |
+|-----------|---------|
+| When | Each project when it is ready. There is no hurry: until the migration the project keeps working with elf 2.27.x |
+| Who | The project's AI agent, with the user. The user approves the summary before anything is written |
+| Order | Commit the work in progress, preview with `elf update --dry-run --out <folder>` and review it with the user, settle the warnings, approve the summary and apply, then `elf check` and a review of the diff (`git diff -M`) |
+| Commit | The migration as a commit of its own, so that `git revert` undoes it. There is no other way back |
+| What the migration leaves | Mentions of old log paths and removed files outside links, project scripts, and project rule documents that repeat the old procedures. Use the output and `mentions.tsv` to clean them up in the project; a project rule document should keep only what differs from the managed rules |
+| Other PCs | A PC that pulls the migrated project needs elf 3.0 or later (`elf self update`) |
+
+Header values map to the 7 keys (`Created` or `Date` → created, `목표` or `Goal` → goal, `Handoff` → handoff, `결론` or the Registry key finding → conclusion; status `★ 활성` → ongoing, `Complete` → complete, `Deprecated` or `Purged` → deprecated). Other header fields (such as `관련`) are kept as one body line under the title (`> 이관 전 헤더: …`), so their values and links stay. Links and code spans that hold a single relative path are recomputed for the new location when they point to an existing file. Link recomputation and the mention check cover only files tracked by git (untracked copies and scratch folders are left alone). The output lists each changed code span with its file and line: if a span recorded the path as it was at the time (a history note), put the old notation back. The output also lists logs whose conclusion starts with a status word (such as 완료 or 보관), and the files that still mention old log paths or removed files such as `Session_Registry.tsv` (scripts first), which the migration does not edit. A log that an older CLI creates in `2_Log/` after the migration is moved to `2_Log/S/` under the next free number by the next `elf update`. A folder with `2_Log/` but no `.elf/` (logs only) is migrated the same way.
 
 > **Pre-2.15 projects**: `elf update` does not read or migrate the legacy layout (rules in
 > `0_Meta/`, stubs in a root `templates/`). When legacy rule files remain it warns, names

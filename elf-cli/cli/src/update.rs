@@ -176,6 +176,11 @@ fn write_config_preset(root: &Path, preset: &str) {
 }
 
 pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, UpdateError> {
+    run_update_with(root, opts, None)
+}
+
+/// `run_update` + 이관 미리보기 폴더(`migrate::prepare_preview`로 준비, dry-run에서만 씀).
+pub fn run_update_with(root: &Path, opts: &UpdateOptions, preview: Option<&Path>) -> Result<UpdateReport, UpdateError> {
     let stamp_path = root.join(".elf").join("manifest.json");
     if !stamp_path.is_file() {
         return Err(UpdateError::NotElfProject(root.to_path_buf()));
@@ -184,13 +189,14 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
     // 프로젝트 언어로 stamp, new 둘 다 해석 — companion/variant가 lang에 맞게 일관 필터됨 (P016 §9).
     // stamp는 init이 전체 JSON으로 찍으므로, 같은 lang으로 필터해야 obsolete 오탐 방지.
     let lang = read_config_lang(root);
-    let stamp_full = manifest::parse(&stamp_text).map_err(UpdateError::BadStamp)?;
-    if let v @ crate::version::Verdict::Newer(_) = crate::version::verdict_with(root, embed::version()) {
+    // 프로젝트나 manifest schema가 더 높으면 거부(되돌림 차단, R5, R7) — schema 해석 오류보다 먼저
+    if let v @ (crate::version::Verdict::Newer(_) | crate::version::Verdict::NewerSchema(_)) = crate::version::verdict_with(root, embed::version()) {
         return Err(UpdateError::NewerProject(format!(
             "{} — updating would write older ELF files over it (details: `elf check version`)",
             crate::version::verdict_line(&v, embed::version()).1
         )));
     }
+    let stamp_full = manifest::parse(&stamp_text).map_err(UpdateError::BadStamp)?;
     // 계보 해석 — preset별 정본 세트 선택 + 모순 시 거부 (S026: 이종 manifest 계획 금지)
     let (kind, kind_source) = resolve_kind(root, &stamp_full)?;
     let stamp = stamp_full.for_lang(&lang);
@@ -202,7 +208,7 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
     if crate::migrate::needed(root) {
         use crate::migrate::Outcome;
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-        let lines = match crate::migrate::run(root, opts.dry_run, &today)? {
+        let lines = match crate::migrate::run_with(root, opts.dry_run, &today, preview)? {
             Outcome::Blocked(lines) => return Err(UpdateError::Migration(lines)),
             Outcome::Applied(lines) => {
                 migrated = true;
@@ -451,8 +457,9 @@ fn merge_hybrid(
                 } else {
                     "no baseline to verify block"
                 };
+                let (a, b) = block_lines(current, s, e);
                 report.warn(format!(
-                    "{reason} — kept; new version at {dest}.elf-new (use --force to replace block)"
+                    "{reason} (lines {a}-{b}; user rules go below the end marker) — kept; new version at {dest}.elf-new (use --force to replace block)"
                 ));
             } else {
                 let merged = format!("{}{}{}", &current[..s], new_block, &current[e..]);
@@ -489,6 +496,13 @@ pub fn extract_block(text: &str) -> Option<(usize, usize)> {
         .map(|i| e_idx + i + 1)
         .unwrap_or(text.len());
     Some((start, end))
+}
+
+/// 블록 범위(`extract_block`의 바이트 위치) → 줄 번호(1부터, 시작과 끝 표지 줄 포함).
+pub fn block_lines(text: &str, s: usize, e: usize) -> (usize, usize) {
+    let first = text[..s].matches('\n').count() + 1;
+    let last = text[..e].trim_end_matches(['\n', '\r']).matches('\n').count() + 1;
+    (first, last)
 }
 
 /// 템플릿에서 블록 부분 문자열 추출

@@ -134,8 +134,8 @@ fn complete_without_conclusion_warns() {
 fn e2e_check_logs_exit_codes() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    assert_cmd::Command::cargo_bin("elf").unwrap().args(["check", "logs"]).current_dir(&root).assert().code(0);
+    assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(["check", "logs"]).current_dir(&root).assert().code(0);
     append(&root, "\n[bad](nope.md)\n");
-    assert_cmd::Command::cargo_bin("elf").unwrap().args(["check", "logs"]).current_dir(&root).assert().code(4);
-    assert_cmd::Command::cargo_bin("elf").unwrap().args(["validate", "--strict"]).current_dir(&root).assert().code(2);
+    assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(["check", "logs"]).current_dir(&root).assert().code(4);
+    assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(["validate", "--strict"]).current_dir(&root).assert().code(2);
 }

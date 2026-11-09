@@ -312,6 +312,7 @@ fn e2e_legacy_preset_names_are_accepted_and_recorded_as_new() {
         let tmp = tempdir().unwrap();
         assert_cmd::Command::cargo_bin("elf")
             .unwrap()
+            .env("ELF_DISPATCH", "off")
             .args(["init", "P", "--preset", old])
             .current_dir(tmp.path())
             .assert()

@@ -161,7 +161,7 @@ fn hybrid_user_area_change_is_ok_block_edit_is_conflict() {
     fs::write(root.join(".gitignore"), cur2.replace("*.asv", "hacked/")).unwrap();
     let r2 = run_status(&root).unwrap();
     assert_eq!(r2.conflicts, 1);
-    assert!(r2.lines.iter().any(|l| l.starts_with("block edited: .gitignore")));
+    assert!(r2.lines.iter().any(|l| l.starts_with("block edited: .gitignore") && l.contains("ELF block = lines 1-")), "{:?}", r2.lines);
 }
 
 #[test]
@@ -199,7 +199,7 @@ fn check_flag_gates_with_exit_4() {
     let root = new_project(tmp.path(), "P");
 
     // clean → exit 0
-    Command::cargo_bin("elf").unwrap()
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off")
         .current_dir(&root)
         .args(["status", "--check"])
         .assert()
@@ -207,7 +207,7 @@ fn check_flag_gates_with_exit_4() {
 
     // 편집 발생 → exit 4
     fs::write(root.join(".elf/managed/EliRule.md"), b"edited\n").unwrap();
-    Command::cargo_bin("elf").unwrap()
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off")
         .current_dir(&root)
         .args(["status", "--check"])
         .assert()
@@ -215,7 +215,7 @@ fn check_flag_gates_with_exit_4() {
         .code(4);
 
     // --check 없으면 보고만, exit 0
-    Command::cargo_bin("elf").unwrap()
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off")
         .current_dir(&root)
         .args(["status"])
         .assert()
@@ -226,7 +226,7 @@ fn check_flag_gates_with_exit_4() {
 #[test]
 fn non_elf_dir_errors_with_exit_1() {
     let tmp = tempdir().unwrap();
-    Command::cargo_bin("elf").unwrap()
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off")
         .current_dir(tmp.path())
         .args(["status"])
         .assert()

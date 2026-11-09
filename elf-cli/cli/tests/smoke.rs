@@ -9,6 +9,7 @@ const VERSION_SSOT: &str = include_str!("../../VERSION");
 fn version_flag_prints_ssot_version() {
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .arg("--version")
         .assert()
         .success()
@@ -20,6 +21,7 @@ fn version_flag_prints_ssot_version() {
 fn bare_run_shows_help_with_usage_exit() {
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .assert()
         .failure()
         .code(2);
@@ -31,6 +33,7 @@ fn init_e2e_success_then_refuse() {
     let tmp = tempfile::tempdir().unwrap();
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(tmp.path())
         .args(["init", "Proj", "--preset", "minimal"])
         .assert()
@@ -39,6 +42,7 @@ fn init_e2e_success_then_refuse() {
 
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(tmp.path())
         .args(["init", "Proj", "--preset", "minimal"])
         .assert()
@@ -52,6 +56,7 @@ fn init_next_hint_matches_preset_kind() {
     let tmp = tempfile::tempdir().unwrap();
     let out = Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(tmp.path())
         .args(["init", "QaProj", "--preset", "qa"])
         .output()
@@ -63,6 +68,7 @@ fn init_next_hint_matches_preset_kind() {
 
     let out = Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(tmp.path())
         .args(["init", "ResearchProj", "--preset", "minimal"])
         .output()
@@ -77,6 +83,7 @@ fn init_next_hint_matches_preset_kind() {
 fn unknown_flag_is_usage_error() {
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .args(["init", "X", "--wild"])
         .assert()
         .failure()
@@ -99,7 +106,7 @@ fn help_outputs_contain_no_internal_dev_markers() {
         vec!["tsa", "--help"],
         vec!["autoread", "--help"],
     ] {
-        let out = Command::cargo_bin("elf").unwrap().args(&args).output().unwrap();
+        let out = Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(&args).output().unwrap();
         let text = format!(
             "{}{}",
             String::from_utf8_lossy(&out.stdout),

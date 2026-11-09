@@ -580,6 +580,10 @@ pub fn build_digest_for(root: &Path, source: &str, claude_code: bool) -> String 
 ({})
 ", crate::legacy::NOTICE));
     }
+    // 갱신 권장(v3.0 S044 t60) — 에이전트가 사용자에게 제안하도록
+    if let Some(h) = crate::version::update_hint(root) {
+        out.push_str(&format!("\n({h})\n"));
+    }
     let sessions = if legacy { crate::legacy::active_session_handoffs(root) } else { active_session_handoffs(root) };
     if !sessions.is_empty() {
         out.push_str("\n--- active sessions (newest first; Handoff truncated) ---\n");

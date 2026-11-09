@@ -10,7 +10,7 @@
     { "src": "templates/meta/LLMcliche.md",         "dest": ".elf/managed/LLMcliche.md",             "tier": "managed", "overlayable": true, "sha256": "90dc673d20c5d8cdf2b9d56d6ac80b0f3b85181461cc606be068c83be804a44e" },
     { "src": "templates/log/sessionTemplate.md",    "dest": ".elf/managed/templates/sessionTemplate.md",    "tier": "managed", "sha256": "ac9c52a6054b23828d3c8c064b7db37b1ecb442da5e8b1c04369dd496732d186" },
     { "src": "templates/log/trialTemplate.md",      "dest": ".elf/managed/templates/trialTemplate.md",      "tier": "managed", "sha256": "1da3d78074728e4d925b621865bd12b907f07abb95dd9a835469eb2bdf0df2ec" },
-    { "src": "templates/root/.gitignore",           "dest": ".gitignore",                      "tier": "hybrid",  "sha256": "0ff12b9b32ae89a1a1446f83d364609aa8bf321faafc2a440bee61dccb662f7d" },
+    { "src": "templates/root/.gitignore",           "dest": ".gitignore",                      "tier": "hybrid",  "sha256": "483d809c66d140c81ab3494d267acc88027748198840ef9c0c47a31206ddd933" },
     { "src": "templates/root/.editorconfig",        "dest": ".editorconfig",                   "tier": "managed", "sha256": "0964430fde7b520069a98037263a86564441b92282f1c152c13caa85a500be57" },
     { "src": "templates/root/AGENTS.md",            "dest": "AGENTS.md",                       "tier": "managed", "sha256": "0e64341f8dd9f994c350e95abc103f8c63f0a1604522e20ac6bb6e7fcf5a2dcf" },
     { "src": "templates/root/CLAUDE.md",            "dest": "CLAUDE.md",                       "tier": "pointer", "sha256": "4fa6119a3c3dde47b19c06ad929d41c75a57d6f7ae7751f7a3dd24bf1757e707" },

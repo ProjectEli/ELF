@@ -93,7 +93,7 @@ fn compress(text: &str) -> io::Result<Vec<u8>> {
     w.finish()
 }
 
-fn decompress(bytes: &[u8]) -> io::Result<String> {
+pub(crate) fn decompress(bytes: &[u8]) -> io::Result<String> {
     use io::Read;
     let mut out = Vec::new();
     lzma_rust2::XzReader::new(bytes, false).read_to_end(&mut out).map_err(|e| io::Error::other(format!("xz: {e}")))?;

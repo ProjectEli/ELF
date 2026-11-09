@@ -160,6 +160,57 @@ pub struct Plan {
     pub warnings: Vec<Warning>,
     /// 보고 줄
     pub lines: Vec<String>,
+    /// 다시 계산한 링크와 코드 span(이관 뒤 파일 기준 줄)
+    pub changes: Vec<Change>,
+    /// 로그별 헤더 값(미리보기 표)
+    pub headers: Vec<HeaderRow>,
+    /// 링크가 아닌 옛 경로, 지운 파일 이름 언급
+    pub mentions: Vec<Mention>,
+}
+
+/// 다시 계산한 링크나 코드 span 하나.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Change {
+    /// 루트 기준 경로(이관 뒤)
+    pub file: String,
+    /// 이관 뒤 파일의 줄 번호(1부터)
+    pub line: usize,
+    /// `link` 또는 `span`
+    pub kind: &'static str,
+    pub before: String,
+    pub after: String,
+}
+
+/// 로그 하나의 이관 뒤 헤더 값과 그 원천.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct HeaderRow {
+    pub old: String,
+    pub new: String,
+    /// 정해지지 않았으면 빈 값(경고)
+    pub status: String,
+    pub created: String,
+    pub modified: String,
+    pub goal: String,
+    /// `header <필드>`, `none (body: <줄>)`, `none`
+    pub goal_source: String,
+    pub handoff: String,
+    pub conclusion: String,
+    /// `header 결론`, `Registry Key Finding`, 빈 값
+    pub conclusion_source: String,
+    /// 제목 아래 `> 이관 전 헤더:` 줄의 내용
+    pub kept: String,
+    /// 확인할 점(경고 종류, conclusion 앞머리 상태어)
+    pub note: String,
+}
+
+/// 링크가 아닌 옛 경로나 지운 파일 이름이 나오는 줄.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mention {
+    pub file: String,
+    pub line: usize,
+    /// 찾은 이름(옛 경로 또는 지운 파일 이름)
+    pub name: String,
+    pub text: String,
 }
 
 struct Source {
@@ -406,13 +457,15 @@ struct Rewritten {
     spans: usize,
     /// 없는 .md 대상(이관 전 기준) `줄: 대상`
     broken: Vec<String>,
+    /// (입력 기준 줄, `link`|`span`, 전, 후)
+    changes: Vec<(usize, &'static str, String, String)>,
 }
 
 /// 본문의 상대 링크(`](대상)`, 코드 밖)와 상대 경로 하나뿐인 코드 span(`` `../x/y.md` ``, 사용자 결정 2026-11-10)을
 /// `old_dir` 기준에서 `new_dir` 기준으로 다시 계산하고, 옮겨지는 대상은 `moves`로 바꿈. 대상이 실제로 있거나 옮겨지는
 /// 파일일 때만, 표기가 달라질 때만 바꿈.
 fn rewrite_links(root: &Path, text: &str, old_dir: &str, new_dir: &str, moves: &BTreeMap<String, String>) -> Rewritten {
-    let mut r = Rewritten { text: String::with_capacity(text.len()), links: 0, spans: 0, broken: Vec::new() };
+    let mut r = Rewritten { text: String::with_capacity(text.len()), links: 0, spans: 0, broken: Vec::new(), changes: Vec::new() };
     let mut fence = false;
     for (ln, line) in text.split_inclusive('\n').enumerate() {
         let t = line.trim_start();
@@ -440,6 +493,7 @@ fn rewrite_links(root: &Path, text: &str, old_dir: &str, new_dir: &str, moves: &
                         r.text.push_str(&new);
                         last = i + 1 + close;
                         r.spans += 1;
+                        r.changes.push((ln + 1, "span", span.to_string(), new));
                     }
                 }
                 i += close + 2;
@@ -457,6 +511,7 @@ fn rewrite_links(root: &Path, text: &str, old_dir: &str, new_dir: &str, moves: &
                     r.text.push_str(tail);
                     last = start + close;
                     r.links += 1;
+                    r.changes.push((ln + 1, "link", path_part.trim().to_string(), new_target.trim().to_string()));
                 }
                 i = start + close + 1;
                 continue;
@@ -521,6 +576,82 @@ fn recompute(
     }
     let new = relpath(&target, new_dir);
     (new != p).then(|| format!("{lead}{new}"))
+}
+
+/// 변경 목록의 줄 번호를 결과 파일(`text`) 기준으로 — 차례로 `after`가 든 줄을 찾음(못 찾으면 입력 기준 번호).
+fn locate(file: &str, text: &str, raw: Vec<(usize, &'static str, String, String)>, out: &mut Vec<Change>) {
+    let lines: Vec<&str> = text.lines().collect();
+    // 다음 탐색 시작 줄: 같은 입력 줄의 변경이면 그 줄부터, 다음 입력 줄이면 그 다음 줄부터
+    let mut prev: Option<(usize, usize)> = None; // (입력 줄, 찾은 결과 줄 index)
+    for (ln, kind, before, after) in raw {
+        let needle = if kind == "span" { format!("`{after}`") } else { format!("]({after}") };
+        let start = match prev {
+            Some((pl, pi)) if pl == ln => pi,
+            Some((_, pi)) => pi + 1,
+            None => 0,
+        };
+        let line = match (start.min(lines.len())..lines.len()).find(|&i| lines[i].contains(&needle)) {
+            Some(i) => {
+                prev = Some((ln, i));
+                i + 1
+            }
+            None => ln,
+        };
+        out.push(Change { file: file.to_string(), line, kind, before, after });
+    }
+}
+
+/// conclusion 앞머리의 상태어(Registry TSV 결론 열에 상태를 함께 적던 관행). 단어 뒤가 끝이나 글자 아닌 문자일 때만.
+fn status_word_prefix(v: &str) -> Option<&'static str> {
+    const WORDS: [&str; 18] = [
+        "진행 중", "진행중", "진행", "완료", "보관", "종료", "폐기", "중단", "활성", "★", "Completed", "Complete", "Done", "Closed", "Archived",
+        "Deprecated", "Ongoing", "Active",
+    ];
+    let t = v.trim_start().trim_start_matches(['[', '(', '【', '<', '*']).trim_start();
+    WORDS.into_iter().find(|w| {
+        t.get(..w.len()).is_some_and(|h| h.eq_ignore_ascii_case(w)) && t[w.len()..].chars().next().is_none_or(|c| !c.is_alphanumeric())
+    })
+}
+
+/// 첫 trial 앞 본문의 목표 줄(`**목표**: …`, `목표: …`, `## 목표` 등) — 헤더에 목표가 없을 때 원천 안내용.
+fn body_goal_line(body: &str) -> Option<String> {
+    for l in body.lines() {
+        if l.starts_with("## t") {
+            break;
+        }
+        let t = l.trim_start_matches(['#', '>', '-', '*', ' ']).trim_start();
+        let lower = t.to_lowercase();
+        if t.starts_with("목표") || lower.starts_with("goal") || t.starts_with("목적") || lower.starts_with("objective") {
+            let s = header::one_line(l.trim());
+            return Some(if s.chars().count() > 80 { format!("{}…", s.chars().take(80).collect::<String>()) } else { s });
+        }
+    }
+    None
+}
+
+/// git 추적 파일(루트 기준 경로, `/` 구분). git이 아니면 None.
+fn tracked(root: &Path) -> Option<Vec<String>> {
+    let o = std::process::Command::new("git").args(["ls-files", "-z"]).current_dir(root).output().ok()?;
+    if !o.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&o.stdout).split('\0').filter(|s| !s.is_empty()).map(str::to_string).collect())
+}
+
+/// 링크 재계산 대상 문서(`.md`) — 추적 파일만(git이 아니면 폴더 전체). 점 폴더, `node_modules`, `target` 제외.
+fn link_docs(root: &Path, tracked: Option<&[String]>) -> Vec<PathBuf> {
+    match tracked {
+        Some(t) => t
+            .iter()
+            .filter(|r| r.ends_with(".md") && !r.split('/').any(|c| c.starts_with('.') || c == "node_modules" || c == "target"))
+            .map(|r| root.join(r))
+            .collect(),
+        None => {
+            let mut d = Vec::new();
+            walk_md(root, &mut d);
+            d
+        }
+    }
 }
 
 // ── 폐기 기록 ─────────────────────────────────────────────────────
@@ -837,6 +968,7 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
     let mut deprecations = 0;
     let mut links_changed = 0;
     let mut spans_changed = 0;
+    let mut status_words: Vec<String> = Vec::new();
 
     for (s, (num, resume)) in sources.iter().zip(&targets) {
         if dup.contains(&(s.series, s.num)) {
@@ -846,12 +978,53 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
         let new_id = logs::id_of(s.series, *num);
         let Some(lg) = legacy_header(&s.text) else {
             p.warnings.push(Warning::fix(&s.old_rel, "no header found", "expected `# S###: title` then `> **Status**: …` lines — fix the header by hand, then rerun".into()));
+            p.headers.push(HeaderRow { old: s.old_rel.clone(), new: new_rel.clone(), note: "warning: no header found".into(), ..Default::default() });
             continue;
         };
         let get = |labels: &[&str]| -> String {
             labels.iter().find_map(|k| lg.fields.iter().find(|(f, _)| f == k).map(|(_, v)| clean_value(v))).filter(|v| !v.is_empty()).unwrap_or_default()
         };
         let row = rows.get(&logs::id_of(s.series, s.num)).filter(|_| s.series == Series::S);
+
+        // 헤더 값(상태와 무관 — 경고가 난 로그도 미리보기 표에 남김)
+        let created = [get(&["Created"]), get(&["Date"]), row.map(|r| r.date.clone()).unwrap_or_default()]
+            .iter()
+            .find_map(|v| date_of(v))
+            .unwrap_or_else(|| today.to_string());
+        let modified = date_of(&get(&["Modified"])).or_else(|| git_last_date(root, &s.old_rel)).unwrap_or_else(|| created.clone());
+        const GOAL_KEYS: [&str; 4] = ["목표", "Goal", "목적", "Objective"];
+        let goal = get(&GOAL_KEYS);
+        let goal_source = match GOAL_KEYS.iter().find(|k| !get(&[**k]).is_empty()) {
+            Some(k) => format!("header {k}"),
+            None => body_goal_line(&lg.body).map(|l| format!("none (body: {l})")).unwrap_or_else(|| "none".into()),
+        };
+        let handoff = get(&["Handoff"]);
+        let mut conclusion = get(&["결론"]);
+        let mut conclusion_source = if conclusion.is_empty() { String::new() } else { "header 결론".to_string() };
+        if conclusion.is_empty() {
+            conclusion = row.map(|r| clean_value(&r.key_finding)).unwrap_or_default();
+            if !conclusion.is_empty() {
+                conclusion_source = "Registry Key Finding".into();
+            }
+        }
+        let mut hrow = HeaderRow {
+            old: s.old_rel.clone(),
+            new: new_rel.clone(),
+            created: created.clone(),
+            modified: modified.clone(),
+            goal: goal.clone(),
+            goal_source,
+            handoff: handoff.clone(),
+            conclusion: conclusion.clone(),
+            conclusion_source,
+            ..Default::default()
+        };
+        let mut notes: Vec<String> = Vec::new();
+        if let Some(w) = status_word_prefix(&conclusion) {
+            notes.push(format!("conclusion starts with a status word ({w})"));
+            status_words.push(format!("{} ({w})", logs::id_of(s.series, s.num)));
+        }
+
         let hs = lg.fields.iter().find(|(f, _)| f == "Status").map(|(_, v)| v.as_str());
         let rs = row.map(|r| r.status.as_str());
         let (status, purged) = match decide(&sig(hs), &sig(rs)) {
@@ -860,32 +1033,23 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
                 Some(v) if Status::parse(v).is_some() => (Status::parse(v).unwrap(), false),
                 other => {
                     let concl = !get(&["결론"]).is_empty() || row.is_some_and(|r| !clean_value(&r.key_finding).is_empty());
+                    let kind: String = if other.is_some() { "decision file status is not ongoing, complete or deprecated".into() } else { kind.into() };
+                    notes.insert(0, format!("warning: {kind} — fill status"));
                     p.warnings.push(Warning {
                         log: s.old_rel.clone(),
-                        kind: if other.is_some() { "decision file status is not ongoing, complete or deprecated".into() } else { kind.into() },
+                        kind,
                         header: sig_text(hs),
                         registry: sig_text(rs),
                         evidence: Some(evidence(&lg.body, concl)),
                         detail: None,
                         fill: true,
                     });
+                    hrow.note = notes.join("; ");
+                    p.headers.push(hrow);
                     continue;
                 }
             },
         };
-
-        // 헤더 값
-        let created = [get(&["Created"]), get(&["Date"]), row.map(|r| r.date.clone()).unwrap_or_default()]
-            .iter()
-            .find_map(|v| date_of(v))
-            .unwrap_or_else(|| today.to_string());
-        let modified = date_of(&get(&["Modified"])).or_else(|| git_last_date(root, &s.old_rel)).unwrap_or_else(|| created.clone());
-        let goal = get(&["목표", "Goal", "목적", "Objective"]);
-        let handoff = get(&["Handoff"]);
-        let mut conclusion = get(&["결론"]);
-        if conclusion.is_empty() {
-            conclusion = row.map(|r| clean_value(&r.key_finding)).unwrap_or_default();
-        }
         // 7키에 없는 필드와 진행 중 로그의 결론 = 본문 한 줄로 보존(사용자 결정 2026-11-10 — 링크와 값 손실 없음)
         let known = ["Created", "Date", "Modified", "Status", "목표", "Goal", "목적", "Objective", "Handoff", "결론"];
         let mut kept: Vec<String> = Vec::new();
@@ -901,12 +1065,14 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
             dropped.entry("결론(status ongoing)".into()).or_default().push(logs::id_of(s.series, s.num));
         }
         let pre = if kept.is_empty() { lg.body.clone() } else { format!("{KEPT_PREFIX}{}\n\n{}", kept.join("; "), lg.body) };
+        hrow.kept = kept.join("; ");
 
         // 본문: 흔적 변환 → 링크 → 규범 주석
         let (body, nd) = convert_origins(root, &pre, &s.old_rel, &new_rel, &mut blocks, &mut stores, &moves, &mut p.warnings);
         deprecations += nd;
         let rw = rewrite_links(root, &body, dirname(&s.old_rel), dirname(&new_rel), &moves);
         let body = rw.text;
+        let raw_changes = rw.changes;
         links_changed += rw.links;
         spans_changed += rw.spans;
         for b in rw.broken {
@@ -969,15 +1135,27 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
             format!("{}{stored_body}", header::render(&h))
         };
         let text = if text.ends_with('\n') { text } else { format!("{text}\n") };
+        hrow.status = h.status.as_str().into();
+        hrow.handoff = h.handoff.clone();
+        hrow.conclusion = h.conclusion.clone();
 
         if *resume {
             if existing.get(&new_rel) == Some(&text) {
                 p.deletes.push(s.old_rel.clone());
                 p.lines.push(format!("{} already migrated to {new_rel} — removing the old file", s.old_rel));
+                notes.push("already migrated — the old file is removed".into());
             } else {
                 p.warnings.push(Warning::fix(&s.old_rel, "the new location already has this session", format!("{new_rel} has the same title but different content — keep one, then rerun")));
+                notes.insert(0, "warning: the new location already has this session".into());
             }
+            hrow.note = notes.join("; ");
+            p.headers.push(hrow);
             continue;
+        }
+        hrow.note = notes.join("; ");
+        p.headers.push(hrow);
+        if status != Status::Deprecated {
+            locate(&new_rel, &text, raw_changes, &mut p.changes);
         }
         let bytes = if s.crlf { text.replace('\n', "\r\n") } else { text };
         p.writes.push((new_rel.clone(), bytes.into_bytes()));
@@ -1050,10 +1228,10 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
         .chain(plan_wholes.iter().map(|w| w.0.clone()))
         .chain(p.writes.iter().map(|w| w.0.clone()))
         .collect();
-    let mut docs = Vec::new();
-    walk_md(root, &mut docs);
+    // 다른 문서: git 추적 파일만(추적 밖 사본, 임시 폴더는 건드리지 않음)
+    let tracked = tracked(root);
     let mut touched = 0;
-    for path in docs {
+    for path in link_docs(root, tracked.as_deref()) {
         let rel = rel_of(root, &path);
         if source_set.contains(rel.as_str()) || skip.contains(&rel) {
             continue;
@@ -1072,6 +1250,7 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
             links_changed += rw.links;
             spans_changed += rw.spans;
             touched += 1;
+            locate(&rel, &t2, rw.changes, &mut p.changes);
             let out = if raw.contains("\r\n") { t2.replace('\n', "\r\n") } else { t2 };
             p.writes.push((rel, out.into_bytes()));
         }
@@ -1125,7 +1304,14 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
         p.lines.push(format!("links: {links_changed} recomputed ({touched} other file(s) changed)"));
     }
     if spans_changed > 0 {
-        p.lines.push(format!("code-span paths: {spans_changed} recomputed (a single relative path that resolves to a file)"));
+        p.lines.push(format!("code-span paths: {spans_changed} recomputed (a single relative path that resolves to a file) — review: history notes may have meant the old path"));
+        let spans: Vec<&Change> = p.changes.iter().filter(|c| c.kind == "span").collect();
+        for c in spans.iter().take(SHOW) {
+            p.lines.push(format!("code span changed: {}:{} `{}` → `{}`", c.file, c.line, c.before, c.after));
+        }
+        if spans.len() > SHOW {
+            p.lines.push(format!("code span changed: … {} more (full list: `elf update --dry-run --out <folder>`, changes.tsv)", spans.len() - SHOW));
+        }
     }
     if norm_refreshed > 0 {
         p.lines.push(format!("ELF norm comment refreshed in {norm_refreshed} log(s)"));
@@ -1133,19 +1319,47 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
     if tsv.is_file() {
         p.lines.push(format!("{} → removed (Key Finding moved to conclusion)", session::REGISTRY_REL));
     }
-    let mentions = path_mentions(root, &p, &moves);
-    if !mentions.is_empty() {
+    if !status_words.is_empty() {
         p.lines.push(format!(
-            "path mentions (not links) of moved files — left as written: {}",
-            mentions.iter().take(8).cloned().collect::<Vec<_>>().join(", ")
+            "conclusion starts with a status word — review (the Registry Key Finding column often held the status too): {} log(s): {}",
+            status_words.len(),
+            status_words.join(", ")
+        ));
+    }
+    p.mentions = path_mentions(root, &p, &moves, tracked.as_deref());
+    if !p.mentions.is_empty() {
+        let mut by_file: Vec<(String, usize)> = Vec::new();
+        for m in &p.mentions {
+            match by_file.iter_mut().find(|(f, _)| *f == m.file) {
+                Some(e) => e.1 += 1,
+                None => by_file.push((m.file.clone(), 1)),
+            }
+        }
+        // 스크립트 등 `.md` 아닌 파일 먼저(이관이 고치지 않고 실행이 깨질 수 있음), 이어서 언급 많은 순
+        by_file.sort_by(|a, b| a.0.ends_with(".md").cmp(&b.0.ends_with(".md")).then(b.1.cmp(&a.1)).then(a.0.cmp(&b.0)));
+        let shown: Vec<String> = by_file.iter().take(8).map(|(f, n)| format!("{f} ({n} line{})", if *n == 1 { "" } else { "s" })).collect();
+        let more = if by_file.len() > 8 {
+            format!("; … {} more file(s) (full list: `elf update --dry-run --out <folder>`, mentions.tsv)", by_file.len() - 8)
+        } else {
+            String::new()
+        };
+        p.lines.push(format!(
+            "mentions (not links) of moved or removed files — left as written; review scripts and rules: {} file(s): {}{more}",
+            by_file.len(),
+            shown.join(", ")
         ));
     }
     Ok(p)
 }
 
-/// 링크가 아닌 옛 경로 언급(`Archive/S012_log.md` 등) — 파일별 개수(많은 순).
-fn path_mentions(root: &Path, p: &Plan, moves: &BTreeMap<String, String>) -> Vec<String> {
-    let needles: Vec<String> = moves
+/// 출력에 보이는 변경 목록 수(나머지는 미리보기 파일)
+const SHOW: usize = 20;
+
+/// 링크가 아닌 옛 경로(`Archive/S012_log.md` 등)와 지운 파일 이름(`Session_Registry.tsv` 등) 언급 줄.
+/// 대상 = 이관이 쓰는 `.md`(새 내용)와 git 추적 텍스트 파일 전체(스크립트, `.claude/` 포함, 모든 깊이의 `.elf/` 제외 — 관리 파일).
+/// git이 아니면 폴더의 `.md`만.
+fn path_mentions(root: &Path, p: &Plan, moves: &BTreeMap<String, String>, tracked: Option<&[String]>) -> Vec<Mention> {
+    let mut needles: Vec<String> = moves
         .keys()
         .flat_map(|k| {
             let b = basename(k).to_string();
@@ -1154,36 +1368,207 @@ fn path_mentions(root: &Path, p: &Plan, moves: &BTreeMap<String, String>) -> Vec
         })
         .filter(|n| !n.starts_with("2_Log/S/") && !n.starts_with("S/"))
         .collect();
-    let written: BTreeMap<&str, &Vec<u8>> = p.writes.iter().map(|(r, b)| (r.as_str(), b)).collect();
-    let mut docs = Vec::new();
-    walk_md(root, &mut docs);
-    let mut counts: Vec<(usize, String)> = Vec::new();
-    let mut seen = BTreeSet::new();
-    let mut scan = |rel: String, text: &str| {
-        if !seen.insert(rel.clone()) {
-            return;
+    // 옮기지 않고 지우는 파일(Registry TSV, 부분 폐기 파일) = 이름만으로도 깨진 참조
+    for d in &p.deletes {
+        if !moves.contains_key(d) {
+            needles.push(basename(d).to_string());
         }
-        let n = text.lines().filter(|l| needles.iter().any(|x| l.contains(x.as_str()))).count();
-        if n > 0 {
-            counts.push((n, rel));
+    }
+    needles.sort();
+    needles.dedup();
+    let written: BTreeMap<&str, &Vec<u8>> = p.writes.iter().map(|(r, b)| (r.as_str(), b)).collect();
+    let mut out = Vec::new();
+    let mut scan = |rel: &str, text: &str| {
+        for (i, l) in text.lines().enumerate() {
+            if let Some(n) = needles.iter().find(|x| l.contains(x.as_str())) {
+                let t = l.trim();
+                let t = if t.chars().count() > 200 { format!("{}…", t.chars().take(200).collect::<String>()) } else { t.to_string() };
+                out.push(Mention { file: rel.to_string(), line: i + 1, name: n.clone(), text: t });
+            }
         }
     };
     for (rel, b) in &written {
-        if rel.ends_with(".md") {
-            scan(rel.to_string(), &String::from_utf8_lossy(b));
+        if rel.ends_with(".md") && !rel.starts_with(".elf/") {
+            scan(rel, &String::from_utf8_lossy(b));
         }
     }
-    for path in docs {
-        let rel = rel_of(root, &path);
+    let files: Vec<String> = match tracked {
+        Some(t) => t.iter().filter(|r| !r.split('/').any(|c| c == ".elf" || c == ".git")).cloned().collect(),
+        None => {
+            let mut d = Vec::new();
+            walk_md(root, &mut d);
+            d.iter().map(|x| rel_of(root, x)).collect()
+        }
+    };
+    for rel in files {
         if p.deletes.contains(&rel) || written.contains_key(rel.as_str()) {
             continue;
         }
-        if let Ok(t) = fs::read_to_string(&path) {
-            scan(rel, &t);
+        let path = root.join(&rel);
+        if fs::metadata(&path).map(|m| m.len() > 2_000_000).unwrap_or(true) {
+            continue;
+        }
+        let Ok(bytes) = fs::read(&path) else { continue };
+        if bytes.iter().take(8000).any(|b| *b == 0) {
+            continue;
+        }
+        let Ok(t) = String::from_utf8(bytes) else { continue };
+        scan(&rel, &t);
+    }
+    out
+}
+
+// ── 미리보기(`elf update --dry-run --out <폴더>`) ─────────────────
+
+/// 미리보기 폴더 표지 — 이 파일이 있는 폴더만 비우고 다시 씀.
+pub const PREVIEW_MARK: &str = "ELF_MIGRATION_PREVIEW.txt";
+
+/// 미리보기 폴더 준비. 프로젝트 안은 `.elf/runtime/` 아래만(작업 트리를 더럽히지 않게), 비어 있지 않으면 표지가 있을 때만
+/// 비움. 반환 = 절대 경로. Err = 사용자에게 보일 이유.
+pub fn prepare_preview(root: &Path, out: &Path) -> Result<PathBuf, String> {
+    let abs = std::path::absolute(out).map_err(|e| format!("--out {}: {e}", out.display()))?;
+    let mut anc = abs.clone();
+    let mut rest = Vec::new();
+    while !anc.exists() {
+        match (anc.file_name().map(|n| n.to_owned()), anc.parent().map(Path::to_path_buf)) {
+            (Some(n), Some(pa)) => {
+                rest.push(n);
+                anc = pa;
+            }
+            _ => break,
         }
     }
-    counts.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
-    counts.into_iter().map(|(n, r)| format!("{r} ×{n}")).collect()
+    let mut full = fs::canonicalize(&anc).map_err(|e| format!("--out {}: {e}", out.display()))?;
+    for n in rest.iter().rev() {
+        full.push(n);
+    }
+    if let Ok(root_c) = fs::canonicalize(root)
+        && let Ok(r) = full.strip_prefix(&root_c)
+    {
+        let r = r.to_string_lossy().replace('\\', "/");
+        if !r.starts_with(".elf/runtime/") || r.trim_end_matches('/') == DECISION_REL {
+            return Err(format!(
+                "--out {} is inside the project — use a folder outside it, or under .elf/runtime/ (git-ignored), so the working tree stays clean for the migration",
+                out.display()
+            ));
+        }
+    }
+    if full.exists() {
+        if !full.is_dir() {
+            return Err(format!("--out {} is a file — give a folder", out.display()));
+        }
+        let empty = fs::read_dir(&full).map(|mut d| d.next().is_none()).unwrap_or(false);
+        if !empty {
+            if !full.join(PREVIEW_MARK).is_file() {
+                return Err(format!(
+                    "--out {} is not empty and is not an earlier preview (no {PREVIEW_MARK}) — give a new or empty folder",
+                    out.display()
+                ));
+            }
+            fs::remove_dir_all(&full).map_err(|e| format!("--out {}: {e}", out.display()))?;
+        }
+    }
+    fs::create_dir_all(&full).map_err(|e| format!("--out {}: {e}", out.display()))?;
+    Ok(full)
+}
+
+fn preview_line(dir: &Path) -> String {
+    let d = dir.display().to_string();
+    format!(
+        "migration: preview written to {} — files/, headers.tsv, changes.tsv, mentions.tsv, warnings.tsv, report.txt (the project is untouched)",
+        d.strip_prefix(r"\\?\").unwrap_or(&d)
+    )
+}
+
+fn tsv_cell(v: &str) -> String {
+    v.replace(['\t', '\n', '\r'], " ")
+}
+
+fn write_tsv(path: &Path, head: &[&str], rows: impl Iterator<Item = Vec<String>>) -> io::Result<()> {
+    let mut s = head.join("\t");
+    s.push('\n');
+    for r in rows {
+        s.push_str(&r.iter().map(|c| tsv_cell(c)).collect::<Vec<_>>().join("\t"));
+        s.push('\n');
+    }
+    fs::write(path, s)
+}
+
+/// 계획을 미리보기 폴더에 씀: 결과 파일, 지울 목록, 헤더 표, 변경, 언급, 경고, 출력.
+fn write_preview(dir: &Path, p: &Plan, report: &[String]) -> io::Result<()> {
+    fs::write(
+        dir.join(PREVIEW_MARK),
+        "elf update --dry-run --out — 이관 미리보기(프로젝트에는 아무것도 쓰지 않음, LogConvention §7)\n\
+         files/        이관이 쓸 파일의 결과 내용(루트 기준 경로, 폐기 보관 파일은 압축을 푼 .md)\n\
+         deletes.txt   지울 파일과 비면 지울 폴더\n\
+         headers.tsv   로그별 이관 뒤 YAML 7키 값, goal과 conclusion의 원천, 보존 줄, 확인할 점\n\
+         changes.tsv   다시 계산한 링크와 코드 span(이관 뒤 파일 기준 줄, 전, 후)\n\
+         mentions.tsv  링크가 아닌 옛 경로, 지운 파일 이름 언급(스크립트 포함, 이관이 고치지 않음)\n\
+         warnings.tsv  적용을 막는 경고(결정 파일 항목)\n\
+         report.txt    출력 전체\n\
+         원본과 비교: git diff --no-index <원본 파일> files/<같은 경로>\n",
+    )?;
+    let files = dir.join("files");
+    for (rel, bytes) in &p.writes {
+        let (rel, data) = match rel.strip_suffix(".xz").filter(|_| rel.starts_with(".elf/deprecated/")) {
+            Some(r) => (r.to_string(), deprecate::decompress(bytes)?.into_bytes()),
+            None => (rel.clone(), bytes.clone()),
+        };
+        let path = files.join(&rel);
+        if let Some(d) = path.parent() {
+            fs::create_dir_all(d)?;
+        }
+        fs::write(path, data)?;
+    }
+    let mut del: Vec<String> = p.deletes.clone();
+    del.extend(p.dirs.iter().map(|d| format!("{d}/ (folder, removed if empty)")));
+    fs::write(dir.join("deletes.txt"), del.join("\n") + "\n")?;
+    write_tsv(
+        &dir.join("headers.tsv"),
+        &["old", "new", "status", "created", "modified", "goal", "goal_source", "handoff", "conclusion", "conclusion_source", "kept_line", "note"],
+        p.headers.iter().map(|h| {
+            vec![
+                h.old.clone(),
+                h.new.clone(),
+                h.status.clone(),
+                h.created.clone(),
+                h.modified.clone(),
+                h.goal.clone(),
+                h.goal_source.clone(),
+                h.handoff.clone(),
+                h.conclusion.clone(),
+                h.conclusion_source.clone(),
+                h.kept.clone(),
+                h.note.clone(),
+            ]
+        }),
+    )?;
+    write_tsv(
+        &dir.join("changes.tsv"),
+        &["file", "line", "kind", "before", "after"],
+        p.changes.iter().map(|c| vec![c.file.clone(), c.line.to_string(), c.kind.to_string(), c.before.clone(), c.after.clone()]),
+    )?;
+    write_tsv(
+        &dir.join("mentions.tsv"),
+        &["file", "line", "name", "text"],
+        p.mentions.iter().map(|m| vec![m.file.clone(), m.line.to_string(), m.name.clone(), m.text.clone()]),
+    )?;
+    write_tsv(
+        &dir.join("warnings.tsv"),
+        &["log", "warning", "header", "registry", "evidence", "detail", "fill_status"],
+        p.warnings.iter().map(|w| {
+            vec![
+                w.log.clone(),
+                w.kind.clone(),
+                w.header.clone().unwrap_or_default(),
+                w.registry.clone().unwrap_or_default(),
+                w.evidence.clone().unwrap_or_default(),
+                w.detail.clone().unwrap_or_default(),
+                if w.fill { "yes".into() } else { String::new() },
+            ]
+        }),
+    )?;
+    fs::write(dir.join("report.txt"), report.join("\n") + "\n")
 }
 
 /// 계획 적용: 새 파일 먼저 쓰고 옛 파일 삭제(중단되면 재실행으로 이어감), 빈 폴더 삭제, Registry.md와 nesting 생성.
@@ -1236,6 +1621,22 @@ pub enum Outcome {
 
 /// `elf update`의 이관 단계. `today` = YYYY-MM-DD.
 pub fn run(root: &Path, dry_run: bool, today: &str) -> io::Result<Outcome> {
+    run_with(root, dry_run, today, None)
+}
+
+/// `run` + 미리보기 폴더(`prepare_preview`로 준비한 경로, dry-run에서만 씀).
+pub fn run_with(root: &Path, dry_run: bool, today: &str, preview: Option<&Path>) -> io::Result<Outcome> {
+    run_core(root, dry_run, today, preview, true)
+}
+
+/// 동의 전 점검(v3.0 S044 t60): 전제와 경고만 처리 — 전제 미충족이나 경고면 `run`과 같이 Blocked(경고면 결정 파일을
+/// 씀), 문제가 없으면 적용하지 않고 Planned.
+pub fn check_ready(root: &Path, today: &str) -> io::Result<Outcome> {
+    run_core(root, false, today, None, false)
+}
+
+fn run_core(root: &Path, dry_run: bool, today: &str, preview: Option<&Path>, apply_now: bool) -> io::Result<Outcome> {
+    let preview = preview.filter(|_| dry_run);
     let mut out = Vec::new();
     let pre = git_precondition(root);
     if let Err(m) = &pre {
@@ -1255,6 +1656,12 @@ pub fn run(root: &Path, dry_run: bool, today: &str) -> io::Result<Outcome> {
         }
         if dry_run {
             out.push(format!("migration: {} warning(s) — `elf update` would write {DECISION_REL} and nothing else", p.warnings.len()));
+            if let Some(dir) = preview {
+                let mut rep = out.clone();
+                rep.extend(p.lines.iter().map(|l| format!("migration (planned, waits for the warnings above): {l}")));
+                write_preview(dir, &p, &rep)?;
+                out.push(preview_line(dir));
+            }
             return Ok(Outcome::Planned(out));
         }
         let path = root.join(DECISION_REL);
@@ -1271,6 +1678,13 @@ pub fn run(root: &Path, dry_run: bool, today: &str) -> io::Result<Outcome> {
     out.extend(p.lines.iter().map(|l| format!("migration: {l}")));
     if dry_run {
         out.push(format!("migration: would write {} file(s) and remove {}", p.writes.len(), p.deletes.len()));
+        if let Some(dir) = preview {
+            write_preview(dir, &p, &out)?;
+            out.push(preview_line(dir));
+        }
+        return Ok(Outcome::Planned(out));
+    }
+    if !apply_now {
         return Ok(Outcome::Planned(out));
     }
     out.extend(apply(root, &p)?.into_iter().map(|l| format!("migration: {l}")));
@@ -1360,5 +1774,44 @@ mod tests {
         assert_eq!(read_decisions(tmp.path()).get("2_Log/Archive/S030_log.md").map(String::as_str), Some("complete"));
         fs::write(tmp.path().join(DECISION_REL), decision_text(&[w], &BTreeMap::new())).unwrap();
         assert!(read_decisions(tmp.path()).is_empty(), "empty status is not a decision");
+    }
+
+    #[test]
+    fn status_word_prefix_needs_a_word_boundary() {
+        for (v, w) in [
+            ("완료: 결론", Some("완료")),
+            ("[보관] 결론", Some("보관")),
+            ("진행 중 — 미정", Some("진행 중")),
+            ("Complete. found x", Some("Complete")),
+            ("completed - x", Some("Completed")),
+            ("★ 활성", Some("★")),
+            ("완료된 실험의 재현", None),
+            ("Doneness 측정", None),
+            ("결론: 완료", None),
+            ("", None),
+        ] {
+            assert_eq!(status_word_prefix(v), w, "{v}");
+        }
+    }
+
+    #[test]
+    fn body_goal_line_only_before_the_first_trial() {
+        assert_eq!(body_goal_line("> 이관 전 헤더: x\n\n**목표**: 측정 범위 확정\n\n## t01: a\n### 목표 (Goal)\n"), Some("**목표**: 측정 범위 확정".into()));
+        assert_eq!(body_goal_line("소개\n\n## t01: a\n\n### 목표 (Goal)\n- x\n"), None, "trial goals are not the session goal");
+        assert_eq!(body_goal_line("- Goal: find it\n"), Some("- Goal: find it".into()));
+    }
+
+    #[test]
+    fn locate_maps_changes_to_result_lines_in_order() {
+        let text = "---\nstatus: complete\n---\n# S001: t\n\n[a](../x.md) `../y.md`\n\n[b](../x.md)\n";
+        let raw = vec![
+            (1, "link", "x.md".to_string(), "../x.md".to_string()),
+            (1, "span", "y.md".to_string(), "../y.md".to_string()),
+            (3, "link", "x.md".to_string(), "../x.md".to_string()),
+            (9, "link", "z.md".to_string(), "../gone.md".to_string()),
+        ];
+        let mut out = Vec::new();
+        locate("2_Log/S/S001_log.md", text, raw, &mut out);
+        assert_eq!(out.iter().map(|c| c.line).collect::<Vec<_>>(), vec![6, 6, 8, 9], "not found = input line");
     }
 }

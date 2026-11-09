@@ -218,12 +218,13 @@ fn disabled_gate_refuses_direct_run_but_quiet_hook_path_is_silent() {
     let root = new_project(tmp.path());
     // enable 없이 record, 토큰 요청(인수 없는 `elf tsa`) 직접 실행 → refuse(exit 3)
     for args in [vec!["tsa", "record"], vec!["tsa"], vec!["tsa", "--all"]] {
-        AssertCommand::cargo_bin("elf").unwrap().args(&args).current_dir(&root).assert().code(3);
+        AssertCommand::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(&args).current_dir(&root).assert().code(3);
     }
     // 훅 경로(--quiet) → 침묵 성공(disable 후 잔존 수동 훅 라인의 무해화)
     for args in [vec!["tsa", "record", "--quiet"], vec!["tsa", "--quiet"]] {
         AssertCommand::cargo_bin("elf")
             .unwrap()
+            .env("ELF_DISPATCH", "off")
             .args(&args)
             .current_dir(&root)
             .assert()
@@ -243,7 +244,7 @@ fn removed_tsa_forms_are_usage_errors() {
         vec!["tsa", "--backfill"],
         vec!["tsa", "record", "--staged"],
     ] {
-        AssertCommand::cargo_bin("elf").unwrap().args(&args).current_dir(&root).assert().code(2);
+        AssertCommand::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(&args).current_dir(&root).assert().code(2);
     }
 }
 
@@ -385,7 +386,7 @@ fn e2e_tsa_all_retries_unstamped_manifests_offline() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
     enable_offline(&root); // 기준선 manifest는 토큰 없이 남음
-    let out = AssertCommand::cargo_bin("elf").unwrap().args(["tsa", "--all"]).current_dir(&root).output().unwrap();
+    let out = AssertCommand::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(["tsa", "--all"]).current_dir(&root).output().unwrap();
     assert!(out.status.success());
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains("retry with `elf tsa --all`"), "{text}");

@@ -3,7 +3,9 @@
 
 pub mod autoread;
 pub mod check;
+pub mod consent;
 pub mod deprecate;
+pub mod dispatch;
 pub mod doctor;
 pub mod embed;
 pub mod gallery;
@@ -15,10 +17,12 @@ pub mod logcmd;
 pub mod logs;
 pub mod manifest;
 pub mod migrate;
+pub mod pin;
 pub mod plan;
 pub mod selfupdate;
 pub mod session;
 pub mod status;
+pub mod store;
 pub mod trial;
 pub mod tsa;
 pub mod update;

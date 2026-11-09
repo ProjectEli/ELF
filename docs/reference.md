@@ -9,6 +9,9 @@
 | `elf init [name]` | Scaffold an ELF project (in place, or in `./<name>`) |
 | `elf update` | Update managed files in the current project; migrate a project made before 2.28 to the new log layout |
 | `elf self update` | Update the `elf` binary itself |
+| `elf self list [--available]` | List the versions kept in the version store `~/.elf/versions` (`--available`: the newest release of each line, from GitHub) |
+| `elf self install <version>` | Download a release into the version store after checking its sha256: `2.27` = the newest patch of that line, `2.27.4` = that release |
+| `elf self uninstall <version>`, `elf self prune` | Remove one stored version, or keep only the newest version of each line |
 | `elf session new "<title>" --goal "<goal>" [--gov]` | Create the next session log in `2_Log/S/` (or `2_Log/G/`) |
 | `elf session close [S###\|G###] --from <file>` | Close a session with its conclusion (status complete; the file is not moved) |
 | `elf trial new "<title>" [--from <file>]` | Create the next trial (Phase 1 template, or Phase 1 from a file) |
@@ -24,6 +27,16 @@ Names before 2.26 still work and are hidden from `--help`: `elf doctor`, `elf st
 
 Global flags: `elf --version`, `elf --help`, `elf <command> --help`.
 
+## Versions per project
+
+The project manifest records the ELF version the project uses (`elf_version`, written only by `elf init` and `elf update`). The `elf` on PATH reads it and, when the project's line (MAJOR.MINOR; 2.28.x counts as 3.0) differs from its own, runs the newest stored patch of that line from the version store `~/.elf/versions` with the same arguments, output, and exit code. The first command in such a project downloads that release after checking its sha256, and once a day `elf` looks for a newer patch of the line. `elf self …`, `elf init`, `elf update`, and `elf check version` always run with the `elf` on PATH. A project in the 2.27 layout without a recorded version runs with the newest 2.27 release; if that cannot be downloaded, the built-in 2.27 compatibility mode runs instead. For any other line that cannot be obtained, commands that write refuse (exit 3) and read-only commands run with a warning. `elf check version` shows which `elf` runs the project.
+
+| Variable | Meaning |
+|----------|---------|
+| `ELF_DISPATCH` | `off`: never hand over to another version (tests, CI, diagnosis). `trace`: print each decision to standard error |
+| `ELF_HOME` | Folder that holds `versions/` (default `~/.elf`) |
+| `ELF_RELEASES` | Base address or local folder of the release assets (testing) |
+
 ## Exit codes
 
 | Code | Meaning |
@@ -31,7 +44,7 @@ Global flags: `elf --version`, `elf --help`, `elf <command> --help`.
 | 0 | Success |
 | 1 | Runtime error (I/O, not an ELF project, a session or ID that does not exist, …) |
 | 2 | Usage error (bad flags or arguments) |
-| 3 | Refused, nothing written: a file that fails the checks (all reasons are printed), a project newer than the CLI, a command of the new structure in a project not yet migrated, a migration that needs decisions (the decision file is written) |
+| 3 | Refused, nothing written: a file that fails the checks (all reasons are printed), a project newer than the CLI, a write in a project whose ELF line cannot be obtained, a command of the new structure in a project not yet migrated, a migration that needs decisions (the decision file is written) |
 | 4 | `elf check` found issues (also `--check` on the old `status` and `validate` names). A gate signal, distinct from a real error |
 
 Exit 5 (escalation) means the TSV session registry of a project not yet migrated cannot be parsed (the 2.27 commands, which such a project keeps using). Migrated projects have no TSV registry, so exit 5 does not occur there.

@@ -176,6 +176,7 @@ fn e2e_doctor_outside_project_exits_0() {
     let tmp = tempdir().unwrap();
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(tmp.path())
         .args(["doctor"])
         .assert()
@@ -189,6 +190,7 @@ fn e2e_doctor_in_project_reports_elf() {
     let root = new_project(tmp.path());
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(&root)
         .args(["doctor"])
         .assert()

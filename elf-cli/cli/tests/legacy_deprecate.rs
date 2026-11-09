@@ -427,19 +427,19 @@ fn restore_warns_on_missing_link_targets() {
 fn cli_exit_codes_and_list() {
     let tmp = tempdir().unwrap();
     let root = fixture(tmp.path());
-    Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "list"]).assert().success()
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").current_dir(&root).args(["deprecate", "list"]).assert().success()
         .stdout(predicates::str::contains("[elf] deprecated: 0 document(s), 0 block(s)"));
-    Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "S099"]).assert().code(1)
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").current_dir(&root).args(["deprecate", "S099"]).assert().code(1)
         .stderr(predicates::str::contains("[elf] not found: session S099"));
-    Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "0_Meta/ProjectRule.md"]).assert().code(3)
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").current_dir(&root).args(["deprecate", "0_Meta/ProjectRule.md"]).assert().code(3)
         .stderr(predicates::str::contains("[elf] refuse: out of scope"));
-    Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "S002", "--trial", "t02", "--dry-run"]).assert().success()
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").current_dir(&root).args(["deprecate", "S002", "--trial", "t02", "--dry-run"]).assert().success()
         .stdout(predicates::str::contains("[elf] dry-run — nothing written"));
-    Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "S002", "--trial", "t02", "--reason", "x"]).assert().success()
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").current_dir(&root).args(["deprecate", "S002", "--trial", "t02", "--reason", "x"]).assert().success()
         .stdout(predicates::str::contains("[elf] deprecated S002-D01 (t02)"));
-    Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "--restore", "S002-D01"]).assert().success()
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").current_dir(&root).args(["deprecate", "--restore", "S002-D01"]).assert().success()
         .stdout(predicates::str::contains("[elf] restored S002-D01"));
-    Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "S002", "--lines", "x-y", "--expect", "a"]).assert().code(2);
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").current_dir(&root).args(["deprecate", "S002", "--lines", "x-y", "--expect", "a"]).assert().code(2);
 }
 
 // ── purge (experimental, 기본 비활성 — S039 t03) ─────────────────────────
@@ -542,11 +542,11 @@ fn purge_cli_exit_codes() {
     let tmp = tempdir().unwrap();
     let root = fixture(tmp.path());
     run_deprecate(&root, &trial_opts("S002", "t02", None)).unwrap();
-    Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "purge", "S002-D01"]).assert().code(3)
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").current_dir(&root).args(["deprecate", "purge", "S002-D01"]).assert().code(3)
         .stderr(predicates::str::contains("experimental"));
     enable_purge(&root);
-    Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "purge", "S002-D99"]).assert().code(1);
-    Command::cargo_bin("elf").unwrap().current_dir(&root).args(["deprecate", "purge", "S002-D01", "--dry-run"]).assert().success()
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").current_dir(&root).args(["deprecate", "purge", "S002-D99"]).assert().code(1);
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").current_dir(&root).args(["deprecate", "purge", "S002-D01", "--dry-run"]).assert().success()
         .stdout(predicates::str::contains("[elf] dry-run — nothing written"));
     assert!(root.join("2_Log/Deprecated/S002_log.partial.md").is_file());
 }
@@ -557,14 +557,15 @@ fn purge_cli_exit_codes() {
 fn e2e_bare_deprecate_lists_and_options_without_target_error() {
     let tmp = tempdir().unwrap();
     let root = fixture(tmp.path());
-    let out = assert_cmd::Command::cargo_bin("elf").unwrap().arg("deprecate").current_dir(&root).output().unwrap();
+    let out = assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").arg("deprecate").current_dir(&root).output().unwrap();
     assert!(out.status.success());
     assert!(String::from_utf8_lossy(&out.stdout).contains("deprecated: 0 document(s), 0 block(s)"));
     // 구 이름 `list`도 동작(숨김 별칭)
-    assert_cmd::Command::cargo_bin("elf").unwrap().args(["deprecate", "list"]).current_dir(&root).assert().success();
+    assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(["deprecate", "list"]).current_dir(&root).assert().success();
     // 대상 없이 이동 옵션만 = usage 오류
     assert_cmd::Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .args(["deprecate", "--trial", "t01"])
         .current_dir(&root)
         .assert()

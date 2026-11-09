@@ -490,10 +490,10 @@ fn update_refuses_project_newer_than_cli() {
     assert!(matches!(run_update(&root, &plain()), Err(elf_cli::update::UpdateError::NewerProject(m)) if m.contains("elf self update")));
     assert_eq!(fs::read_to_string(&p).unwrap(), newer, "nothing written");
     // 쓰기 명령도 같은 판정으로 거부(exit 3), 읽기(check)는 issue로 보고
-    let out = assert_cmd::Command::cargo_bin("elf").unwrap().args(["session", "new", "x", "--goal", "g"]).current_dir(&root).output().unwrap();
+    let out = assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(["session", "new", "x", "--goal", "g"]).current_dir(&root).output().unwrap();
     assert_eq!(out.status.code(), Some(3));
     assert!(String::from_utf8_lossy(&out.stderr).contains("elf check version"));
-    let out = assert_cmd::Command::cargo_bin("elf").unwrap().args(["check", "version"]).current_dir(&root).output().unwrap();
+    let out = assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(["check", "version"]).current_dir(&root).output().unwrap();
     assert_eq!(out.status.code(), Some(4));
 }
 

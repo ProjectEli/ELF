@@ -26,7 +26,7 @@ fn new_project(tmp: &Path) -> PathBuf {
 }
 
 fn elf(dir: &Path, args: &[&str]) -> (i32, String, String) {
-    let out = Command::cargo_bin("elf").unwrap().args(args).current_dir(dir).output().unwrap();
+    let out = Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(args).current_dir(dir).output().unwrap();
     (
         out.status.code().unwrap_or(-1),
         String::from_utf8_lossy(&out.stdout).into_owned(),
@@ -185,4 +185,40 @@ fn removed_and_hidden_forms() {
     for hidden in ["doctor", "status", "validate", "self-update"] {
         assert!(!help.contains(&format!("  {hidden} ")), "{hidden} visible in help:\n{help}");
     }
+}
+
+/// `check version`의 고정값 줄(v3.0 S044 t56): manifest 고정값과 줄, 2.28.x = 3.0 줄, 이전 형식 추론(R6),
+/// 더 높은 manifest schema(R7)는 판정 issue와 `elf update` 거부.
+#[test]
+fn check_version_shows_pin_line_and_generation() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    let cli = elf_cli::embed::version();
+    let line = elf_cli::pin::parse(cli).unwrap().line();
+    let (code, out, _) = elf(&root, &["check", "version"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains(&format!("CLI: elf {cli} (line {line}, structure generation 2)")), "{out}");
+    assert!(out.contains(&format!("pin: {cli} → line {line} (structure generation 2) — changed only by `elf update`")), "{out}");
+    // 2.28.x로 고정된 프로젝트 = 3.0 줄
+    let mp = root.join(".elf/manifest.json");
+    let m = fs::read_to_string(&mp).unwrap();
+    fs::write(&mp, m.replace(&format!("\"elf_version\": \"{cli}\""), "\"elf_version\": \"v2.28.1\"")).unwrap();
+    let (code, out, _) = elf(&root, &["check", "version"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains("pin: v2.28.1 → line 3.0 (structure generation 2; 2.28.x is the 3.0 line)"), "{out}");
+    assert!(out.contains("ok: verdict: project v2.28.1") && out.contains("same line 3.0 (2.28.x is the 3.0 line)"), "{out}");
+    // 더 높은 manifest schema
+    fs::write(&mp, m.replace("elf-manifest/2", "elf-manifest/3")).unwrap();
+    let (code, out, _) = elf(&root, &["check", "version"]);
+    assert_eq!(code, 4, "{out}");
+    assert!(out.contains("schema elf-manifest/3 is newer than CLI"), "{out}");
+    let (code, out, err) = elf(&root, &["update"]);
+    assert_eq!(code, 3, "{out}{err}");
+    assert!(err.contains("elf self update"), "{err}");
+    // .elf/ 없이 2.27 형식 로그만 있는 폴더 = 2.27 줄 추론
+    let old = tmp.path().join("old");
+    fs::create_dir_all(old.join("2_Log")).unwrap();
+    fs::write(old.join("2_Log/S001_log.md"), "# S001: a\n\n> **Status**: ★ 활성\n").unwrap();
+    let (_, out, _) = elf(&old, &["check", "version"]);
+    assert!(out.contains("log-only folder (no .elf/): pin: none recorded (earlier log layout, no .elf/) → line 2.27 inferred (structure generation 1)"), "{out}");
 }

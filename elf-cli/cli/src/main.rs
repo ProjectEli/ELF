@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use elf_cli::{autoread, check, deprecate, doctor, embed, gallery, init, legacy, logcmd, manifest, migrate, selfupdate, session, status, trial, tsa, update, validate, version};
+use elf_cli::{autoread, check, consent, deprecate, dispatch, doctor, embed, gallery, init, legacy, logcmd, manifest, migrate, pin, selfupdate, session, status, store, trial, tsa, update, validate, version};
 
 /// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드, 갱신 CLI (research project scaffold & update CLI)
 #[derive(Parser)]
@@ -51,6 +51,17 @@ enum Commands {
         /// 사용자 편집 무시 강제 갱신 / force overwrite (managed 덮어쓰기, hybrid 블록 교체)
         #[arg(long)]
         force: bool,
+        /// 이관 미리보기 폴더(`--dry-run`과 함께): 결과 파일, 헤더 표, 링크와 코드 span 변경, 경로 언급, 경고 /
+        /// with --dry-run: write the migration's result files and tables (headers, changes, mentions, warnings) here
+        #[arg(long, value_name = "FOLDER", requires = "dry_run")]
+        out: Option<std::path::PathBuf>,
+        /// 목표 줄(생략 = 이 elf의 줄). 줄을 바꾸는 갱신은 요약과 확인 코드를 출력하고 사용자 승인을 기다림 /
+        /// target line (default: this elf's line); a change of line prints a summary and an approval code first
+        #[arg(long, value_name = "LINE")]
+        to: Option<String>,
+        /// 사용자가 승인한 확인 코드(요약에 나온 값) / the approval code from the summary, after the user approved
+        #[arg(long, value_name = "CODE", conflicts_with = "dry_run")]
+        approve: Option<String>,
         /// (구 형식) `elf self update`와 같음 / same as `elf self update`
         #[arg(long = "self", hide = true, conflicts_with_all = ["dry_run", "force"])]
         update_self: bool,
@@ -162,6 +173,25 @@ enum Commands {
 enum SelfCmd {
     /// elf 실행 파일을 최신 릴리즈로 갱신 / Update the elf binary to the latest release (프로젝트 파일은 `elf update`)
     Update,
+    /// 버전 보관소(~/.elf/versions) 목록 / List the elf versions kept in the version store (~/.elf/versions)
+    List {
+        /// 줄마다 최신 발행도 보임(네트워크) / also list the newest release of each line (network)
+        #[arg(long)]
+        available: bool,
+    },
+    /// 보관소에 설치: `2.27` = 그 줄의 최신 patch, `2.27.4` = 그 버전 / Install into the version store:
+    /// `2.27` = the newest patch of that line, `2.27.4` = that exact release
+    Install {
+        #[arg(value_name = "VERSION")]
+        version: String,
+    },
+    /// 보관된 버전 하나 삭제 / Remove one version from the version store
+    Uninstall {
+        #[arg(value_name = "VERSION")]
+        version: String,
+    },
+    /// 줄마다 가장 새 버전만 남김 / Keep only the newest version of each line in the version store
+    Prune,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -309,6 +339,8 @@ enum TrialCmd {
 
 // exit code 규약: 0=성공, 1=실행 오류, 2=usage(clap 기본), 3=refuse(이관 경고 포함), 4=check 발견. (5 escalation은 Registry TSV 폐지로 없어짐, P022)
 fn main() {
+    // 실행 위임(v3.0): 프로젝트 줄이 이 CLI와 다르면 보관소 버전으로 넘기고 그 종료 코드로 끝남
+    dispatch::maybe_dispatch();
     let cli = Cli::parse();
     // autoread 배너 — 재구성 마커 대기 중이면 모든 명령 출력 선두 1행(보조 주입 채널: auto-compact
     // 직후 프롬프트 미경유 경로 커버). 제외 = autoread 자신(훅 출력 계약, digest 중복), tsa quiet(훅 경로).
@@ -464,17 +496,60 @@ fn main() {
             }
         }
         Commands::SelfCmd { cmd: SelfCmd::Update } => do_self_update(),
+        Commands::SelfCmd { cmd } => do_store(cmd),
         Commands::SelfUpdate => do_self_update(),
         Commands::Update { update_self: true, .. } => do_self_update(),
-        Commands::Update { dry_run, force, update_self: false } => {
+        Commands::Update { dry_run, force, out, to, approve, update_self: false } => {
             let cwd = std::env::current_dir().expect("cwd");
+            // 목표와 동의 관문(v3.0 S044 t60): 낮은 줄 거부, 세대 건너뛰기 거부, 다른 줄 = 목표 버전으로 넘김,
+            // 줄을 바꾸는 갱신 = 요약과 확인 코드(승인 전 아무것도 쓰지 않음)
+            let gate = |root: &std::path::Path, log_only: bool| match consent::gate_update(root, log_only, to.as_deref(), approve.as_deref(), dry_run) {
+                consent::Gate::Proceed(lines) => {
+                    for l in lines {
+                        println!("[elf] {l}");
+                    }
+                }
+                consent::Gate::Dispatch { exe, args, line, version } => {
+                    if std::env::var(dispatch::ENV_DISPATCH).is_ok_and(|v| v == "trace") {
+                        eprintln!("[elf] dispatch: update to line {line} → {version} ({})", store::shown(&exe));
+                    }
+                    std::process::exit(dispatch::run(&exe, &args, embed::version()));
+                }
+                consent::Gate::Stop(code, lines) => {
+                    for l in lines {
+                        if code == 3 && !l.starts_with("refuse") && !l.starts_with("error") {
+                            println!("[elf] {l}");
+                        } else {
+                            eprintln!("[elf] {l}");
+                        }
+                    }
+                    std::process::exit(code);
+                }
+            };
+            // 이관 미리보기 폴더 준비(이관할 것이 있을 때만) — 잘못된 위치는 usage 오류
+            let preview_for = |root: &std::path::Path| -> Option<std::path::PathBuf> {
+                let o = out.as_deref()?;
+                if !migrate::needed(root) {
+                    println!("[elf] --out: nothing to migrate here — no preview written");
+                    return None;
+                }
+                match migrate::prepare_preview(root, o) {
+                    Ok(p) => Some(p),
+                    Err(m) => {
+                        eprintln!("[elf] error: {m}");
+                        std::process::exit(2);
+                    }
+                }
+            };
             let Some(root) = update::find_project_root(&cwd) else {
                 // 로그만 있는 폴더(`.elf/` 없음, 예: 프레임워크 `_dev`) — 구조 이관만
                 if let Some(lr) = session::find_log_root(&cwd)
                     && migrate::needed(&lr)
                 {
+                    gate(&lr, true);
                     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-                    match migrate::run(&lr, dry_run, &today) {
+                    let preview = preview_for(&lr);
+                    match migrate::run_with(&lr, dry_run, &today, preview.as_deref()) {
                         Ok(migrate::Outcome::Blocked(lines)) => {
                             for l in &lines {
                                 println!("[elf] {l}");
@@ -501,8 +576,10 @@ fn main() {
                 eprintln!("[elf] error: not an ELF project (no .elf/manifest.json upward from {})", cwd.display());
                 std::process::exit(1);
             };
+            gate(&root, false);
+            let preview = preview_for(&root);
             let opts = update::UpdateOptions { dry_run, force };
-            match update::run_update(&root, &opts) {
+            match update::run_update_with(&root, &opts, preview.as_deref()) {
                 Ok(report) => {
                     for line in &report.lines {
                         println!("[elf] {line}");
@@ -1066,6 +1143,39 @@ fn gate_write_or_exit() {
     if let Err(m) = version::gate_write(&cwd) {
         eprintln!("[elf] refuse: {m}");
         std::process::exit(3);
+    }
+}
+
+/// `elf self list|install|uninstall|prune` — 버전 보관소(v3.0 S044 t58).
+fn do_store(cmd: SelfCmd) {
+    let res: Result<Vec<String>, String> = match cmd {
+        SelfCmd::Update => unreachable!("handled by do_self_update"),
+        SelfCmd::List { available } => store::list_lines(available),
+        SelfCmd::Install { version } => store::install_spec(&version).map(|i| {
+            vec![format!("{} {} → {}", if i.fresh { "installed" } else { "already in the version store:" }, i.version, store::shown(&i.exe))]
+        }),
+        SelfCmd::Uninstall { version } => match pin::parse(&version) {
+            Some(v) => store::uninstall(&v).map(|_| vec![format!("removed {v} from the version store")]),
+            None => Err(format!("not a version: {version}")),
+        },
+        SelfCmd::Prune => store::prune().map(|r| {
+            if r.is_empty() {
+                vec!["nothing to prune — one version per line".into()]
+            } else {
+                r.iter().map(|v| format!("removed {v} (a newer patch of line {} is kept)", v.line())).collect()
+            }
+        }),
+    };
+    match res {
+        Ok(lines) => {
+            for l in lines {
+                println!("[elf] {l}");
+            }
+        }
+        Err(e) => {
+            eprintln!("[elf] error: {e}");
+            std::process::exit(1);
+        }
     }
 }
 

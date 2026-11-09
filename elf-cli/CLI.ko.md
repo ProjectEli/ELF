@@ -9,7 +9,7 @@
 | 주제 | 문서 |
 |---|---|
 | CLI 설치와 갱신 | [docs/install.ko.md](../docs/install.ko.md) |
-| `elf init`, `elf update`: preset, 언어, 파일 소유권, `.elf/`, 로그 구조 이관 | [docs/projects.ko.md](../docs/projects.ko.md) |
+| `elf init`, `elf update`: preset, 언어, 파일 소유권, `.elf/`, 로그 구조 이관, 목표 줄(`--to`)과 줄을 바꿀 때의 사용자 승인 | [docs/projects.ko.md](../docs/projects.ko.md) |
 | `elf session`, `elf trial`, `elf log`, `elf gallery` | [docs/sessions.ko.md](../docs/sessions.ko.md) |
 | `elf check` | [docs/check.ko.md](../docs/check.ko.md) |
 | `elf deprecate` | [docs/deprecate.ko.md](../docs/deprecate.ko.md) |

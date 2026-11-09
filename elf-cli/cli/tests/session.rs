@@ -117,6 +117,7 @@ fn e2e_session_new_and_close() {
     let root = new_project(tmp.path());
     let out = assert_cmd::Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .args(["session", "new", "SNR 비교", "--goal", "파장별 SNR 비교"])
         .current_dir(&root)
         .output()
@@ -124,13 +125,14 @@ fn e2e_session_new_and_close() {
     assert!(out.status.success());
     assert!(String::from_utf8_lossy(&out.stdout).contains("created 2_Log/S/S001_log.md (S001)"));
     // --goal 없이 = usage 오류(clap)
-    assert_cmd::Command::cargo_bin("elf").unwrap().args(["session", "new", "x"]).current_dir(&root).assert().code(2);
+    assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(["session", "new", "x"]).current_dir(&root).assert().code(2);
     // 종료 파일 없이 = 거부(exit 3)
-    assert_cmd::Command::cargo_bin("elf").unwrap().args(["session", "close"]).current_dir(&root).assert().code(3);
+    assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(["session", "close"]).current_dir(&root).assert().code(3);
     let f = root.join("close.md");
     fs::write(&f, "---\nconclusion: '810 nm 최적'\n---\n").unwrap();
     let out = assert_cmd::Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .args(["session", "close", "--from"])
         .arg(&f)
         .current_dir(&root)
@@ -145,6 +147,7 @@ fn e2e_outside_project_exits_1() {
     let tmp = tempdir().unwrap();
     assert_cmd::Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .args(["session", "new", "x", "--goal", "g"])
         .current_dir(tmp.path())
         .assert()

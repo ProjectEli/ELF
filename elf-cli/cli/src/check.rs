@@ -9,7 +9,7 @@
 
 use std::path::Path;
 
-use crate::{doctor, status, update, validate, version};
+use crate::{doctor, pin, session, status, store, update, validate, version};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Scope {
@@ -107,17 +107,20 @@ fn push_doctor(r: &mut ScopeReport, d: doctor::DoctorReport) {
     }
 }
 
-/// CLI(버전, 설치 기록), 프로젝트 manifest(형식, `elf_version`), 판정 한 줄. 프로젝트 밖 = CLI 항목만.
+/// CLI(버전과 줄, 설치 기록), 프로젝트 manifest(형식, `elf_version`), 고정값(줄, 구조 세대), 판정 한 줄.
+/// 프로젝트 밖 = CLI 항목만(`.elf/` 없이 로그만 있는 폴더는 고정값 추론 결과도).
 fn run_version(cwd: &Path, env: &doctor::DoctorEnv) -> ScopeReport {
     let mut r = ScopeReport::new(Scope::Version);
-    r.items.push(Item::new(Level::Info, format!("CLI: elf {}", env.version)));
+    let cli_line = pin::parse(&env.version).map(|v| format!(" (line {}, structure generation {})", v.line(), v.line().generation())).unwrap_or_default();
+    r.items.push(Item::new(Level::Info, format!("CLI: elf {}{cli_line}", env.version)));
     if env.receipt_present {
         r.items.push(Item::new(Level::Ok, "install receipt: found — `elf self update` works"));
     } else {
         r.items.push(Item::new(Level::Info, "install receipt: absent — `elf self update` unavailable (dev/manual build)"));
     }
-    let v = match update::find_project_root(cwd) {
-        Some(root) => version::verdict_with(&root, &env.version),
+    let root = update::find_project_root(cwd);
+    let v = match &root {
+        Some(root) => version::verdict_with(root, &env.version),
         None => version::Verdict::NoProject,
     };
     match &v {
@@ -127,7 +130,32 @@ fn run_version(cwd: &Path, env: &doctor::DoctorEnv) -> ScopeReport {
         version::Verdict::Same(p) | version::Verdict::Older(p) | version::Verdict::Newer(p) => {
             r.items.push(Item::new(Level::Info, format!("project manifest: .elf/manifest.json — schema 2, elf_version {p}")))
         }
+        version::Verdict::NewerSchema(s) => {
+            r.items.push(Item::new(Level::Info, format!("project manifest: .elf/manifest.json — schema {s} (newer than this CLI)")))
+        }
         _ => {}
+    }
+    // 고정값(R1, R6): 프로젝트 루트, 없으면 `.elf/` 없이 로그만 있는 폴더
+    let pin_root = root.or_else(|| session::find_log_root(cwd).filter(|lr| !lr.join(".elf").join("manifest.json").exists()));
+    let pinned = pin_root.as_ref().and_then(|pr| pin::read(pr).ok().flatten().map(|p| (pr.clone(), p)));
+    if let Some((pr, p)) = &pinned {
+        let where_ = if pr.join(".elf").join("manifest.json").exists() { "" } else { "log-only folder (no .elf/): " };
+        r.items.push(Item::new(Level::Info, format!("{where_}{}", pin::describe(p))));
+    }
+    // 버전 보관소(v3.0 S044 t58, 읽기만): 위치와 개수, 고정값 줄을 실행할 파일
+    let stored = store::installed();
+    let dir = store::versions_dir().map(|d| store::shown(&d)).unwrap_or_else(|| "(no home folder — set ELF_HOME)".into());
+    r.items.push(Item::new(Level::Info, format!("version store: {dir} — {} version(s)", stored.len())));
+    if let Some((_, p)) = &pinned {
+        let l = p.line;
+        if pin::parse(&env.version).map(|v| v.line()) == Some(l) {
+            r.items.push(Item::new(Level::Ok, format!("line {l}: this CLI runs the commands here")));
+        } else {
+            match store::newest_installed(l) {
+                Some((v, _)) => r.items.push(Item::new(Level::Ok, format!("line {l}: {v} in the version store — commands here run with it (`self`, `init`, `update`, `check version` stay with this CLI)"))),
+                None => r.items.push(Item::new(Level::Info, format!("line {l}: not in the version store — the first command here installs it (or `elf self install {l}`)"))),
+            }
+        }
     }
     let (k, line) = version::verdict_line(&v, &env.version);
     let level = match k {

@@ -246,6 +246,7 @@ fn e2e_validate_strict_flag_removed() {
     let root = new_project(tmp.path());
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(&root)
         .args(["validate", "--strict"])
         .assert()
@@ -261,6 +262,7 @@ fn e2e_validate_clean_exits_0() {
     let root = new_project(tmp.path());
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(&root)
         .args(["validate"])
         .assert()
@@ -275,6 +277,7 @@ fn e2e_validate_check_gates_with_exit_4() {
     fs::write(root.join("2_Log/S005_log.md"), "# S005\n").unwrap(); // 미등록 = issue
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(&root)
         .args(["validate", "--check"])
         .assert()
@@ -293,6 +296,7 @@ fn e2e_validate_malformed_exits_5_with_marker() {
     .unwrap();
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(&root)
         .args(["validate"])
         .assert()

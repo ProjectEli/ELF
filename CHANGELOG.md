@@ -4,6 +4,56 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.0.0] - 2026-11-10
+
+The official release of the 2.28 structure, with an ELF version per project. 2.28.0 and 2.28.1 introduced the log
+layout of this release (logs fixed in `2_Log/S/` and `2_Log/G/` with a YAML header) as a minor version; they are now
+marked as pre-releases on GitHub, and 3.0.0 is the official release of that structure. A project already updated with
+2.28.x needs no new migration: 2.28.x counts as the 3.0 line. Notes and docs keep saying "2.28" where the log layout
+changed.
+
+### Added
+- **An ELF version per project.** The project manifest records the ELF version the project uses (`elf_version`,
+  written only by `elf init` and `elf update`). The `elf` on PATH reads it and runs every command in the project with
+  that line (MAJOR.MINOR) from the version store `~/.elf/versions`, passing on the arguments, output, and exit code.
+  The first command in such a project downloads the release after checking its sha256, and once a day `elf` looks for
+  a newer patch of the line. A project still in the 2.27 layout runs with the newest 2.27 release, so updating the CLI
+  changes nothing in it; if that release cannot be downloaded, the built-in 2.27 compatibility mode runs instead.
+  `elf self …`, `elf init`, `elf update`, and `elf check version` always run with the `elf` on PATH, and
+  `ELF_DISPATCH=off` turns the hand-over off. See [Versions per project](docs/reference.md#versions-per-project).
+- **Version store commands**: `elf self list [--available]`, `elf self install <version or line>`,
+  `elf self uninstall <version>`, `elf self prune`.
+- **`elf update --to <line>`, with the user's approval for a change of line.** Without `--to`, the target is the line
+  of the `elf` on PATH. Within the same line, `elf update` refreshes the managed files at once. A move to a higher line
+  writes nothing at first: it prints a summary and a six-character approval code and exits 3, and after the user
+  approves, `elf update --to <line> --approve <code>` applies it (the code stops matching if anything changed in
+  between). Run in a terminal, `elf update` asks [y/N] instead. Moving to a lower line is refused, and a migration
+  goes one structure generation at a time. In a project still in the 2.27 layout, `elf update --to 2.27` refreshes the
+  managed files with elf 2.27.x without migrating.
+- **Migration preview**: `elf update --dry-run --out <folder>` writes the result files of the migration and tables of
+  the 7 header values per log (with where goal and conclusion came from), the recomputed links and code spans (with
+  the line in the new file), and the mentions of old log paths and removed files outside links, scripts included.
+- A migration guideline in [Creating and updating projects](docs/projects.md#migrating-the-log-layout-228).
+
+### Changed
+- `elf check version` shows the CLI's line and structure generation, the project's pinned version and the line it
+  resolves to, the version store, and which `elf` runs the project. A project on an older line or in the 2.27 layout
+  gets a recommendation to run `elf update` (with the approval step), and the autoread digest carries the same line.
+- The migration lists each changed code span with its file and line, the logs whose conclusion starts with a status
+  word (such as 완료 or 보관), and the files that still mention moved or removed files, scripts first. Link
+  recomputation and the mention check cover only the files tracked by git.
+- A project manifest schema newer than the CLI is reported, and the commands that write refuse until `elf self update`.
+- `.gitignore` managed block: Python caches (`__pycache__/`, `*.py[cod]`) and a note at the end of the block.
+  `elf check files` and `elf update` give the block's line range when it was edited.
+
+### Upgrading
+- From 2.27 or earlier: `elf self update`. Nothing changes in your projects until you migrate one of them with
+  `elf update`, following the guideline.
+- From 2.28.x: `elf self update`. Projects updated with 2.28.x keep working; `elf update` refreshes their managed files
+  without the approval step (same line).
+- A PC that still has elf 2.28.1 or older has no launcher: run `elf self update` there before pulling a project that
+  was moved to 3.0 or later.
+
 ## [2.28.1] - 2026-11-10
 
 ### Fixed

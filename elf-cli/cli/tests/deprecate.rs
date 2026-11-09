@@ -29,7 +29,7 @@ fn project(tmp: &Path) -> PathBuf {
 }
 
 fn elf(root: &Path, args: &[&str]) -> std::process::Output {
-    assert_cmd::Command::cargo_bin("elf").unwrap().args(args).current_dir(root).output().unwrap()
+    assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(args).current_dir(root).output().unwrap()
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn e2e_trial_deprecate_show_list_restore() {
     assert!(String::from_utf8_lossy(&elf(&root, &["deprecate", "show", "S001-D01"]).stdout).contains("틀린 가설"));
     let list = String::from_utf8_lossy(&elf(&root, &["deprecate"]).stdout).into_owned();
     assert!(list.contains("S001-D01 · 2026-") && list.contains("1 deprecated item(s)"), "{list}");
-    assert_cmd::Command::cargo_bin("elf").unwrap().args(["check", "logs"]).current_dir(&root).assert().code(0);
+    assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(["check", "logs"]).current_dir(&root).assert().code(0);
     assert!(elf(&root, &["deprecate", "--restore", "S001-D01"]).status.success());
     let back = fs::read_to_string(root.join("2_Log/S/S001_log.md")).unwrap();
     let strip = |s: &str| s.lines().filter(|l| !l.starts_with("modified:")).collect::<Vec<_>>().join("\n");

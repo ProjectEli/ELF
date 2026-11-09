@@ -8,6 +8,7 @@ use tempfile::tempdir;
 
 fn cmd_without_receipt(tmp: &std::path::Path) -> Command {
     let mut c = Command::cargo_bin("elf").unwrap();
+    c.env("ELF_DISPATCH", "off");
     // axoupdater의 receipt 탐색 경로를 빈 tempdir로 — Windows: LOCALAPPDATA, unix: HOME/XDG
     c.env("LOCALAPPDATA", tmp)
         .env("HOME", tmp)
@@ -64,12 +65,12 @@ fn update_self_flag_routes_to_self_update() {
 /// `--self`는 프로젝트 갱신 플래그와 배타 (usage 오류 = exit 2)
 #[test]
 fn update_self_conflicts_with_force_and_dry_run() {
-    Command::cargo_bin("elf").unwrap()
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off")
         .args(["update", "--self", "--force"])
         .assert()
         .failure()
         .code(2);
-    Command::cargo_bin("elf").unwrap()
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off")
         .args(["update", "--self", "--dry-run"])
         .assert()
         .failure()
@@ -79,5 +80,5 @@ fn update_self_conflicts_with_force_and_dry_run() {
 /// `elf self`만 실행 = 하위 명령 필요(usage) — 실수로 실행 파일 갱신이 일어나지 않음
 #[test]
 fn bare_self_requires_subcommand() {
-    Command::cargo_bin("elf").unwrap().arg("self").assert().failure().code(2);
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").arg("self").assert().failure().code(2);
 }

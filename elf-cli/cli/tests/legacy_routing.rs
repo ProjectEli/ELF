@@ -14,7 +14,7 @@ fn opts() -> InitOptions {
 }
 
 fn elf(root: &Path, args: &[&str]) -> (i32, String, String) {
-    let o = assert_cmd::Command::cargo_bin("elf").unwrap().args(args).current_dir(root).output().unwrap();
+    let o = assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(args).current_dir(root).output().unwrap();
     (o.status.code().unwrap_or(-1), String::from_utf8_lossy(&o.stdout).into_owned(), String::from_utf8_lossy(&o.stderr).into_owned())
 }
 
@@ -100,7 +100,11 @@ fn migration_switches_the_project_to_the_new_structure() {
     git(&["init", "-q"]);
     git(&["add", "-A"]);
     git(&["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"]);
+    // 줄을 바꾸는 갱신 = 요약과 확인 코드 → 승인 뒤 적용(S044 t60)
     let (code, out, err) = elf(&root, &["update"]);
+    assert!(code == 3 && out.contains("approval code: "), "{out}{err}");
+    let c = out.lines().find_map(|l| l.split("approval code: ").nth(1)).unwrap().trim().to_string();
+    let (code, out, err) = elf(&root, &["update", "--approve", &c]);
     assert_eq!(code, 0, "{out}{err}");
     assert!(root.join("2_Log/S/S002_log.md").is_file() && !root.join("2_Log/Wiki/Session_Registry.tsv").exists());
     // 이관 뒤: 2.27 사용법은 새 규칙으로

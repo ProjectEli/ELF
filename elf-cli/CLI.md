@@ -9,7 +9,7 @@ The reference is split by topic. `elf --help` and `elf <command> --help` print t
 | Topic | Doc |
 |---|---|
 | Installing and updating the CLI | [docs/install.md](../docs/install.md) |
-| `elf init`, `elf update`: presets, languages, file ownership, `.elf/`, log layout migration | [docs/projects.md](../docs/projects.md) |
+| `elf init`, `elf update`: presets, languages, file ownership, `.elf/`, log layout migration, target line (`--to`) and the user's approval for a change of line | [docs/projects.md](../docs/projects.md) |
 | `elf session`, `elf trial`, `elf log`, `elf gallery` | [docs/sessions.md](../docs/sessions.md) |
 | `elf check` | [docs/check.md](../docs/check.md) |
 | `elf deprecate` | [docs/deprecate.md](../docs/deprecate.md) |

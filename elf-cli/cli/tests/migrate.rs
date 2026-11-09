@@ -18,8 +18,18 @@ fn commit(root: &Path) {
 }
 
 fn elf(root: &Path, args: &[&str]) -> (i32, String) {
-    let o = assert_cmd::Command::cargo_bin("elf").unwrap().args(args).current_dir(root).output().unwrap();
+    let o = assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(args).current_dir(root).output().unwrap();
     (o.status.code().unwrap_or(-1), format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr)))
+}
+
+/// 줄을 바꾸는 `elf update` = 아무것도 쓰지 않고 요약과 확인 코드(exit 3) → 사용자 승인 뒤 `--approve <코드>`로 적용
+/// (S044 t60). 반환 = 적용 실행의 (종료 코드, 출력).
+fn update_approved(root: &Path) -> (i32, String) {
+    let (code, out) = elf(root, &["update"]);
+    assert_eq!(code, 3, "the first run only prints the summary: {out}");
+    assert!(out.contains("update needs approval: project line 2.27 → ") && out.contains("structure generation 1 → 2"), "{out}");
+    let c = out.lines().find_map(|l| l.split("approval code: ").nth(1)).map(|s| s.trim().to_string()).unwrap_or_else(|| panic!("no code: {out}"));
+    elf(root, &["update", "--approve", &c])
 }
 
 fn legacy(id: &str, status: &str, extra: &str) -> String {
@@ -80,7 +90,7 @@ fn e2e_decision_file_roundtrip_then_apply() {
     assert!(fs::read_to_string(root.join(".elf/manifest.json")).unwrap().contains("elf-manifest/1"), "manifest untouched");
     // 2차: 값을 채우고 재실행 → 적용
     fs::write(root.join(".elf/runtime/migration.yaml"), dec.replace("status: ''", "status: 'complete'")).unwrap();
-    let (code, out) = elf(&root, &["update"]);
+    let (code, out) = update_approved(&root);
     assert_eq!(code, 0, "{out}");
     assert!(out.contains("logs: 3 moved") && out.contains("header field kept as a body line (`> 이관 전 헤더:`): 관련 — 3 log(s)"), "{out}");
     assert!(out.contains("code-span paths: 1 recomputed"), "{out}");
@@ -157,7 +167,7 @@ fn partial_and_purged_deprecations_become_store_and_markers() {
     let tsv = fs::read_to_string(root.join("2_Log/Wiki/Session_Registry.tsv")).unwrap().replace("S002\t2026-06-01\t제목 S002\tComplete", "S002\t2026-06-01\t제목 S002\t★ 활성");
     fs::write(root.join("2_Log/Wiki/Session_Registry.tsv"), tsv).unwrap();
     commit(&root);
-    let (code, out) = elf(&root, &["update"]);
+    let (code, out) = update_approved(&root);
     assert_eq!(code, 0, "{out}");
     assert!(out.contains("deprecation records: 2 converted"), "{out}");
     let s1 = fs::read_to_string(root.join("2_Log/S/S001_log.md")).unwrap();
@@ -183,7 +193,7 @@ fn log_made_by_older_cli_after_migration_is_renumbered() {
     let tsv = fs::read_to_string(root.join("2_Log/Wiki/Session_Registry.tsv")).unwrap().replace("S002\t2026-06-01\t제목 S002\tComplete", "S002\t2026-06-01\t제목 S002\t★ 활성");
     fs::write(root.join("2_Log/Wiki/Session_Registry.tsv"), tsv).unwrap();
     commit(&root);
-    assert_eq!(elf(&root, &["update"]).0, 0);
+    assert_eq!(update_approved(&root).0, 0);
     commit(&root);
     // 구버전 CLI가 루트에 S002를 다시 만듦(이관 뒤 번호 계산 근거가 사라짐)
     fs::write(root.join("2_Log/S002_log.md"), legacy("S002", "★ 활성", "").replace("제목 S002", "다른 세션")).unwrap();
@@ -205,10 +215,82 @@ fn log_only_folder_migrates_logs_without_elf() {
     fs::write(root.join("2_Log/S002_log.md"), legacy("S002", "★ 활성", "")).unwrap();
     git(root, &["init", "-q"]);
     commit(root);
-    let (code, out) = elf(root, &["update"]);
+    let (code, out) = update_approved(root);
     assert_eq!(code, 0, "{out}");
     assert!(out.contains("log-only folder"), "{out}");
     assert!(root.join("2_Log/S/S001_log.md").is_file() && root.join("2_Log/S/S002_log.md").is_file());
     assert!(!root.join(".elf").exists(), "no .elf/ left behind");
     assert_eq!(elf(root, &["check", "logs"]).0, 0);
+}
+
+/// 이관 시행착오 제안(S044 t55): `--dry-run --out` 미리보기, git 추적 밖 폴더 제외, 스크립트의 지운 파일 언급,
+/// conclusion 앞머리 상태어, 코드 span 변경 목록(이관 뒤 파일 기준 줄).
+#[test]
+fn dry_run_out_preview_and_review_lists() {
+    let tmp = tempdir().unwrap();
+    let root = old_project(tmp.path());
+    let tsv = root.join("2_Log/Wiki/Session_Registry.tsv");
+    let t = fs::read_to_string(&tsv)
+        .unwrap()
+        .replace("Complete\t결론 하나", "Complete\t완료: 결론 하나")
+        .replace("S002\t2026-06-01\t제목 S002\tComplete", "S002\t2026-06-01\t제목 S002\t★ 활성");
+    fs::write(&tsv, t).unwrap();
+    fs::create_dir_all(root.join("tools")).unwrap();
+    fs::write(root.join("tools/read.py"), "REG = '2_Log/Wiki/Session_Registry.tsv'\nOLD = '2_Log/Archive/S001_log.md'\n").unwrap();
+    let gi = fs::read_to_string(root.join(".gitignore")).unwrap();
+    fs::write(root.join(".gitignore"), format!("{gi}\nscratch/\n")).unwrap();
+    fs::create_dir_all(root.join("scratch")).unwrap();
+    let scratch = "# copy\n\n[S001](../2_Log/Archive/S001_log.md) Archive/S001_log.md\n";
+    fs::write(root.join("scratch/copy.md"), scratch).unwrap();
+    commit(&root);
+
+    // 위치 검사: 프로젝트 안(.elf/runtime 밖), --dry-run 없음, 표지 없는 비지 않은 폴더 = usage 오류
+    let (code, out) = elf(&root, &["update", "--dry-run", "--out", "preview"]);
+    assert!(code == 2 && out.contains("inside the project"), "{out}");
+    assert!(!root.join("preview").exists());
+    assert_eq!(elf(&root, &["update", "--out", "x"]).0, 2);
+    let other = tmp.path().join("other");
+    fs::create_dir_all(&other).unwrap();
+    fs::write(other.join("a.txt"), "x").unwrap();
+    assert_eq!(elf(&root, &["update", "--dry-run", "--out", other.to_str().unwrap()]).0, 2);
+
+    // 미리보기
+    let pv = tmp.path().join("pv");
+    let (code, out) = elf(&root, &["update", "--dry-run", "--out", pv.to_str().unwrap()]);
+    assert!(code == 0 && out.contains("preview written to"), "{out}");
+    assert!(pv.join("ELF_MIGRATION_PREVIEW.txt").is_file() && pv.join("report.txt").is_file() && pv.join("warnings.tsv").is_file());
+    assert!(!root.join("2_Log/S").exists(), "dry-run writes nothing in the project");
+    let s3_preview = fs::read_to_string(pv.join("files/2_Log/S/S003_log.md")).unwrap();
+    let headers = fs::read_to_string(pv.join("headers.tsv")).unwrap();
+    assert!(
+        headers.lines().any(|l| l.starts_with("2_Log/Archive/S001_log.md\t2_Log/S/S001_log.md\tcomplete\t2026-06-01\t2026-06-02\t목표 S001\theader 목표\t")
+            && l.contains("\t완료: 결론 하나\tRegistry Key Finding\t")
+            && l.ends_with("conclusion starts with a status word (완료)")),
+        "{headers}"
+    );
+    assert!(headers.lines().any(|l| l.starts_with("2_Log/S003_log.md\t2_Log/S/S003_log.md\tongoing\t") && l.contains("Lecture = W05")), "{headers}");
+    let changes = fs::read_to_string(pv.join("changes.tsv")).unwrap();
+    let span: Vec<&str> = changes.lines().find(|l| l.contains("\tspan\t")).unwrap().split('\t').collect();
+    let n: usize = span[1].parse().unwrap();
+    assert_eq!((span[0], span[3], span[4]), ("2_Log/S/S003_log.md", "../6_Exp/64_Viz/S003/f.png", "../../6_Exp/64_Viz/S003/f.png"));
+    assert!(s3_preview.lines().nth(n - 1).unwrap().contains("`../../6_Exp/64_Viz/S003/f.png`"), "line {n}\n{s3_preview}");
+    assert!(changes.contains("1_Concept/12_Planning/P001_a.md\t3\tlink\t../../2_Log/Archive/S001_log.md\t../../2_Log/S/S001_log.md"), "{changes}");
+    let mentions = fs::read_to_string(pv.join("mentions.tsv")).unwrap();
+    assert!(mentions.contains("tools/read.py\t1\tSession_Registry.tsv\t") && mentions.contains("tools/read.py\t2\t"), "{mentions}");
+    assert!(!mentions.contains("scratch/") && !changes.contains("scratch/"), "untracked folder left out:\n{mentions}\n{changes}");
+    // 다시 실행 = 표지가 있는 폴더는 비우고 다시 씀, .elf/runtime 아래는 허용
+    fs::write(pv.join("stale.txt"), "x").unwrap();
+    assert_eq!(elf(&root, &["update", "--dry-run", "--out", pv.to_str().unwrap()]).0, 0);
+    assert!(!pv.join("stale.txt").exists());
+    assert_eq!(elf(&root, &["update", "--dry-run", "--out", ".elf/runtime/pv"]).0, 0);
+    assert!(root.join(".elf/runtime/pv/headers.tsv").is_file());
+
+    // 적용: 출력의 코드 span 목록과 줄, 상태어, 스크립트 언급 먼저, 추적 밖 사본 그대로, 결과 = 미리보기
+    let (code, out) = update_approved(&root);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains(&format!("code span changed: 2_Log/S/S003_log.md:{n} `../6_Exp/64_Viz/S003/f.png` → `../../6_Exp/64_Viz/S003/f.png`")), "{out}");
+    assert!(out.contains("conclusion starts with a status word") && out.contains("1 log(s): S001 (완료)"), "{out}");
+    assert!(out.contains("review scripts and rules: ") && out.contains("file(s): tools/read.py (2 lines)"), "{out}");
+    assert_eq!(fs::read_to_string(root.join("scratch/copy.md")).unwrap(), scratch, "untracked copy untouched");
+    assert_eq!(fs::read_to_string(root.join("2_Log/S/S003_log.md")).unwrap(), s3_preview, "preview = applied result");
 }

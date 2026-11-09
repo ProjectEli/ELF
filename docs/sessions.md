@@ -95,7 +95,7 @@ Scan `6_Exp/64_Viz/` and regenerate `6_Exp/64_Viz/_gallery.md`, a figure index g
 
 ## Projects made before 2.28
 
-Logs in `2_Log/`, `2_Log/Archive/`, or `2_Log/Deprecated/` with a blockquote header, and `2_Log/Wiki/Session_Registry.tsv`, are the earlier layout. Updating the CLI does not change such a project: from 2.28.1 its log commands work as in 2.27 (`elf session new "<title>"` without `--goal`, `elf session close` moving the log to `Archive/`, `elf trial new --from` with a first `> **Handoff**:` line, `elf deprecate` moving content to `Deprecated/`), and each write prints a one-line note. The commands of the new structure (`elf trial write`, `elf log`, `elf deprecate show`, `--gov`, `session close --from`) become available after `elf update` migrates the project; see [Creating and updating projects](projects.md#migrating-the-log-layout-228).
+Logs in `2_Log/`, `2_Log/Archive/`, or `2_Log/Deprecated/` with a blockquote header, and `2_Log/Wiki/Session_Registry.tsv`, are the earlier layout. Updating the CLI does not change such a project: from 3.0 the `elf` on PATH runs it with elf 2.27.x (downloaded on first use), so its log commands are those of 2.27 (`elf session new "<title>"` without `--goal`, `elf session close` moving the log to `Archive/`, `elf trial new --from` with a first `> **Handoff**:` line, `elf deprecate` moving content to `Deprecated/`). If elf 2.27.x cannot be downloaded, the built-in compatibility mode runs the same commands and each write prints a one-line note. The commands of the new structure (`elf trial write`, `elf log`, `elf deprecate show`, `--gov`, `session close --from`) become available after `elf update` migrates the project; see [Creating and updating projects](projects.md#migrating-the-log-layout-228).
 
 ---
 

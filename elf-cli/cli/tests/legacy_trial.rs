@@ -45,6 +45,7 @@ fn trial_new_stdout_carries_embed_reminder() {
     let root = new_project(tmp.path());
     let out = assert_cmd::Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(&root)
         .args(["trial", "new", "reminder-check"])
         .output()
@@ -63,7 +64,7 @@ fn trial_new_from_file_appends_body_and_replaces_handoff() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
     let log = root.join("2_Log/S001_log.md");
-    let elf = |args: &[&str]| assert_cmd::Command::cargo_bin("elf").unwrap().current_dir(&root).args(args).output().unwrap();
+    let elf = |args: &[&str]| assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").current_dir(&root).args(args).output().unwrap();
     // 셸 escape가 깨지기 쉬운 문자(백틱, `$`, 역슬래시, 따옴표)를 파일로 전달
     let body = "> **Handoff**: 상태 = `a\\b` 확인; 미완료 = $X; 참조 t01\n\n### 목표 (Goal)\n- \"따옴표\" 'quote' `code` $HOME \\n\n\n### 조건 (Conditions)\n- c\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n";
     fs::write(tmp.path().join("t.md"), body).unwrap();

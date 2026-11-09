@@ -349,6 +349,7 @@ fn e2e_banner_uses_claude_code_session_id_env() {
     autoread::run_hook(&root, "session-start", &session_start_stdin("sid-a", "compact"));
     let run = |sid: Option<&str>| -> String {
         let mut c = assert_cmd::Command::cargo_bin("elf").unwrap();
+        c.env("ELF_DISPATCH", "off");
         c.args(["check", "logs"]).current_dir(&root);
         match sid {
             Some(s) => c.env("CLAUDE_CODE_SESSION_ID", s),
@@ -384,10 +385,10 @@ fn update_restores_hooks_unless_disabled() {
 fn e2e_bare_autoread_prints_digest_and_ack_is_gone() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    let out = assert_cmd::Command::cargo_bin("elf").unwrap().arg("autoread").current_dir(&root).output().unwrap();
+    let out = assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").arg("autoread").current_dir(&root).output().unwrap();
     assert!(out.status.success());
     assert!(String::from_utf8_lossy(&out.stdout).contains("context was reconstructed (manual)"));
-    assert_cmd::Command::cargo_bin("elf").unwrap().args(["autoread", "ack"]).current_dir(&root).assert().code(2);
+    assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(["autoread", "ack"]).current_dir(&root).assert().code(2);
 }
 
 // ── LogConvention §0 핵심 요약과 digest 상한 (S044 t28, t29) ─────────────────────

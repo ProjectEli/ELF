@@ -146,6 +146,7 @@ fn e2e_in_place_adopt_uses_existing_preset_and_lang() {
     fs::write(&cfg_path, serde_json::to_string_pretty(&v).unwrap()).unwrap();
     assert_cmd::Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .args(["init", "--yes"])
         .current_dir(tmp.path())
         .assert()

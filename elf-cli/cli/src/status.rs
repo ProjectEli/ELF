@@ -218,9 +218,12 @@ fn classify_hybrid(root: &Path, dest: &str, new_m: &Manifest, report: &mut Statu
             } else if update::read_baseline_block(root, dest).as_deref() == Some(block) {
                 report.push(LineKind::Pending, format!("block outdated: {dest} (run `elf update`)"));
             } else {
+                let (a, b) = update::block_lines(&current, s, e);
                 report.push(
                     LineKind::Conflict,
-                    format!("block edited: {dest} (kept on update; `elf update --force` to replace)"),
+                    format!(
+                        "block edited: {dest} (ELF block = lines {a}-{b}; move your rules below the end marker, or `elf update --force` to replace; kept on update)"
+                    ),
                 );
             }
         }

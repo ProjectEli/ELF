@@ -95,7 +95,7 @@ handoff: ''
 
 ## 2.28 이전에 만든 프로젝트
 
-`2_Log/`, `2_Log/Archive/`, `2_Log/Deprecated/`에 있는 인용 블록 헤더 로그와 `2_Log/Wiki/Session_Registry.tsv`는 이전 형식입니다. CLI를 갱신해도 이런 프로젝트는 바뀌지 않습니다. 2.28.1부터 로그 명령이 2.27과 같이 동작하고(`--goal` 없는 `elf session new "<제목>"`, 로그를 `Archive/`로 옮기는 `elf session close`, 첫 줄 `> **Handoff**:`를 쓰는 `elf trial new --from`, 내용을 `Deprecated/`로 옮기는 `elf deprecate`), 기록할 때마다 안내 한 줄이 나옵니다. 새 구조의 명령(`elf trial write`, `elf log`, `elf deprecate show`, `--gov`, `session close --from`)은 `elf update`로 이관한 뒤 쓸 수 있습니다. [프로젝트 생성과 갱신](projects.ko.md#로그-구조-이관-228)을 참고하세요.
+`2_Log/`, `2_Log/Archive/`, `2_Log/Deprecated/`에 있는 인용 블록 헤더 로그와 `2_Log/Wiki/Session_Registry.tsv`는 이전 형식입니다. CLI를 갱신해도 이런 프로젝트는 바뀌지 않습니다. 3.0부터는 PATH의 `elf`가 이런 프로젝트를 elf 2.27.x로 실행하므로(처음 쓸 때 받음) 로그 명령이 2.27과 같습니다(`--goal` 없는 `elf session new "<제목>"`, 로그를 `Archive/`로 옮기는 `elf session close`, 첫 줄 `> **Handoff**:`를 쓰는 `elf trial new --from`, 내용을 `Deprecated/`로 옮기는 `elf deprecate`). elf 2.27.x를 받을 수 없으면 내장 호환 모드가 같은 명령을 실행하고, 기록할 때마다 안내 한 줄이 나옵니다. 새 구조의 명령(`elf trial write`, `elf log`, `elf deprecate show`, `--gov`, `session close --from`)은 `elf update`로 이관한 뒤 쓸 수 있습니다. [프로젝트 생성과 갱신](projects.ko.md#로그-구조-이관-228)을 참고하세요.
 
 ---
 

@@ -90,6 +90,7 @@ fn e2e_gallery_writes_and_reports() {
 
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(root)
         .args(["gallery"])
         .assert()
@@ -106,6 +107,7 @@ fn e2e_gallery_missing_viz_exits_0() {
     fs::create_dir_all(root.join("2_Log")).unwrap(); // 루트 탐지용, 64_Viz는 없음
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(root)
         .args(["gallery"])
         .assert()

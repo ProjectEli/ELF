@@ -198,6 +198,7 @@ fn e2e_session_new_success() {
     let root = new_project(tmp.path());
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(&root)
         .args(["session", "new", "My Session"])
         .assert()
@@ -213,6 +214,7 @@ fn e2e_malformed_registry_falls_back_with_warning() {
     // S030: 손상 Registry여도 exit 0 — 파일 index로 번호 할당 + 경고 노출(중단 아님)
     let assert = Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(&root)
         .args(["session", "new", "X"])
         .assert()
@@ -375,11 +377,11 @@ fn find_log_root_finds_2log_from_subdir() {
 fn e2e_close_succeeds_without_force_and_force_is_noop() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    Command::cargo_bin("elf").unwrap().current_dir(&root)
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").current_dir(&root)
         .args(["session", "close", "S001"]).assert().success()
         .stdout(predicates::str::contains("closed S001"));
     let root2 = new_project(&tmp.path().join("sub2"));
-    Command::cargo_bin("elf").unwrap().current_dir(&root2)
+    Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").current_dir(&root2)
         .args(["session", "close", "S001", "--force"]).assert().success()
         .stdout(predicates::str::contains("closed S001"));
 }
@@ -422,6 +424,7 @@ fn e2e_fix_headers_command() {
     // init S001 헤더는 이미 hard-break 적용본(템플릿) → 변경 0
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(&root)
         .args(["session", "fix-headers", "--dry-run"])
         .assert()
@@ -434,6 +437,7 @@ fn e2e_outside_project_exits_1() {
     let tmp = tempdir().unwrap();
     Command::cargo_bin("elf")
         .unwrap()
+        .env("ELF_DISPATCH", "off")
         .current_dir(tmp.path())
         .args(["session", "new", "X"])
         .assert()

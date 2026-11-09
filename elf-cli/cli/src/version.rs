@@ -1,11 +1,12 @@
 //! 버전 판정 — CLI와 프로젝트 manifest(`.elf/manifest.json`) 비교 (P022 §8, S044 t41).
 //! `elf check version`이 보여 주고, 쓰기 명령(session, trial, deprecate, update)이 시작할 때 같은 판정을 씀.
-//! MAJOR.MINOR만 비교(patch 차이 허용). 프로젝트가 높으면 쓰기 거부, 읽기는 경고 후 실행.
+//! 줄(MAJOR.MINOR, `pin::line_of` — 2.28.x = 3.0 줄)만 비교(patch 차이 허용, v3.0 S044 t56).
+//! 프로젝트가 높거나 manifest schema가 높으면 쓰기 거부, 읽기는 경고 후 실행.
 
 use std::fs;
 use std::path::Path;
 
-use crate::{embed, manifest, update};
+use crate::{embed, manifest, pin, update};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Verdict {
@@ -21,6 +22,8 @@ pub enum Verdict {
     Older(String),
     /// 프로젝트가 높음 → `elf self update`, 그 전까지 쓰기 거부
     Newer(String),
+    /// manifest schema가 이 CLI보다 높음(위임 규약이 바뀐 버전이 씀, R7) → `elf self update`, 그 전까지 쓰기 거부
+    NewerSchema(String),
 }
 
 /// `v2.28.0`, `2.28.1-dev` → (2, 28).
@@ -35,6 +38,9 @@ pub fn verdict_with(root: &Path, cli: &str) -> Verdict {
     let Ok(text) = fs::read_to_string(&p) else {
         return Verdict::NoProject;
     };
+    if let Some(s) = pin::newer_schema(&text) {
+        return Verdict::NewerSchema(s);
+    }
     let m = match manifest::parse(&text) {
         Ok(m) => m,
         Err(e) => return Verdict::Unreadable(e),
@@ -46,7 +52,7 @@ pub fn verdict_with(root: &Path, cli: &str) -> Verdict {
     let Some(pv) = m.elf_version.clone() else {
         return Verdict::Unreadable("elf_version missing".into());
     };
-    match (major_minor(&pv), major_minor(cli)) {
+    match (pin::parse(&pv).map(|v| v.line()), pin::parse(cli).map(|v| v.line())) {
         (Some(a), Some(b)) if a == b => Verdict::Same(pv),
         (Some(a), Some(b)) if a < b => Verdict::Older(pv),
         (Some(_), Some(_)) => Verdict::Newer(pv),
@@ -70,23 +76,63 @@ pub fn verdict_line(v: &Verdict, cli: &str) -> (char, String) {
         Verdict::Earlier(old) => (
             'w',
             format!(
-                "project manifest is the earlier format (schema 1{}) — run `elf update` to migrate (LogConvention §7)",
+                "project manifest is the earlier format (schema 1{}) — `elf update` is recommended: it prints a summary and an approval code and migrates only after the user approves (`elf update --dry-run` to preview; LogConvention §7)",
                 old.as_deref().map(|o| format!(", ELF {o}")).unwrap_or_default()
             ),
         ),
-        Verdict::Same(p) => ('o', format!("project {p}, CLI {cli} — same MAJOR.MINOR")),
-        Verdict::Older(p) => ('w', format!("project {p} is older than CLI {cli} — run `elf update`")),
+        Verdict::Same(p) => {
+            let line = pin::parse(p).map(|v| v.line().to_string()).unwrap_or_default();
+            let note = if major_minor(p) == Some((2, 28)) { " (2.28.x is the 3.0 line)" } else { "" };
+            ('o', format!("project {p}, CLI {cli} — same line {line}{note}"))
+        }
+        Verdict::Older(p) => (
+            'w',
+            format!(
+                "project {p} is older than CLI {cli} — `elf update` is recommended: it prints a summary and an approval code and applies only after the user approves"
+            ),
+        ),
         Verdict::Newer(p) => (
             'i',
             format!("project {p} is newer than CLI {cli} — run `elf self update` (commands that write refuse until then)"),
         ),
+        Verdict::NewerSchema(s) => (
+            'i',
+            format!("project manifest schema {s} is newer than CLI {cli} — run `elf self update` (commands that write refuse until then)"),
+        ),
     }
 }
 
-/// 쓰기 명령 관문 — 프로젝트가 더 높으면 거부 문구, 그 밖은 통과(이전 형식은 각 명령이 따로 안내).
+/// 갱신 권장 한 줄(autoread 요약용, v3.0 S044 t60): 프로젝트 줄 < PATH의 elf 줄이면. PATH의 elf = 넘겨받은 프로세스면
+/// `ELF_DISPATCHED`, 아니면 이 버전.
+pub fn update_hint(root: &Path) -> Option<String> {
+    let path_elf = std::env::var(crate::dispatch::ENV_DISPATCHED).ok().filter(|v| pin::parse(v).is_some()).unwrap_or_else(|| embed::version().to_string());
+    let l = pin::parse(&path_elf)?.line();
+    let p = pin::read(root).ok()??;
+    if p.line >= l {
+        return None;
+    }
+    let what = if l.generation() > p.line.generation() { ", with a log layout migration" } else { "" };
+    Some(format!(
+        "ELF update available: this project is on line {}, elf {path_elf} is installed{what}. Ask the user before running `elf update`; it prints a summary and an approval code, and applies only after the user approves",
+        p.line
+    ))
+}
+
+/// 실행 위임이 프로젝트 줄의 실행 파일을 구하지 못함(v3.0 S044 t59) — 이 프로세스의 쓰기 명령 거부 이유.
+static UNAVAILABLE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+pub fn set_unavailable(msg: String) {
+    let _ = UNAVAILABLE.set(msg);
+}
+
+/// 쓰기 명령 관문 — 프로젝트 줄의 실행 파일을 구하지 못했거나 프로젝트가 더 높으면 거부 문구, 그 밖은 통과
+/// (이전 형식은 각 명령이 따로 안내).
 pub fn gate_write(cwd: &Path) -> Result<(), String> {
+    if let Some(m) = UNAVAILABLE.get() {
+        return Err(m.clone());
+    }
     match verdict(cwd) {
-        v @ Verdict::Newer(_) => Err(format!("{} (details: `elf check version`)", verdict_line(&v, embed::version()).1)),
+        v @ (Verdict::Newer(_) | Verdict::NewerSchema(_)) => Err(format!("{} (details: `elf check version`)", verdict_line(&v, embed::version()).1)),
         _ => Ok(()),
     }
 }
@@ -118,11 +164,21 @@ mod tests {
     }
 
     #[test]
-    fn verdicts_compare_major_minor_only() {
+    fn verdicts_compare_lines_only() {
         assert_eq!(verdict_with(project(&v2("v2.28.0"), None).path(), "v2.28.3"), Verdict::Same("v2.28.0".into()));
         assert_eq!(verdict_with(project(&v2("v2.27.4"), None).path(), "v2.28.0"), Verdict::Older("v2.27.4".into()));
-        assert_eq!(verdict_with(project(&v2("v2.29.0"), None).path(), "v2.28.9"), Verdict::Newer("v2.29.0".into()));
-        assert_eq!(verdict_with(project(&v2("v3.0.0"), None).path(), "v2.28.0"), Verdict::Newer("v3.0.0".into()));
+        assert_eq!(verdict_with(project(&v2("v3.1.0"), None).path(), "v3.0.9"), Verdict::Newer("v3.1.0".into()));
+        // 2.28.x = 3.0 줄(전환 시험판, S044 t52)
+        assert_eq!(verdict_with(project(&v2("v2.28.1"), None).path(), "v3.0.0"), Verdict::Same("v2.28.1".into()));
+        assert_eq!(verdict_with(project(&v2("v2.28.1"), None).path(), "v3.0.0-dev"), Verdict::Same("v2.28.1".into()));
+        assert_eq!(verdict_with(project(&v2("v2.28.1"), None).path(), "v3.1.0"), Verdict::Older("v2.28.1".into()));
+        assert_eq!(verdict_with(project(&v2("v4.0.0"), None).path(), "v3.0.0"), Verdict::Newer("v4.0.0".into()));
+        let (_, same) = verdict_line(&Verdict::Same("v2.28.1".into()), "v3.0.0");
+        assert!(same.contains("same line 3.0 (2.28.x is the 3.0 line)"), "{same}");
+        // 더 높은 manifest schema(R7) = 판정과 쓰기 거부
+        let s3 = project(r#"{ "schema": "elf-manifest/3", "elf_version": "v4.0.0", "files": [] }"#, None);
+        assert_eq!(verdict_with(s3.path(), "v3.0.0"), Verdict::NewerSchema("elf-manifest/3".into()));
+        assert!(gate_write(s3.path()).unwrap_err().contains("schema elf-manifest/3 is newer"));
         let old = project(r#"{ "schema": "elf-manifest/1", "files": [] }"#, Some("v2.27.4\n"));
         assert_eq!(verdict_with(old.path(), "v2.28.0"), Verdict::Earlier(Some("v2.27.4".into())));
         assert!(matches!(verdict_with(project("{", None).path(), "v2.28.0"), Verdict::Unreadable(_)));
@@ -137,5 +193,15 @@ mod tests {
         assert!(e.contains("elf self update") && e.contains("elf check version"), "{e}");
         assert!(gate_write(project(&v2("v0.1.0"), None).path()).is_ok());
         assert!(gate_write(project(r#"{ "schema": "elf-manifest/1", "files": [] }"#, None).path()).is_ok());
+    }
+
+    #[test]
+    fn update_hint_only_for_an_older_line() {
+        let me = embed::version();
+        assert_eq!(update_hint(project(&v2(me), None).path()), None);
+        assert_eq!(update_hint(project(&v2("v2.28.1"), None).path()), None, "2.28.x is the 3.0 line");
+        assert_eq!(update_hint(project(&v2("v99.0.0"), None).path()), None);
+        let h = update_hint(project(r#"{ "schema": "elf-manifest/1", "files": [] }"#, None).path()).unwrap();
+        assert!(h.contains("line 2.27") && h.contains("with a log layout migration") && h.contains("Ask the user before running `elf update`"), "{h}");
     }
 }

@@ -28,7 +28,7 @@ const P1: &str = "---\nhandoff: '상태; 미완료 = t01 Phase 1 사용자 확�
 const P2: &str = "### 관찰 (Observation)\n- 810 최대\n\n### 해석 (Interpretation)\n- 예상 일치 정도: 일치\n\n### 교훈 (Lessons)\n- 1e9 필요\n\n### 생성 파일 (Files)\n- 없음\n";
 
 fn elf(root: &Path, args: &[&str]) -> std::process::Output {
-    assert_cmd::Command::cargo_bin("elf").unwrap().args(args).current_dir(root).output().unwrap()
+    assert_cmd::Command::cargo_bin("elf").unwrap().env("ELF_DISPATCH", "off").args(args).current_dir(root).output().unwrap()
 }
 
 #[test]
