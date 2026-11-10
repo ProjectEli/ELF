@@ -4,6 +4,20 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.1.0] - 2026-11-10
+
+### Changed
+- **Closing a session changes only a line or two in `.vscode/settings.json`.** The explorer nesting used to list every
+  closed log on one long line, so the whole line changed in each commit. Closed logs are now listed one per line, each
+  linked to the previous one (`"S001_log.md": "S002_log.md"`). VS Code still shows them all under `Registry.md`, and
+  in-progress logs stay visible. Only the nesting keys are rewritten: your other settings and any nesting patterns you
+  added keep their order, indentation and text. The first update after moving to 3.1 rewrites the old one-line value
+  once.
+
+### Upgrading
+- 3.1 is a new line. A project on the 3.0 line keeps running with elf 3.0.x until you run `elf update` there: it
+  prints a summary and an approval code and moves the project to 3.1 after the user approves.
+
 ## [3.0.2] - 2026-11-10
 
 ### Fixed

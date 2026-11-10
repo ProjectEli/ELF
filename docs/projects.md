@@ -90,7 +90,7 @@ From 2.28, logs live in `2_Log/S/` and `2_Log/G/` with a YAML header and stay wh
 | Preview | `elf update --dry-run --out <folder>` writes the result files (`files/`), a table of the 7 header values per log with where goal and conclusion came from (`headers.tsv`), the recomputed links and code spans (`changes.tsv`), mentions of old paths and removed files that are not links, scripts included (`mentions.tsv`), and the warnings (`warnings.tsv`). Nothing is written to the project, so there is no need to rehearse on a copy |
 | Plan first | `elf update` plans the whole migration. If there is any warning, it writes only the decision file `.elf/runtime/migration.yaml` (not tracked by git), prints a summary, and exits 3; the managed files wait too |
 | Decide | Status warnings (header and Registry disagree, both missing, a value that is not canonical) get a `status` field to fill with `ongoing`, `complete` or `deprecated`, judged from the evidence shown and confirmed with the user. Other warnings (a link target that does not exist, two logs with one number) list a file to fix |
-| Approve and apply | With the decisions done, `elf update` prints the summary and an approval code. After the user approves, `elf update --to 3.0 --approve <code>` applies everything at once and deletes the decision file. Then `elf check`, review with the user, and commit |
+| Approve and apply | With the decisions done, `elf update` prints the summary and an approval code. After the user approves, `elf update --to <line> --approve <code>` as the summary shows (for example `--to 3.1`) applies everything at once and deletes the decision file. Then `elf check`, review with the user, and commit |
 
 #### Migration guideline
 
@@ -109,7 +109,7 @@ Header values map to the 7 keys (`Created` or `Date` → created, `목표` or `G
 
 #### From any 2.x version
 
-From 3.0.2, `elf update` brings a project made with any version from 2.0 to 2.28.x to the 3.0 line in the same steps (summary, approval code, approval). Nothing else is needed per version.
+From 3.0.2, `elf update` brings a project made with any version from 2.0 to 2.28.x to the line of the `elf` on PATH (3.0 or later) in the same steps (summary, approval code, approval). Nothing else is needed per version.
 
 | Made with | What `elf update` also does |
 |---|---|
@@ -127,7 +127,7 @@ An ELF file is replaced or removed only when it is still exactly as that version
 |------|-------|-----------|
 | **Managed** | `.elf/managed/` (`EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`, companions); root `.editorconfig`, `AGENTS.md` | Replaced with the new version. If you edited one, it is **kept** and the new version is written as `<file>.elf-new` (use `--force` to overwrite) |
 | **Yours** | `0_Meta/` (`ProjectRule.md`, `<name>.project.md` overlays), `README.md`, all research data and logs | **Never touched** (logs: only the one-time migration above) |
-| **Generated** | `2_Log/S/Registry.md`, `2_Log/G/Registry.md`, the `explorer.fileNesting` keys in `.vscode/settings.json` (other settings are yours) | Rebuilt from the log headers by every command that changes a log |
+| **Generated** | `2_Log/S/Registry.md`, `2_Log/G/Registry.md`, the `explorer.fileNesting` keys in `.vscode/settings.json` (other settings and nesting patterns you add are yours) | Rebuilt from the log headers by every command that changes a log. The nesting lists closed logs one per line, each linked to the previous one (`"S001_log.md": "S002_log.md"`), and only those keys are rewritten, so closing a session changes one or two lines in the diff |
 | **Hybrid** | `.gitignore` | Only the marker block (`# >>> ELF managed >>>` … `# <<< ELF managed <<<`) is replaced; your rules outside the block are preserved |
 | **Pointer** | `CLAUDE.md` | Created if missing; if present it is **never modified** (no `.elf-new` either). An existing hand-written `CLAUDE.md` stays exactly yours. Add a `@AGENTS.md` line yourself to load the ELF rules; `elf check files` checks the link the way Claude Code parses imports (an `@AGENTS.md` inside backticks, a code block, an HTML comment or quotes is not imported, and is reported as a warning) |
 

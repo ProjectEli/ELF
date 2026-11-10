@@ -206,7 +206,11 @@ fn check_version_shows_pin_line_and_generation() {
     let (code, out, _) = elf(&root, &["check", "version"]);
     assert_eq!(code, 0, "{out}");
     assert!(out.contains("pin: v2.28.1 → line 3.0 (structure generation 2; 2.28.x is the 3.0 line)"), "{out}");
-    assert!(out.contains("ok: verdict: project v2.28.1") && out.contains("same line 3.0 (2.28.x is the 3.0 line)"), "{out}");
+    if line.to_string() == "3.0" {
+        assert!(out.contains("ok: verdict: project v2.28.1") && out.contains("same line 3.0 (2.28.x is the 3.0 line)"), "{out}");
+    } else {
+        assert!(out.contains(&format!("project v2.28.1 is older than CLI {cli}")), "{out}");
+    }
     // 더 높은 manifest schema
     fs::write(&mp, m.replace("elf-manifest/2", "elf-manifest/3")).unwrap();
     let (code, out, _) = elf(&root, &["check", "version"]);

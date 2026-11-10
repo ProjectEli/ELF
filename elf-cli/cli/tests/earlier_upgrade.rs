@@ -104,9 +104,10 @@ fn upgrade(tag: &str) -> Upgraded {
     let logs_before = logs_under(&root);
     let (code, summary) = elf(&root, &home, &["update"]);
     assert_eq!(code, 3, "{tag}: the first run prints the summary only: {summary}");
-    assert!(summary.contains("update needs approval: project line 2.27 → 3.0"), "{tag}: {summary}");
+    let line = cli_line();
+    assert!(summary.contains(&format!("update needs approval: project line 2.27 → {line}")), "{tag}: {summary}");
     let c = summary.lines().find_map(|l| l.split("approval code: ").nth(1)).map(|s| s.trim().to_string()).unwrap_or_else(|| panic!("{tag}: {summary}"));
-    let (code, applied) = elf(&root, &home, &["update", "--to", "3.0", "--approve", &c]);
+    let (code, applied) = elf(&root, &home, &["update", "--to", &line, "--approve", &c]);
     assert_eq!(code, 0, "{tag}: {applied}");
     Upgraded { _tmp: tmp, root, home, logs_before, summary, applied }
 }
@@ -128,7 +129,12 @@ fn assert_upgraded(tag: &str, u: &Upgraded) {
         assert!(!r.join(old).exists(), "{tag}: {old}/ remains");
     }
     let (_, v) = elf(r, &u.home, &["check", "version"]);
-    assert!(v.contains("same line 3.0"), "{tag}: {v}");
+    assert!(v.contains(&format!("same line {}", cli_line())), "{tag}: {v}");
+}
+
+/// 이 CLI의 줄(MAJOR.MINOR) — 올라가는 목표 줄.
+fn cli_line() -> String {
+    elf_cli::pin::parse(elf_cli::embed::version()).unwrap().line().to_string()
 }
 
 #[test]

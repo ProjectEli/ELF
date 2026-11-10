@@ -206,7 +206,8 @@ mod tests {
     fn update_hint_only_for_an_older_line() {
         let me = embed::version();
         assert_eq!(update_hint(project(&v2(me), None).path()), None);
-        assert_eq!(update_hint(project(&v2("v2.28.1"), None).path()), None, "2.28.x is the 3.0 line");
+        // 2.28.x = 3.0 줄 — v3.0.0과 같은 판정(CLI가 3.0 줄이면 없음, 더 높으면 3.0 줄 갱신 권장)
+        assert_eq!(update_hint(project(&v2("v2.28.1"), None).path()), update_hint(project(&v2("v3.0.0"), None).path()), "2.28.x is the 3.0 line");
         assert_eq!(update_hint(project(&v2("v99.0.0"), None).path()), None);
         let h = update_hint(project(r#"{ "schema": "elf-manifest/1", "files": [] }"#, None).path()).unwrap();
         assert!(h.contains("line 2.27") && h.contains("with a log layout migration") && h.contains("Ask the user before running `elf update`"), "{h}");

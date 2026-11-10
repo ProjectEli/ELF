@@ -66,9 +66,10 @@ fn line_change_prints_a_summary_and_applies_only_with_the_matching_code() {
     // 요약과 코드, 아무것도 쓰지 않음
     let (code, out, _) = elf(&root, &["update"]);
     assert_eq!(code, 3, "{out}");
-    assert!(out.contains("update needs approval: project line 2.27 → 3.0 (structure generation 1 → 2: the log layout is migrated)"), "{out}");
+    let l = elf_cli::pin::parse(elf_cli::embed::version()).unwrap().line().to_string(); // 이 CLI의 줄
+    assert!(out.contains(&format!("update needs approval: project line 2.27 → {l} (structure generation 1 → 2: the log layout is migrated)")), "{out}");
     assert!(out.contains("project: none recorded (earlier format, manifest schema 1)") && out.contains("logs: 1 moved"), "{out}");
-    assert!(out.contains("AI agent: show this summary to the user") && out.contains("--to 3.0 --approve "), "{out}");
+    assert!(out.contains("AI agent: show this summary to the user") && out.contains(&format!("--to {l} --approve ")), "{out}");
     let c1 = code_of(&out);
     assert_eq!(c1.len(), 6);
     assert!(!root.join("2_Log/S").exists() && root.join("2_Log/S001_log.md").is_file(), "nothing written");
@@ -85,9 +86,9 @@ fn line_change_prints_a_summary_and_applies_only_with_the_matching_code() {
     assert!(code == 3 && err.contains("does not match"), "{err}");
     assert!(!root.join("2_Log/S").exists());
     // 맞는 코드 = 적용(대문자도 같음)
-    let (code, out, err) = elf(&root, &["update", "--to", "3.0", "--approve", &c2.to_uppercase()]);
+    let (code, out, err) = elf(&root, &["update", "--to", &l, "--approve", &c2.to_uppercase()]);
     assert_eq!(code, 0, "{out}{err}");
-    assert!(out.contains(&format!("approved update (code {c2}): line 2.27 → 3.0")) && root.join("2_Log/S/S001_log.md").is_file(), "{out}");
+    assert!(out.contains(&format!("approved update (code {c2}): line 2.27 → {l}")) && root.join("2_Log/S/S001_log.md").is_file(), "{out}");
     // 이제 같은 줄 = 동의 없이 바로
     commit(&root);
     let (code, out, _) = elf(&root, &["update"]);

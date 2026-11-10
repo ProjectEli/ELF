@@ -78,7 +78,7 @@ elf check                # 팀이나 CI의 통과 조건. issue가 있으면 exi
 | 미리 보기 | `elf update --dry-run --out <폴더>`가 결과 파일(`files/`), 로그별 7키 값과 goal, conclusion의 원천 표(`headers.tsv`), 다시 계산한 링크와 코드 span(`changes.tsv`), 링크가 아닌 옛 경로와 지운 파일 이름 언급(스크립트 포함, `mentions.tsv`), 경고(`warnings.tsv`)를 씀. 프로젝트에는 쓰지 않으므로 사본에 적용해 보지 않아도 됨 |
 | 계획 먼저 | `elf update`가 이관 전체를 계획함. 경고가 하나라도 있으면 결정 파일 `.elf/runtime/migration.yaml`(git 추적 밖)만 쓰고 요약을 출력한 뒤 exit 3. 관리 파일 갱신도 기다림 |
 | 결정 | 상태 경고(헤더와 Registry 불일치, 둘 다 없음, 정식 값이 아님)에는 `status` 칸이 있어, 보여 주는 근거로 `ongoing`, `complete`, `deprecated` 중 하나를 정하고 사용자 확인 뒤 채움. 그 밖의 경고(없는 링크 대상, 같은 번호의 로그 두 개)는 고칠 파일을 알려 줌 |
-| 승인과 적용 | 결정이 끝나면 `elf update`가 요약과 확인 코드를 출력함. 사용자 승인 뒤 `elf update --to 3.0 --approve <코드>`가 한 번에 적용하고 결정 파일을 지움. 이어서 `elf check`, 사용자 검토, 커밋 |
+| 승인과 적용 | 결정이 끝나면 `elf update`가 요약과 확인 코드를 출력함. 사용자 승인 뒤 요약에 나온 대로 `elf update --to <줄> --approve <코드>`(예: `--to 3.1`)가 한 번에 적용하고 결정 파일을 지움. 이어서 `elf check`, 사용자 검토, 커밋 |
 
 #### 이관 가이드라인
 
@@ -97,7 +97,7 @@ elf check                # 팀이나 CI의 통과 조건. issue가 있으면 exi
 
 #### 2.x 어느 버전에서든
 
-3.0.2부터 `elf update`는 2.0부터 2.28.x까지 어느 버전으로 만든 프로젝트든 같은 순서(요약, 확인 코드, 승인)로 3.0 줄로 올립니다. 버전마다 따로 할 일은 없습니다.
+3.0.2부터 `elf update`는 2.0부터 2.28.x까지 어느 버전으로 만든 프로젝트든 같은 순서(요약, 확인 코드, 승인)로 PATH의 `elf`의 줄(3.0 이상)로 올립니다. 버전마다 따로 할 일은 없습니다.
 
 | 시작 버전 | `elf update`가 더 하는 일 |
 |---|---|
@@ -115,7 +115,7 @@ elf check                # 팀이나 CI의 통과 조건. issue가 있으면 exi
 |------|------|-------------|
 | **Managed** | `.elf/managed/`(`EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`, 영어본), 루트 `.editorconfig`, `AGENTS.md` | 새 버전으로 교체. 사용자가 고친 파일은 **그대로 두고** 새 버전을 `<파일>.elf-new`로 만듦(`--force`면 덮어씀) |
 | **사용자 소유** | `0_Meta/`(`ProjectRule.md`, 프로젝트별 추가 규칙 `<이름>.project.md`), `README.md`, 모든 연구 데이터, 로그 | **건드리지 않음**(로그는 위 1회 이관만) |
-| **생성 파일** | `2_Log/S/Registry.md`, `2_Log/G/Registry.md`, `.vscode/settings.json`의 `explorer.fileNesting` 키(그 밖의 설정은 사용자 소유) | 로그를 바꾸는 명령이 헤더에서 매번 다시 만듦 |
+| **생성 파일** | `2_Log/S/Registry.md`, `2_Log/G/Registry.md`, `.vscode/settings.json`의 `explorer.fileNesting` 키(그 밖의 설정과 직접 둔 nesting 패턴은 사용자 소유) | 로그를 바꾸는 명령이 헤더에서 매번 다시 만듦. nesting은 종료된 로그를 한 줄에 하나씩 이어 적고(`"S001_log.md": "S002_log.md"`), 그 키 부분만 바꿔 씀. 세션을 닫을 때 diff는 1~2줄 |
 | **Hybrid** | `.gitignore` | 표시 블록(`# >>> ELF managed >>>`부터 `# <<< ELF managed <<<`까지)만 교체하고, 블록 밖의 사용자 규칙은 유지 |
 | **Pointer** | `CLAUDE.md` | 없으면 만들고, 있으면 **바꾸지 않음**(`.elf-new`도 만들지 않음). 직접 쓴 `CLAUDE.md`는 온전히 사용자 파일입니다. ELF 규칙을 불러오려면 `@AGENTS.md` 1줄을 직접 넣습니다. 연결 여부는 `elf check files`가 Claude Code의 import 해석 방식대로 점검합니다(백틱, 코드 블록, HTML 주석, 따옴표 안의 `@AGENTS.md`는 import되지 않으므로 warning) |
 

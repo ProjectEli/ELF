@@ -293,52 +293,212 @@ pub fn expected_registry(root: &Path, series: Series) -> Option<String> {
 const NEST_ENABLED: &str = "explorer.fileNesting.enabled";
 const NEST_PATTERNS: &str = "explorer.fileNesting.patterns";
 
-/// 종료, 폐기 로그 파일 이름(쉼표 목록) — `Registry.md` 아래로 접힘.
-pub fn nesting_value(root: &Path) -> String {
-    let mut names = Vec::new();
+/// 탐색기 nesting 항목(키, 값). 종료, 폐기 로그를 계열마다 번호순 사슬로 이음: `Registry.md` → 첫 종료 로그,
+/// 앞 종료 로그 → 다음 종료 로그. VS Code는 같은 파일에 맞는 키의 자식을 합치고 자식의 자식을 맨 위 부모 아래로
+/// 펼쳐 보이므로(`explorerFileNestingTrie`) 모두 `Registry.md` 바로 아래에 보이고, 한 줄에 로그 하나라 세션을
+/// 닫을 때 `settings.json` diff가 1~2줄(SOMG 제안 D3, S047). 진행 중 로그는 사슬에 없어 그대로 보임.
+pub fn nesting_entries(root: &Path) -> Vec<(String, String)> {
+    let mut firsts = Vec::new();
+    let mut links = Vec::new();
     for s in Series::ALL {
         let (rows, _) = headers(root, s);
-        for (l, h) in rows {
-            if h.status != Status::Ongoing {
-                names.push(format!("{}_log.md", l.id));
-            }
+        let closed: Vec<String> = rows.iter().filter(|(_, h)| h.status != Status::Ongoing).map(|(l, _)| format!("{}_log.md", l.id)).collect();
+        if let Some(f) = closed.first() {
+            firsts.push(f.clone());
         }
+        links.extend(closed.windows(2).map(|w| (w[0].clone(), w[1].clone())));
     }
-    names.join(", ")
+    let mut out = Vec::new();
+    if !firsts.is_empty() {
+        out.push(("Registry.md".to_string(), firsts.join(", ")));
+    }
+    out.extend(links);
+    out
 }
 
-/// settings.json에 nesting 키만 병합. 바뀌었으면 true. JSON으로 읽을 수 없으면(주석 등) 손대지 않고 Err.
-fn write_nesting(root: &Path, value: &str) -> Result<bool, String> {
+/// ELF가 만드는 nesting 키(`Registry.md`, 로그 파일 이름) — 그 밖의 키는 사용자 것.
+fn elf_nest_key(k: &str) -> bool {
+    k == "Registry.md" || log_file_id(k).is_some()
+}
+
+/// settings.json에 nesting 두 키만 반영(텍스트에서 그 부분만 바꿈 — 다른 설정의 순서, 들여쓰기, 바이트는 그대로).
+/// 바뀌었으면 true. JSON으로 읽을 수 없으면(주석 등) 손대지 않고 Err.
+fn write_nesting(root: &Path, entries: &[(String, String)]) -> Result<bool, String> {
     let p = root.join(".vscode/settings.json");
     // 접을 로그가 없고 설정 파일도 없으면 만들지 않음(새 프로젝트에 빈 설정 파일을 늘리지 않음)
-    if value.is_empty() && !p.exists() {
+    if entries.is_empty() && !p.exists() {
         return Ok(false);
     }
-    let mut v: serde_json::Value = match fs::read_to_string(&p) {
-        Ok(t) if t.trim().is_empty() => serde_json::json!({}),
-        Ok(t) => serde_json::from_str(&t).map_err(|e| {
-            format!(".vscode/settings.json is not plain JSON ({e}) — explorer nesting not updated; set \"{NEST_PATTERNS}\" by hand or remove comments")
-        })?,
-        Err(_) => serde_json::json!({}),
-    };
-    let before = v.clone();
-    let Some(obj) = v.as_object_mut() else {
+    let raw = fs::read_to_string(&p).unwrap_or_default();
+    let text = if raw.trim().is_empty() { "{}\n".to_string() } else { raw.clone() };
+    let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| {
+        format!(".vscode/settings.json is not plain JSON ({e}) — explorer nesting not updated; set \"{NEST_PATTERNS}\" by hand or remove comments")
+    })?;
+    if !v.is_object() {
         return Err(".vscode/settings.json is not a JSON object — explorer nesting not updated".into());
-    };
-    obj.insert(NEST_ENABLED.into(), serde_json::Value::Bool(true));
-    let pats = obj.entry(NEST_PATTERNS).or_insert_with(|| serde_json::json!({}));
-    let Some(pobj) = pats.as_object_mut() else {
+    }
+    if v.get(NEST_PATTERNS).is_some_and(|x| !x.is_object()) {
         return Err(format!(".vscode/settings.json \"{NEST_PATTERNS}\" is not an object — explorer nesting not updated"));
-    };
-    pobj.insert("Registry.md".into(), serde_json::Value::String(value.to_string()));
-    if v == before {
+    }
+    let new = nesting_text(&text, entries).ok_or(".vscode/settings.json could not be edited in place — explorer nesting not updated")?;
+    if new == raw {
         return Ok(false);
     }
     fs::create_dir_all(root.join(".vscode")).map_err(|e| e.to_string())?;
-    let mut out = serde_json::to_string_pretty(&v).expect("json");
-    out.push('\n');
-    fs::write(&p, out).map_err(|e| e.to_string())?;
+    fs::write(&p, new).map_err(|e| e.to_string())?;
     Ok(true)
+}
+
+/// settings.json 텍스트(유효한 JSON 객체)에서 `explorer.fileNesting.enabled` = true와 `explorer.fileNesting.patterns`만
+/// 바꾼 결과. patterns = 사용자 키(원문, 원래 순서) + ELF 항목, 한 줄에 하나. 그 밖의 바이트는 그대로.
+fn nesting_text(text: &str, entries: &[(String, String)]) -> Option<String> {
+    let b = text.as_bytes();
+    let open = jt::skip_ws(b, 0);
+    if b.get(open) != Some(&b'{') {
+        return None;
+    }
+    let (members, close) = jt::members(text, open)?;
+    let ind = members.first().map(|m| jt::indent_at(text, m.start)).filter(|s| !s.is_empty()).unwrap_or_else(|| "  ".into());
+    let quote = |s: &str| serde_json::to_string(s).expect("string");
+    let pat = members.iter().find(|m| m.key == NEST_PATTERNS);
+    let mut lines: Vec<String> = Vec::new();
+    if let Some(m) = pat {
+        let (inner, _) = jt::members(text, m.value.0)?;
+        lines.extend(inner.iter().filter(|u| !elf_nest_key(&u.key)).map(|u| text[u.start..u.value.1].to_string()));
+    }
+    lines.extend(entries.iter().map(|(k, v)| format!("{}: {}", quote(k), quote(v))));
+    let mind = pat.map(|m| jt::indent_at(text, m.start)).filter(|s| !s.is_empty()).unwrap_or_else(|| ind.clone());
+    let obj = if lines.is_empty() {
+        "{}".to_string()
+    } else {
+        format!("{{\n{}\n{mind}}}", lines.iter().map(|l| format!("{mind}{ind}{l}")).collect::<Vec<_>>().join(",\n"))
+    };
+    let mut edits: Vec<(usize, usize, String)> = Vec::new();
+    let mut inserts: Vec<String> = Vec::new();
+    match members.iter().find(|m| m.key == NEST_ENABLED) {
+        Some(m) if &text[m.value.0..m.value.1] == "true" => {}
+        Some(m) => edits.push((m.value.0, m.value.1, "true".into())),
+        None => inserts.push(format!("{}: true", quote(NEST_ENABLED))),
+    }
+    match pat {
+        Some(m) => edits.push((m.value.0, m.value.1, obj)),
+        None => inserts.push(format!("{}: {obj}", quote(NEST_PATTERNS))),
+    }
+    if !inserts.is_empty() {
+        match members.last() {
+            Some(last) => edits.push((last.value.1, last.value.1, inserts.iter().map(|s| format!(",\n{ind}{s}")).collect())),
+            None => edits.push((open + 1, close, format!("\n{}\n", inserts.iter().map(|s| format!("{ind}{s}")).collect::<Vec<_>>().join(",\n")))),
+        }
+    }
+    edits.sort_by_key(|e| std::cmp::Reverse(e.0));
+    let mut out = text.to_string();
+    for (s, e, r) in edits {
+        out.replace_range(s..e, &r);
+    }
+    Some(out)
+}
+
+/// 유효한 JSON 텍스트에서 객체 멤버의 위치를 찾는 최소 스캐너(값 해석은 serde_json에 맡김).
+mod jt {
+    pub struct Member {
+        pub key: String,
+        /// 키 따옴표 위치
+        pub start: usize,
+        /// 값 [시작, 끝)
+        pub value: (usize, usize),
+    }
+
+    pub fn skip_ws(b: &[u8], mut i: usize) -> usize {
+        while i < b.len() && matches!(b[i], b' ' | b'\t' | b'\r' | b'\n') {
+            i += 1;
+        }
+        i
+    }
+
+    /// `i` = 여는 따옴표 → 닫는 따옴표 다음 위치.
+    fn string_end(b: &[u8], mut i: usize) -> Option<usize> {
+        i += 1;
+        while i < b.len() {
+            match b[i] {
+                b'\\' => i += 2,
+                b'"' => return Some(i + 1),
+                _ => i += 1,
+            }
+        }
+        None
+    }
+
+    /// 값의 끝(다음 위치): 객체와 배열 = 짝 괄호(문자열 안 무시), 문자열, 그 밖 = 구분자나 공백 전까지.
+    fn value_end(b: &[u8], i: usize) -> Option<usize> {
+        match *b.get(i)? {
+            b'"' => string_end(b, i),
+            b'{' | b'[' => {
+                let mut depth = 0usize;
+                let mut j = i;
+                while j < b.len() {
+                    match b[j] {
+                        b'"' => {
+                            j = string_end(b, j)?;
+                            continue;
+                        }
+                        b'{' | b'[' => depth += 1,
+                        b'}' | b']' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                return Some(j + 1);
+                            }
+                        }
+                        _ => {}
+                    }
+                    j += 1;
+                }
+                None
+            }
+            _ => {
+                let mut j = i;
+                while j < b.len() && !matches!(b[j], b',' | b'}' | b']' | b' ' | b'\t' | b'\r' | b'\n') {
+                    j += 1;
+                }
+                Some(j)
+            }
+        }
+    }
+
+    /// `open` = `{` 위치 → (멤버들, 닫는 `}` 위치).
+    pub fn members(text: &str, open: usize) -> Option<(Vec<Member>, usize)> {
+        let b = text.as_bytes();
+        let mut v = Vec::new();
+        let mut i = skip_ws(b, open + 1);
+        if b.get(i) == Some(&b'}') {
+            return Some((v, i));
+        }
+        loop {
+            if b.get(i) != Some(&b'"') {
+                return None;
+            }
+            let ke = string_end(b, i)?;
+            let key: String = serde_json::from_str(&text[i..ke]).ok()?;
+            let mut j = skip_ws(b, ke);
+            if b.get(j) != Some(&b':') {
+                return None;
+            }
+            j = skip_ws(b, j + 1);
+            let ve = value_end(b, j)?;
+            v.push(Member { key, start: i, value: (j, ve) });
+            let k = skip_ws(b, ve);
+            match *b.get(k)? {
+                b',' => i = skip_ws(b, k + 1),
+                b'}' => return Some((v, k)),
+                _ => return None,
+            }
+        }
+    }
+
+    /// `pos`가 있는 줄의 앞 공백.
+    pub fn indent_at(text: &str, pos: usize) -> String {
+        let line_start = text[..pos].rfind('\n').map(|n| n + 1).unwrap_or(0);
+        text[line_start..pos].chars().take_while(|c| *c == ' ' || *c == '\t').collect()
+    }
 }
 
 /// 로그를 바꾼 뒤 생성 결과를 다시 만듦: 계열별 Registry.md(폴더가 있을 때), 탐색기 nesting.
@@ -359,7 +519,7 @@ pub fn refresh(root: &Path) -> std::io::Result<Vec<String>> {
             fs::write(&p, text)?;
         }
     }
-    if let Err(w) = write_nesting(root, &nesting_value(root)) {
+    if let Err(w) = write_nesting(root, &nesting_entries(root)) {
         warns.push(w);
     }
     Ok(warns)
@@ -430,6 +590,96 @@ mod tests {
         let w = refresh(root).unwrap();
         assert!(w.iter().any(|x| x.contains("not plain JSON")));
         assert_eq!(fs::read_to_string(root.join(".vscode/settings.json")).unwrap(), "{ // c\n}");
+    }
+
+    fn closed_logs(root: &Path, series: Series, items: &[(u32, Status)]) {
+        fs::create_dir_all(root.join(series.dir())).unwrap();
+        for (n, st) in items {
+            let mut x = h(*st, "", "c");
+            x.goal = format!("goal {n}");
+            fs::write(root.join(log_rel(series, *n)), format!("{}# {}: t\n", header::render(&x), id_of(series, *n))).unwrap();
+        }
+    }
+
+    /// 줄 단위 차이(바뀐 줄 수 = 빠진 줄 + 더한 줄, 같은 줄은 순서대로 맞춤).
+    fn changed_lines(a: &str, b: &str) -> usize {
+        let (x, y): (Vec<&str>, Vec<&str>) = (a.lines().collect(), b.lines().collect());
+        let mut lcs = vec![vec![0usize; y.len() + 1]; x.len() + 1];
+        for i in (0..x.len()).rev() {
+            for j in (0..y.len()).rev() {
+                lcs[i][j] = if x[i] == y[j] { lcs[i + 1][j + 1] + 1 } else { lcs[i + 1][j].max(lcs[i][j + 1]) };
+            }
+        }
+        x.len() + y.len() - 2 * lcs[0][0]
+    }
+
+    #[test]
+    fn nesting_is_a_chain_of_closed_logs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        closed_logs(root, Series::S, &[(1, Status::Complete), (2, Status::Ongoing), (3, Status::Deprecated), (4, Status::Complete)]);
+        closed_logs(root, Series::G, &[(1, Status::Complete), (2, Status::Complete)]);
+        let e = nesting_entries(root);
+        let pairs: Vec<(&str, &str)> = e.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+        assert_eq!(
+            pairs,
+            vec![
+                ("Registry.md", "S001_log.md, G001_log.md"),
+                ("S001_log.md", "S003_log.md"),
+                ("S003_log.md", "S004_log.md"),
+                ("G001_log.md", "G002_log.md"),
+            ],
+            "진행 중 S002는 사슬에 없음"
+        );
+    }
+
+    #[test]
+    fn nesting_edit_keeps_other_settings_and_user_patterns() {
+        let before = "{\n\t\"editor.tabSize\": 4,\n\t\"explorer.fileNesting.patterns\": {\n\t\t\"*.ts\": \"${capture}.js\",\n\t\t\"Registry.md\": \"S001_log.md, S002_log.md\"\n\t},\n\t\"files.eol\": \"\\n\"\n}\n";
+        let e = vec![("Registry.md".to_string(), "S001_log.md".to_string()), ("S001_log.md".to_string(), "S002_log.md".to_string())];
+        let after = nesting_text(before, &e).unwrap();
+        assert_eq!(
+            after,
+            "{\n\t\"editor.tabSize\": 4,\n\t\"explorer.fileNesting.patterns\": {\n\t\t\"*.ts\": \"${capture}.js\",\n\t\t\"Registry.md\": \"S001_log.md\",\n\t\t\"S001_log.md\": \"S002_log.md\"\n\t},\n\t\"files.eol\": \"\\n\",\n\t\"explorer.fileNesting.enabled\": true\n}\n"
+        );
+        assert_eq!(nesting_text(&after, &e).unwrap(), after, "같은 항목이면 그대로");
+        // 새 파일과 빈 객체
+        assert_eq!(
+            nesting_text("{}\n", &e[..1]).unwrap(),
+            "{\n  \"explorer.fileNesting.enabled\": true,\n  \"explorer.fileNesting.patterns\": {\n    \"Registry.md\": \"S001_log.md\"\n  }\n}\n"
+        );
+        // 접을 로그가 없어지면 ELF 항목만 빠지고 사용자 키는 남음
+        let none = nesting_text(&after, &[]).unwrap();
+        assert!(none.contains("\"*.ts\": \"${capture}.js\"") && !none.contains("Registry.md"), "{none}");
+    }
+
+    #[test]
+    fn closing_a_session_changes_one_or_two_lines() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let mut items: Vec<(u32, Status)> = (1..=40).map(|n| (n, if n == 7 || n >= 39 { Status::Ongoing } else { Status::Complete })).collect();
+        closed_logs(root, Series::S, &items);
+        assert!(refresh(root).unwrap().is_empty());
+        let p = root.join(".vscode/settings.json");
+        let a = fs::read_to_string(&p).unwrap();
+        // 가장 최근 번호(S039)를 닫음 → 새 줄 1 + 앞 줄 쉼표 1
+        items[38].1 = Status::Complete;
+        closed_logs(root, Series::S, &items);
+        refresh(root).unwrap();
+        let b = fs::read_to_string(&p).unwrap();
+        assert_eq!(changed_lines(&a, &b), 3, "-1 +2:\n{a}\n---\n{b}");
+        // 오래 열어 둔 S007을 닫음 → 앞 줄 1 수정 + 새 줄 1
+        items[6].1 = Status::Complete;
+        closed_logs(root, Series::S, &items);
+        refresh(root).unwrap();
+        let c = fs::read_to_string(&p).unwrap();
+        assert_eq!(changed_lines(&b, &c), 3, "-1 +2:\n{b}\n---\n{c}");
+        assert!(c.contains("\"S006_log.md\": \"S007_log.md\"") && c.contains("\"S007_log.md\": \"S008_log.md\""), "{c}");
+        // 새 세션(S041, 진행 중)은 바꾸지 않음
+        items.push((41, Status::Ongoing));
+        closed_logs(root, Series::S, &items);
+        refresh(root).unwrap();
+        assert_eq!(fs::read_to_string(&p).unwrap(), c);
     }
 
     #[test]
