@@ -574,12 +574,21 @@ fn recompute(
     if join(new_dir, p).as_deref() == Some(target.as_str()) || join(new_dir, &p.replace("%20", " ")).as_deref() == Some(target.as_str()) {
         return None;
     }
-    let new = relpath(&target, new_dir);
+    let mut new = relpath(&target, new_dir);
+    if new.is_empty() {
+        new.push('.');
+    }
+    // 폴더 표기의 끝 `/` 유지(`../../docs/` → `../../../docs/`, 3.0.1)
+    if p.ends_with('/') && !new.ends_with('/') {
+        new.push('/');
+    }
     (new != p).then(|| format!("{lead}{new}"))
 }
 
-/// 변경 목록의 줄 번호를 결과 파일(`text`) 기준으로 — 차례로 `after`가 든 줄을 찾음(못 찾으면 입력 기준 번호).
-fn locate(file: &str, text: &str, raw: Vec<(usize, &'static str, String, String)>, out: &mut Vec<Change>) {
+/// 변경 목록의 줄 번호를 결과 파일(`text`) 기준으로. 예상 위치 = 입력 줄 + `delta`(결과와 입력의 줄 수 차이 — 줄 수가
+/// 바뀌는 곳은 본문 앞의 헤더와 규범 주석뿐). 차례를 지키며 `after`가 든 줄 가운데 예상 위치에 가장 가까운 줄을 고름 —
+/// 같은 문자열이 앞 줄에 바뀌지 않은 채 있어도 그 줄을 보고하지 않게(3.0.1). 못 찾으면 예상 위치.
+fn locate(file: &str, text: &str, raw: Vec<(usize, &'static str, String, String)>, delta: isize, out: &mut Vec<Change>) {
     let lines: Vec<&str> = text.lines().collect();
     // 다음 탐색 시작 줄: 같은 입력 줄의 변경이면 그 줄부터, 다음 입력 줄이면 그 다음 줄부터
     let mut prev: Option<(usize, usize)> = None; // (입력 줄, 찾은 결과 줄 index)
@@ -590,12 +599,14 @@ fn locate(file: &str, text: &str, raw: Vec<(usize, &'static str, String, String)
             Some((_, pi)) => pi + 1,
             None => 0,
         };
-        let line = match (start.min(lines.len())..lines.len()).find(|&i| lines[i].contains(&needle)) {
+        let expect = (ln as isize - 1 + delta).max(0) as usize;
+        let found = (start.min(lines.len())..lines.len()).filter(|&i| lines[i].contains(&needle)).min_by_key(|&i| i.abs_diff(expect));
+        let line = match found {
             Some(i) => {
                 prev = Some((ln, i));
                 i + 1
             }
-            None => ln,
+            None => (expect + 1).min(lines.len().max(1)),
         };
         out.push(Change { file: file.to_string(), line, kind, before, after });
     }
@@ -1072,6 +1083,7 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
         deprecations += nd;
         let rw = rewrite_links(root, &body, dirname(&s.old_rel), dirname(&new_rel), &moves);
         let body = rw.text;
+        let body_lines = body.lines().count() as isize;
         let raw_changes = rw.changes;
         links_changed += rw.links;
         spans_changed += rw.spans;
@@ -1155,7 +1167,8 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
         hrow.note = notes.join("; ");
         p.headers.push(hrow);
         if status != Status::Deprecated {
-            locate(&new_rel, &text, raw_changes, &mut p.changes);
+            let delta = text.lines().count() as isize - body_lines;
+            locate(&new_rel, &text, raw_changes, delta, &mut p.changes);
         }
         let bytes = if s.crlf { text.replace('\n', "\r\n") } else { text };
         p.writes.push((new_rel.clone(), bytes.into_bytes()));
@@ -1250,7 +1263,7 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
             links_changed += rw.links;
             spans_changed += rw.spans;
             touched += 1;
-            locate(&rel, &t2, rw.changes, &mut p.changes);
+            locate(&rel, &t2, rw.changes, 0, &mut p.changes);
             let out = if raw.contains("\r\n") { t2.replace('\n', "\r\n") } else { t2 };
             p.writes.push((rel, out.into_bytes()));
         }
@@ -1811,7 +1824,28 @@ mod tests {
             (9, "link", "z.md".to_string(), "../gone.md".to_string()),
         ];
         let mut out = Vec::new();
-        locate("2_Log/S/S001_log.md", text, raw, &mut out);
-        assert_eq!(out.iter().map(|c| c.line).collect::<Vec<_>>(), vec![6, 6, 8, 9], "not found = input line");
+        locate("2_Log/S/S001_log.md", text, raw, 5, &mut out);
+        assert_eq!(out.iter().map(|c| c.line).collect::<Vec<_>>(), vec![6, 6, 8, 8], "not found = expected line, at most the last line");
+    }
+
+    #[test]
+    fn locate_skips_an_unchanged_earlier_occurrence() {
+        // 3.0.1: 바뀐 span과 같은 문자열이 앞 줄에 바뀌지 않은 채 있음(실제 _dev S038) — 앞 줄이 아니라 바뀐 줄을 보고
+        let text = "---\nstatus: complete\n---\n# S038: t\n\n`Archive/S001_log.md` → `S001_log.md`\n\n접두 추가(`S001_log.md`)\n";
+        let raw = vec![(6, "span", "../Archive/S001_log.md".to_string(), "S001_log.md".to_string())];
+        let mut out = Vec::new();
+        locate("2_Log/S/S038_log.md", text, raw, 2, &mut out);
+        assert_eq!(out[0].line, 8);
+    }
+
+    #[test]
+    fn span_recompute_keeps_a_trailing_slash() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(tmp.path().join("2_Log")).unwrap();
+        fs::create_dir_all(tmp.path().join("docs")).unwrap();
+        let text = "`../docs/` `../docs` `../2_Log/`\n";
+        let rw = rewrite_links(tmp.path(), text, "2_Log", "2_Log/S", &BTreeMap::new());
+        assert_eq!(rw.text, "`../../docs/` `../../docs` `../`\n");
+        assert_eq!(rw.spans, 3);
     }
 }

@@ -4,6 +4,16 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.0.1] - 2026-11-10
+
+### Fixed
+- **Migration report line numbers.** The changed links and code spans listed by `elf update` (and in `changes.tsv` of
+  `elf update --dry-run --out`) now give the line that changed. Before, when the same text appeared unchanged on an
+  earlier line of the file, that earlier line was reported, so restoring a history note by its line number could edit
+  the wrong line.
+- **A recomputed path to a folder keeps its trailing `/`.** A link or code span such as `../../docs/` became
+  `../../../docs`; it now becomes `../../../docs/`. The target was already correct.
+
 ## [3.0.0] - 2026-11-10
 
 The official release of the 2.28 structure, with an ELF version per project. 2.28.0 and 2.28.1 introduced the log
