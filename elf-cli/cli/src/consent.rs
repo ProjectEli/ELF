@@ -207,7 +207,7 @@ pub fn gate_update(root: &Path, log_only: bool, to: Option<&str>, approve: Optio
         if std::env::var_os(dispatch::ENV_DISPATCHED).is_some() || std::env::var(dispatch::ENV_DISPATCH).is_ok_and(|v| v == "off") {
             return Gate::Stop(3, vec![format!("refuse: this update needs elf {target}.x, and handing over is off here (ELF_DISPATCH=off or already handed over)")]);
         }
-        return match dispatch::resolve_line(target) {
+        return match dispatch::resolve_line(target, None) {
             Ok((v, exe, _)) => {
                 let args: Vec<OsString> = std::env::args_os().skip(1).collect();
                 Gate::Dispatch { exe, args: forward_args(&args, v.major), line: target, version: v.to_string() }

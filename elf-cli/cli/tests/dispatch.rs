@@ -202,3 +202,95 @@ fn unavailable_line_refuses_writes_and_the_2_27_line_falls_back_to_the_compat_mo
     assert!(err.contains("built-in 2.27 compatibility mode") && !err.contains("dispatch:"), "{err}");
     assert_eq!(code, run(&old, &e, &[OFF], &["check", "logs"]).0, "{out}");
 }
+
+// ── 오래된 목록, 고정 판 직접 받기, 같은 세대 지금 CLI로 실행(S053) ─────────────
+
+/// 보관소 목록 캐시를 직접 씀(같은 날 받은 것으로 표시).
+fn cache(e: &Env, tags: &[&str], rechecked: Option<&str>) {
+    let d = e.home.join("versions");
+    fs::create_dir_all(&d).unwrap();
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let body = serde_json::json!({ "fetched": today, "attempted": null, "rechecked": rechecked, "versions": tags });
+    fs::write(d.join("releases.json"), body.to_string()).unwrap();
+}
+
+#[test]
+fn stale_same_day_list_is_rechecked_when_the_pinned_version_is_missing() {
+    let tmp = tempdir().unwrap();
+    let e = env(tmp.path());
+    let root = project(tmp.path(), "v9.6.0");
+    // 같은 날 받은 캐시에는 9.6이 없음(그 뒤에 발행됨) — 발행처에는 있음
+    cache(&e, &["v9.5.0"], None);
+    publish(&e, "v9.6.0", &this_binary());
+    list(&e, &["v9.6.0", "v9.5.0"]);
+    let (code, _, err) = run(&root, &e, &[TRACE], &["log"]);
+    assert!(err.contains("installing v9.6.0") && err.contains("dispatch: project line 9.6 → v9.6.0"), "{err}");
+    assert_eq!(code, run(&root, &e, &[OFF], &["log"]).0);
+}
+
+#[test]
+fn the_pinned_version_is_installed_directly_when_the_list_cannot_be_read() {
+    let tmp = tempdir().unwrap();
+    let e = env(tmp.path());
+    let root = project(tmp.path(), "v9.5.0");
+    publish(&e, "v9.5.0", &this_binary()); // 목록(`releases.json`)은 없음
+    let (_, _, err) = run(&root, &e, &[TRACE], &["log"]);
+    assert!(err.contains("installing v9.5.0") && err.contains("→ v9.5.0"), "{err}");
+}
+
+#[test]
+fn recheck_waits_an_hour_and_messages_name_the_real_cause() {
+    let tmp = tempdir().unwrap();
+    let e = env(tmp.path());
+    // 개발 판 고정: 직접 받을 수 없음 — 원인 = 발행되지 않은 판
+    let root = project(tmp.path(), "v9.4.0-dev");
+    cache(&e, &["v9.3.0"], None);
+    list(&e, &["v9.3.0"]);
+    let (_, _, err) = run(&root, &e, &[], &["log"]);
+    assert!(err.contains("written by a pre-release (v9.4.0-dev), which is not published"), "{err}");
+    // 9.4.0이 발행돼도 한 시간 안에는 다시 받지 않음(오프라인에서 명령마다 기다리지 않게)
+    publish(&e, "v9.4.0", &this_binary());
+    list(&e, &["v9.4.0", "v9.3.0"]);
+    let (_, _, err) = run(&root, &e, &[TRACE], &["log"]);
+    assert!(!err.contains("installing") && err.contains("not available"), "{err}");
+    // 간격이 지나면 다시 받아 넘김
+    let c = e.home.join("versions/releases.json");
+    let v: serde_json::Value = serde_json::from_str(&fs::read_to_string(&c).unwrap()).unwrap();
+    let old = (chrono::Local::now() - chrono::Duration::hours(2)).fixed_offset().to_rfc3339();
+    let mut v = v;
+    v["rechecked"] = serde_json::json!(old);
+    fs::write(&c, v.to_string()).unwrap();
+    let (_, _, err) = run(&root, &e, &[TRACE], &["log"]);
+    assert!(err.contains("installing v9.4.0") && err.contains("→ v9.4.0"), "{err}");
+    // 받기 실패 = 받지 못한 판과 이유
+    let root2 = project(&tmp.path().join("b"), "v9.2.0");
+    let (_, _, err) = run(&root2, &e, &[], &["log"]);
+    assert!(err.contains("v9.2.0 could not be downloaded"), "{err}");
+}
+
+#[test]
+fn an_older_line_of_the_same_generation_runs_here_with_a_daily_note() {
+    let me = elf_cli::pin::parse(elf_cli::embed::version()).unwrap();
+    if me.minor == 0 {
+        return; // 같은 세대의 이전 줄이 없는 판
+    }
+    let older = format!("v{}.{}.0", me.major, me.minor - 1);
+    if elf_cli::pin::parse(&older).unwrap().line().generation() != me.line().generation() {
+        return;
+    }
+    let tmp = tempdir().unwrap();
+    let e = env(tmp.path());
+    // 그 줄 판이 보관소에 있어도 넘기지 않음(실행할 수 없는 가짜 파일 — 넘기면 실패함)
+    store_put(&e, &older, b"not an executable");
+    let root = project(tmp.path(), &older);
+    let (code, out, err) = run(&root, &e, &[TRACE], &["session", "new", "다음", "--goal", "g"]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(err.contains("is older than") && err.contains("running here") && !err.contains(" → v"), "not handed over: {err}");
+    assert!(err.contains("elf update` moves it to") && err.contains("after the user approves"), "{err}");
+    assert!(root.join("2_Log/S/S001_log.md").is_file());
+    let m = fs::read_to_string(root.join(".elf/manifest.json")).unwrap();
+    assert!(m.contains(&format!("\"elf_version\": \"{older}\"")), "the project line is not moved: {m}");
+    // 안내는 프로젝트마다 하루 한 번
+    let (code, _, err) = run(&root, &e, &[], &["log"]);
+    assert!(code == 0 && !err.contains("moves it to"), "{err}");
+}

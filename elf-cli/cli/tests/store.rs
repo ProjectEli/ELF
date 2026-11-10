@@ -132,7 +132,7 @@ fn install_list_prune_uninstall_with_sha_check() {
     assert!(!versions.join("v9.7.0").exists());
     assert!(fs::read_dir(&versions).unwrap().flatten().all(|e| !e.file_name().to_string_lossy().starts_with(".tmp")));
     // 없는 줄, 잘못된 표기
-    assert!(elf(cwd, &home, &rel, &["self", "install", "9.6"]).1.contains("no release in line 9.6"));
+    assert!(elf(cwd, &home, &rel, &["self", "install", "9.6"]).1.contains("no published release in line 9.6"));
     assert!(elf(cwd, &home, &rel, &["self", "install", "latest"]).1.contains("not a version or a line"));
 
     // 목록

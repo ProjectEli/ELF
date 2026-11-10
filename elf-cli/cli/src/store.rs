@@ -168,11 +168,13 @@ fn fetch_list(secs: u64) -> Result<Vec<Ver>, String> {
     Ok(all)
 }
 
-/// 목록 캐시(`versions/releases.json`): 받은 날, 마지막으로 실패한 날, 목록.
+/// 목록 캐시(`versions/releases.json`): 받은 날, 마지막으로 실패한 날, 마지막 다시 받기 시각(오래된 목록 판정 때,
+/// RFC 3339), 목록.
 #[derive(Default)]
 struct ListCache {
     fetched: Option<String>,
     attempted: Option<String>,
+    rechecked: Option<String>,
     list: Vec<Ver>,
 }
 
@@ -182,6 +184,7 @@ fn read_cache() -> ListCache {
     ListCache {
         fetched: v["fetched"].as_str().map(str::to_string),
         attempted: v["attempted"].as_str().map(str::to_string),
+        rechecked: v["rechecked"].as_str().map(str::to_string),
         list: v["versions"].as_array().map(|a| a.iter().filter_map(|x| pin::parse(x.as_str()?)).collect()).unwrap_or_default(),
     }
 }
@@ -189,7 +192,7 @@ fn read_cache() -> ListCache {
 fn write_cache(c: &ListCache) {
     let Some(d) = versions_dir() else { return };
     let _ = fs::create_dir_all(&d);
-    let body = serde_json::json!({ "fetched": c.fetched, "attempted": c.attempted, "versions": c.list.iter().map(Ver::to_string).collect::<Vec<_>>() });
+    let body = serde_json::json!({ "fetched": c.fetched, "attempted": c.attempted, "rechecked": c.rechecked, "versions": c.list.iter().map(Ver::to_string).collect::<Vec<_>>() });
     let _ = fs::write(d.join(LIST_CACHE), serde_json::to_string_pretty(&body).unwrap_or_default());
 }
 
@@ -207,7 +210,7 @@ pub fn releases(refresh: bool) -> Result<(Vec<Ver>, Option<String>), String> {
     }
     match fetch_list(30) {
         Ok(list) => {
-            write_cache(&ListCache { fetched: Some(today), attempted: None, list: list.clone() });
+            write_cache(&ListCache { fetched: Some(today), list: list.clone(), ..Default::default() });
             Ok((list, None))
         }
         Err(e) => match cached.fetched {
@@ -227,7 +230,7 @@ pub fn releases_daily() -> Option<Vec<Ver>> {
     }
     match fetch_list(4) {
         Ok(list) => {
-            write_cache(&ListCache { fetched: Some(today), attempted: None, list: list.clone() });
+            write_cache(&ListCache { fetched: Some(today), rechecked: cached.rechecked, list: list.clone(), ..Default::default() });
             Some(list)
         }
         Err(_) => {
@@ -235,6 +238,35 @@ pub fn releases_daily() -> Option<Vec<Ver>> {
             let list = cached.list.clone();
             write_cache(&ListCache { attempted: Some(today), ..cached });
             had.then_some(list)
+        }
+    }
+}
+
+/// 다시 받기 간격(초) — 오래된 목록으로 판정해 같은 날 다시 받는 것은 이 간격에 한 번(받지 못하는 환경에서 명령마다
+/// 기다리지 않게).
+pub const RECHECK_SECS: i64 = 3600;
+
+/// 목록이 오래됐을 때(프로젝트가 고정한 판이나 필요한 줄이 목록에 없음) 같은 날이라도 다시 받음(S053). 마지막 다시
+/// 받기가 `RECHECK_SECS` 안이면 받지 않음. 반환 = 새로 받은 목록(받지 않았거나 실패하면 None).
+pub fn releases_recheck() -> Option<Vec<Ver>> {
+    let cached = read_cache();
+    let now = chrono::Local::now().fixed_offset();
+    let recent = cached
+        .rechecked
+        .as_deref()
+        .and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok())
+        .is_some_and(|t| (now - t).num_seconds() < RECHECK_SECS);
+    if recent {
+        return None;
+    }
+    match fetch_list(4) {
+        Ok(list) => {
+            write_cache(&ListCache { fetched: Some(today()), rechecked: Some(now.to_rfc3339()), list: list.clone(), ..Default::default() });
+            Some(list)
+        }
+        Err(_) => {
+            write_cache(&ListCache { rechecked: Some(now.to_rfc3339()), ..cached });
+            None
         }
     }
 }
@@ -423,8 +455,12 @@ pub fn install(v: &Ver) -> Result<Installed, String> {
 
 /// 줄의 최신 정식 patch를 설치(발행 목록 필요).
 pub fn install_line(line: Line, refresh: bool) -> Result<Installed, String> {
-    let (list, _) = releases(refresh)?;
-    let v = newest_release(line, &list).ok_or_else(|| format!("no release in line {line}"))?;
+    let (mut list, _) = releases(refresh)?;
+    // 같은 날 받은 목록에 그 줄이 없으면 목록이 오래된 것일 수 있음 — 한 번 다시 받음(S053)
+    if !refresh && newest_release(line, &list).is_none() {
+        list = releases(true)?.0;
+    }
+    let v = newest_release(line, &list).ok_or_else(|| format!("no published release in line {line}"))?;
     install(&v)
 }
 

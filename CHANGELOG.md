@@ -4,6 +4,20 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.5.1] - 2026-11-10
+
+### Fixed
+- **A project on an earlier line is no longer blocked.** After you updated `elf` to a new line, writing in a project
+  still on the previous line could refuse with "commands that write refuse" when that line's version was not at hand
+  (a release list fetched earlier the same day, or offline). Now a project on a lower line of the same structure
+  generation runs with the installed `elf` as is: nothing is downloaded or refused, the project's ELF files stay on
+  their line, and once a day a note says that `elf update` can move it after you approve. Writes are refused only when
+  the project is on a higher line than the installed `elf` and that line cannot be obtained (`elf self update` fixes
+  it).
+- When a higher line is needed, `elf` fetches the release list again if that day's list lacks the project's version
+  (at most once an hour), downloads the recorded version directly when the list cannot settle it, and names the real
+  cause when it still fails. `elf self install <line>` also fetches the list again when that day's list lacks the line.
+
 ## [3.5.0] - 2026-11-10
 
 ### Changed
