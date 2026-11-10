@@ -10,6 +10,7 @@ use std::io;
 use std::path::Path;
 
 use crate::header::{self, Status};
+use crate::links;
 use crate::logs::{self, Series};
 use crate::sections::{self, INTERP_EN, INTERP_KO, INTERP_LEGACY, LogLang};
 
@@ -376,17 +377,45 @@ pub fn unfilled_template_findings(content: &str, lang: LogLang) -> Vec<String> {
     out
 }
 
-/// 생성 파일 표의 경로 검사(S054, 출처 기록 중 결정론으로 되는 것). trial마다 `### 생성 파일`(`### Files`) 절의
-/// 표 줄에서 백틱 안 경로를 골라, 프로젝트 루트와 로그 폴더 어느 쪽 기준으로도 없으면 발견 사항(경고용, 거부 아님).
-/// 대상 = `/`가 있고 자리표시(`{`, `}`, `*`, `<`, `>`, `…`), 공백, URL이 없는 것 — 파일 이름만 쓴 칸과 설명은 보지
-/// 않음(판단 없이 정할 수 없는 것은 제외).
-pub fn files_table_findings(content: &str, root: &Path, log_dir: &Path, lang: LogLang) -> Vec<String> {
+/// 생성 파일 표의 백틱 경로 하나(내용 전체 기준 바이트 범위).
+struct TableRef {
+    trial: String,
+    start: usize,
+    end: usize,
+    raw: String,
+}
+
+/// 생성 파일 표 경로의 판정.
+enum TableVerdict {
+    Ok,
+    Outside,
+    Missing,
+    Fixable(String),
+}
+
+/// 검사 대상인 표 경로: `/`(또는 `\`)가 있고 자리표시(`{ } * < > …`), 공백, URL이 없는 것. 범위 줄임(이름 중간
+/// `~` — `p1~p5`, `slide01~07`)과 끝 `/` 하나뿐인 맨 이름 폴더(`supp_t11/`)는 맨 이름과 같게 보지 않음(v3.7).
+fn is_table_path(p: &str) -> bool {
+    if !p.contains(['/', '\\']) || p.contains(['{', '}', '*', '<', '>', '…', ' ']) || p.contains("://") {
+        return false;
+    }
+    if p.contains('~') && !(p.starts_with("~/") || p.starts_with("~\\")) {
+        return false;
+    }
+    p.trim_end_matches(['/', '\\']).contains(['/', '\\'])
+}
+
+/// trial마다 `### 생성 파일`(`### Files`) 절의 표 줄에서 백틱 안 검사 대상 경로.
+fn files_table_refs(content: &str) -> Vec<TableRef> {
     let mut out = Vec::new();
     let mut trial: Option<String> = None;
     let mut in_files = false;
     let mut fence = false;
-    for line in content.lines() {
-        let l = line.trim_end_matches('\r');
+    let mut offset = 0usize;
+    for line in content.split_inclusive('\n') {
+        let base = offset;
+        offset += line.len();
+        let l = line.trim_end_matches(['\n', '\r']);
         if l.trim_start().starts_with("```") {
             fence = !fence;
             continue;
@@ -407,22 +436,97 @@ pub fn files_table_findings(content: &str, root: &Path, log_dir: &Path, lang: Lo
             continue;
         }
         let Some(id) = &trial else { continue };
+        let mut pos = 0usize;
         for (i, span) in l.split('`').enumerate() {
+            let span_start = pos;
+            pos += span.len() + 1;
             let p = span.trim();
-            if i % 2 == 0
-                || !p.contains('/')
-                || p.contains(['{', '}', '*', '<', '>', '…', ' '])
-                || p.contains("://")
-            {
+            if i % 2 == 0 || !is_table_path(p) {
                 continue;
             }
-            if !root.join(p).exists() && !log_dir.join(p).exists() {
-                out.push(format!(
-                    "{id}: '### {}' lists `{p}`, which does not exist (relative to the project root or the log folder) — fix the path or the row",
-                    sections::name("생성 파일", lang)
-                ));
-            }
+            let s = base + span_start + (span.len() - span.trim_start().len());
+            out.push(TableRef { trial: id.clone(), start: s, end: s + p.len(), raw: p.to_string() });
         }
+    }
+    out
+}
+
+/// 표 경로 판정: 프로젝트 밖(환경 변수, 홈, 경계 밖 절대 경로, 어느 기준으로도 경계를 벗어남 — 경계 =
+/// `links::boundary`, git 저장소 루트 또는 프로젝트 루트) → 있음(루트나 로그 폴더 기준) → 로그 폴더 기준
+/// 경로(`../`로 시작)의 폴더 한 단계 차이 → 없음.
+fn judge_table(r: &TableRef, root: &Path, bound: &Path, log_dir: &Path) -> TableVerdict {
+    if links::outside(bound, &[root, log_dir], &r.raw) {
+        return TableVerdict::Outside;
+    }
+    if links::exists_from(root, &r.raw) || links::exists_from(log_dir, &r.raw) {
+        return TableVerdict::Ok;
+    }
+    if r.raw.starts_with("../")
+        && let Some(n) = links::one_level_fix(log_dir, &r.raw, bound)
+    {
+        return TableVerdict::Fixable(n);
+    }
+    TableVerdict::Missing
+}
+
+/// 생성 파일 표의 경로 검사(S054, v3.7 S056). 발견 사항(경고용, 거부 아님): 프로젝트 밖 경로, 없는 경로,
+/// 폴더 한 단계 차이로 찾아지는 경로(`elf check logs`가 고침). 파일 이름만 쓴 칸과 설명은 보지 않음.
+pub fn files_table_findings(content: &str, root: &Path, log_dir: &Path, lang: LogLang) -> Vec<String> {
+    let files = sections::name("생성 파일", lang);
+    let bound = links::boundary(root);
+    files_table_refs(content)
+        .into_iter()
+        .filter_map(|r| match judge_table(&r, root, &bound, log_dir) {
+            TableVerdict::Ok => None,
+            TableVerdict::Outside => Some(format!(
+                "{}: '### {files}' lists `{}`, which is outside the project — copy it into the project, or cite the copy that is kept",
+                r.trial, r.raw
+            )),
+            TableVerdict::Missing => Some(format!(
+                "{}: '### {files}' lists `{}`, which does not exist (relative to the project root or the log folder) — fix the path or the row",
+                r.trial, r.raw
+            )),
+            TableVerdict::Fixable(n) => Some(format!(
+                "{}: '### {files}' lists `{}`, which does not exist; `{n}` does (one folder level) — `elf check logs` fixes it",
+                r.trial, r.raw
+            )),
+        })
+        .collect()
+}
+
+/// 생성 파일 표에서 폴더 한 단계 차이로 고칠 자리(자동 수정용).
+fn files_table_fixes(content: &str, root: &Path, log_dir: &Path) -> Vec<links::Fix> {
+    let bound = links::boundary(root);
+    files_table_refs(content)
+        .into_iter()
+        .filter_map(|r| match judge_table(&r, root, &bound, log_dir) {
+            TableVerdict::Fixable(n) => Some(links::Fix { start: r.start, end: r.end, old: r.raw, new: n }),
+            _ => None,
+        })
+        .collect()
+}
+
+/// 로그 내용(또는 trial 하나)의 링크 발견 사항 — 읽기 전용(Phase 2 경고용). 프로젝트 밖, 폴더 한 단계 차이, 깨짐.
+pub fn link_findings(content: &str, root: &Path, dir: &Path) -> Vec<String> {
+    let s = links::scan(content, dir, &links::boundary(root), true);
+    let mut out = Vec::new();
+    if !s.outside.is_empty() {
+        out.push(format!(
+            "{} link(s) point outside the project: {} — copy the files into the project, or cite the copy that is kept",
+            s.outside.len(),
+            links::sample(&s.outside)
+        ));
+    }
+    if let Some(f) = s.fixes.first() {
+        out.push(format!(
+            "{} link(s) are one folder level off (e.g. `{}` → `{}`) — `elf check logs` fixes them",
+            s.fixes.len(),
+            f.old,
+            f.new
+        ));
+    }
+    if !s.broken.is_empty() {
+        out.push(format!("{} broken link(s): {}", s.broken.len(), links::sample(&s.broken)));
     }
     out
 }
@@ -445,10 +549,25 @@ fn scan_viz_images(viz: &Path) -> Vec<String> {
     v
 }
 
+/// 고친 파일 한 줄(`fixed:` — check 요약에도 표시).
+fn fixed_line(name: &str, fixes: &[links::Fix]) -> String {
+    let f = &fixes[0];
+    format!("fixed: {name}: {} link(s) one folder level (e.g. `{}` → `{}`)", fixes.len(), f.old, f.new)
+}
+
 /// `elf check logs`: 헤더 형식과 status별 값, 번호, 진행 중 세션 수, 링크, figure embed, trial 구조,
-/// Registry.md와 헤더의 일치, 폐기 표기와 보관 파일의 짝, 이전 형식 흔적. 읽기전용.
+/// Registry.md와 헤더의 일치, 폐기 표기와 보관 파일의 짝, 이전 형식 흔적, 로그 밖 문서의 링크. 읽기전용.
 pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
+    run_validate_opts(root, false)
+}
+
+/// `fix` = 폴더 한 단계 차이로 깨진 링크와 생성 파일 표 경로를 고쳐 씀(v3.7 S056 — 직접 실행한 `elf check`,
+/// `elf check logs`만, `.elf/config.json` `fix_links`가 false가 아닐 때). false면 고칠 수 있다고 알리기만 함.
+pub fn run_validate_opts(root: &Path, fix: bool) -> Result<ValidateReport, ValidateError> {
     let mut report = ValidateReport::default();
+    let mut fixed = (0usize, 0usize); // (고친 자리, 파일)
+    let mut log_paths: BTreeSet<std::path::PathBuf> = BTreeSet::new();
+    let bound = links::boundary(root);
     let legacy = logs::legacy_markers(root);
     let migrated = Series::ALL.iter().any(|s| root.join(s.dir()).is_dir());
     if !legacy.is_empty() {
@@ -481,8 +600,10 @@ pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
             report.warn(format!("gap in session numbering: {} missing", logs::id_of(s, n)));
         }
         let mut ongoing = Vec::new();
+        log_paths.insert(root.join(logs::registry_rel(s)));
         for l in &logs {
-            let content = fs::read_to_string(&l.path)?;
+            log_paths.insert(l.path.clone());
+            let mut content = fs::read_to_string(&l.path)?;
             let fname = format!("{}_log.md", l.id);
             let parsed = header::parse(&content);
             match &parsed {
@@ -508,10 +629,52 @@ pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
                 },
             }
             let dir = l.path.parent().unwrap_or(root);
-            for target in extract_md_links(&content) {
-                if !dir.join(&target).exists() {
-                    report.issue(format!("{fname}: broken cross-ref → {target}"));
+            // 링크(v3.7 S056): 모든 파일 유형, 폴더 한 단계 차이는 고치거나 알림, 깨진 `.md` 상호 참조 = issue,
+            // 그 밖의 깨짐 = 경고, 프로젝트 밖 = 경고(진행 중 로그만). 닫힌 로그도 링크는 검사.
+            let is_ongoing = matches!(&parsed, Ok((h, _)) if h.status == Status::Ongoing);
+            let ls = links::scan(&content, dir, &bound, is_ongoing);
+            let is_md = |t: &str| links::decode(t).to_ascii_lowercase().ends_with(".md");
+            let mut fixes = ls.fixes.clone();
+            if is_ongoing {
+                fixes.extend(files_table_fixes(&content, root, dir));
+            }
+            if fix && !fixes.is_empty() {
+                let updated = links::apply(&content, &fixes);
+                fs::write(&l.path, &updated)?;
+                report.lines.push(fixed_line(&fname, &fixes));
+                fixed.0 += fixes.len();
+                fixed.1 += 1;
+                content = updated;
+            } else {
+                for f in ls.fixes.iter().filter(|f| is_md(&f.old)) {
+                    report.issue(format!(
+                        "{fname}: broken cross-ref → {} (`{}` exists one folder level off — `elf check logs` fixes it)",
+                        f.old, f.new
+                    ));
                 }
+                let other: Vec<&links::Fix> = ls.fixes.iter().filter(|f| !is_md(&f.old)).collect();
+                if let Some(f) = other.first() {
+                    report.warn(format!(
+                        "{fname}: {} broken link(s) are one folder level off (e.g. `{}` → `{}`) — `elf check logs` fixes them",
+                        other.len(),
+                        f.old,
+                        f.new
+                    ));
+                }
+            }
+            for t in ls.broken.iter().filter(|t| is_md(t)) {
+                report.issue(format!("{fname}: broken cross-ref → {t}"));
+            }
+            let other: Vec<String> = ls.broken.iter().filter(|t| !is_md(t)).cloned().collect();
+            if !other.is_empty() {
+                report.warn(format!("{fname}: {} broken link(s) → {}", other.len(), links::sample(&other)));
+            }
+            if !ls.outside.is_empty() {
+                report.warn(format!(
+                    "{fname}: {} link(s) point outside the project → {} — copy the files into the project, or cite the copy that is kept",
+                    ls.outside.len(),
+                    links::sample(&ls.outside)
+                ));
             }
             let images = scan_viz_images(&root.join(format!("6_Exp/64_Viz/{}", l.id)));
             if !images.is_empty() {
@@ -528,7 +691,7 @@ pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
                     ));
                 }
             }
-            if matches!(&parsed, Ok((h, _)) if h.status == Status::Ongoing) {
+            if is_ongoing {
                 for f in trial_structure_findings(&content, lang) {
                     structure_hit = true;
                     report.warn(format!("{fname}: {f}"));
@@ -562,6 +725,40 @@ pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
             'w' => report.warn(msg),
             _ => report.lines.push(format!("info: {msg}")),
         }
+    }
+    // 로그 밖 문서(v3.7 S056): Archive로 옮긴 문서 등 프로젝트의 md 문서 링크. 점 폴더(.elf, .git 등) 제외.
+    for doc in links::project_docs(root, &log_paths) {
+        let Ok(bytes) = fs::read(&doc) else { continue };
+        let Ok(text) = String::from_utf8(bytes) else { continue };
+        let dir = doc.parent().unwrap_or(root);
+        let rel = doc.strip_prefix(root).unwrap_or(&doc).to_string_lossy().replace('\\', "/");
+        let ls = links::scan(&text, dir, &bound, false);
+        if let Some(f) = ls.fixes.first() {
+            if fix {
+                fs::write(&doc, links::apply(&text, &ls.fixes))?;
+                report.lines.push(fixed_line(&rel, &ls.fixes));
+                fixed.0 += ls.fixes.len();
+                fixed.1 += 1;
+            } else {
+                report.warn(format!(
+                    "{rel}: {} broken link(s) are one folder level off (e.g. `{}` → `{}`) — `elf check logs` fixes them",
+                    ls.fixes.len(),
+                    f.old,
+                    f.new
+                ));
+            }
+        }
+        if !ls.broken.is_empty() {
+            report.warn(format!("{rel}: {} broken link(s) → {}", ls.broken.len(), links::sample(&ls.broken)));
+        }
+    }
+    if fixed.0 > 0 {
+        report.lines.push(format!(
+            "fixed: {} link(s) in {} file(s) were one folder level off (moved documents) — to only report them, set \"{}\": false in .elf/config.json",
+            fixed.0,
+            fixed.1,
+            links::CONFIG_KEY
+        ));
     }
     if structure_hit {
         report.lines.push(

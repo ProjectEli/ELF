@@ -4,6 +4,35 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.7.0] - 2026-11-11
+
+### Added
+- **`elf check logs` fixes the links of moved documents.** A document moved into a subfolder such as `Archive/`
+  keeps links written for its old folder. When adding or removing one `../` finds the file inside the project, and
+  only one of the two does, `elf check` and `elf check logs` rewrite that link (only the path changes) and print a
+  `fixed` line per file. `### Files` paths in ongoing logs that start with `../` are fixed the same way.
+  `elf trial write`, `elf session close` and the autoread hooks only say that `elf check logs` can fix them. To only
+  report, set `"fix_links": false` in `.elf/config.json`; `elf check setup` shows the setting.
+- **Broken links are checked in all project documents and for every file type.** Besides the session logs,
+  `elf check logs` checks the other Markdown documents of the project (`Archive/` included, folders whose names start
+  with `.` skipped) and links to images, scripts and data, one warning line per document. A broken `.md` link in a
+  log is still an issue.
+- **Paths outside the project are reported.** In ongoing logs, a link or a `### Files` path that points outside the
+  project (an absolute path outside it, `%VAR%`, `$VAR`, `~/`, or `../` beyond it) gets a warning when Phase 2 is
+  written and in `elf check logs`. Inside a git repository the limit is the repository root (the nearest folder
+  above with `.git`), so a project kept in a subfolder can cite the other files of the repository.
+
+### Changed
+- A link is a relative path in `](…)` that ends in a file extension or `/`, with only a quoted title after it.
+  Bracketed text followed by a remark in parentheses is no longer read as a link.
+- `### Files` no longer reports a range such as `fig_p1~p5.png` or a folder name alone such as `supp/`.
+  `%TEMP%/…` and similar paths are reported as outside the project instead of missing.
+
+### Upgrading
+- The first `elf check logs` after updating the CLI can rewrite many links in an existing project and prints each
+  file; review the diff and commit it. This also applies to a project on an earlier line, because the installed
+  `elf` runs it.
+
 ## [3.6.0] - 2026-11-10
 
 ### Changed

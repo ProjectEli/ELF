@@ -578,11 +578,16 @@ pub fn run_trial_write(root: &Path, opts: &TrialWriteOptions) -> Result<TrialRes
     out.extend(lines[end..].iter().map(|s| s.to_string()));
     let updated = out.join("\n");
     let mut warnings = finish(root, &target, h, &updated, &opts.date, &handoff)?;
-    // Phase 2: 생성 파일 표 경로 검사(경고만, S054)
+    // Phase 2: 생성 파일 표 경로와 링크 검사(경고만, S054 · v3.7 S056 — 프로젝트 밖, 없음, 폴더 한 단계 차이)
     if phase == Some(2) {
         let dir = target.path.parent().unwrap_or(root);
         let only_this = trial_block(&updated, &trial_id);
         warnings.extend(crate::validate::files_table_findings(&only_this, root, dir, lang));
+        warnings.extend(
+            crate::validate::link_findings(&only_this, root, dir)
+                .into_iter()
+                .map(|m| format!("{trial_id}: {m}")),
+        );
     }
     Ok(TrialResult {
         session: target.id.clone(),

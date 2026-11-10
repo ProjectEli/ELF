@@ -15,6 +15,7 @@ pub mod hash;
 pub mod header;
 pub mod init;
 pub mod legacy;
+pub mod links;
 pub mod logcmd;
 pub mod logs;
 pub mod manifest;

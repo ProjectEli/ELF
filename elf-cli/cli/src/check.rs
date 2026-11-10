@@ -1,9 +1,10 @@
-//! `elf check [version|setup|files|logs]` — 진단 통합 (구 `doctor`, `status`, `validate`). **읽기전용**.
+//! `elf check [version|setup|files|logs]` — 진단 통합 (구 `doctor`, `status`, `validate`). **읽기전용** — 단 logs 범위는
+//! 폴더 한 단계 차이로 깨진 링크와 생성 파일 표 경로를 고쳐 쓰고 고친 것을 출력(v3.7 S056, `.elf/config.json` `fix_links`).
 //!
 //! 범위: version = CLI와 프로젝트 manifest, 판정 한 줄(S044 t41) / setup = git과 훅, autoread, experimental /
 //! files = ELF 관리 파일, `.elf` 기록,
 //! overlay, AGENTS 연결, tsa / logs = 세션 로그, Registry, figure embed. 기존 검사 함수를 재사용해
-//! 판정은 바꾸지 않고 범위로 묶기만 한다. 판정 = issue(종료 4), warn, ok, info.
+//! 판정은 바꾸지 않고 범위로 묶기만 한다. 판정 = issue(종료 4), warn, ok, info, fixed(고쳐 씀 — 요약에도 표시).
 //! 범위마다 적용 가능 여부를 따로 판정 — `.elf/`가 없으면 files, `2_Log/`가 없으면 logs를 건너뜀
 //! (로그만 쓰는 폴더에서도 logs 검사는 동작해야 함).
 
@@ -36,6 +37,8 @@ pub enum Level {
     Info,
     Warn,
     Issue,
+    /// 고쳐 씀(v3.7 S056) — 문제는 아니지만 바뀐 파일이 있으므로 요약에도 표시
+    Fixed,
 }
 
 #[derive(Debug)]
@@ -54,12 +57,18 @@ impl Item {
         matches!(self.level, Level::Warn | Level::Issue)
     }
 
+    /// 요약 출력 대상(문제, 경고, 고쳐 씀).
+    pub fn in_summary(&self) -> bool {
+        self.is_finding() || self.level == Level::Fixed
+    }
+
     pub fn render(&self) -> String {
         let tag = match self.level {
             Level::Ok => "ok",
             Level::Info => "info",
             Level::Warn => "warn",
             Level::Issue => "issue",
+            Level::Fixed => "fixed",
         };
         format!("{tag}: {}", self.text)
     }
@@ -219,7 +228,7 @@ fn run_logs(cwd: &Path) -> ScopeReport {
     let lines = if crate::legacy::active(&root) {
         Ok(crate::legacy::cli::check_logs_lines(&root))
     } else {
-        validate::run_validate(&root).map(|v| v.lines)
+        validate::run_validate_opts(&root, crate::links::fix_enabled(&root)).map(|v| v.lines)
     };
     match lines {
         Ok(lines) => {
@@ -228,6 +237,8 @@ fn run_logs(cwd: &Path) -> ScopeReport {
                     Item::new(Level::Issue, x)
                 } else if let Some(x) = line.strip_prefix("warn: ") {
                     Item::new(Level::Warn, x)
+                } else if let Some(x) = line.strip_prefix("fixed: ") {
+                    Item::new(Level::Fixed, x)
                 } else if let Some(x) = line.strip_prefix("ok: ") {
                     Item::new(Level::Ok, x)
                 } else if let Some(x) = line.strip_prefix("hint: ").or_else(|| line.strip_prefix("info: ")) {

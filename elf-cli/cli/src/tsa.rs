@@ -592,10 +592,11 @@ pub fn run_stamp(root: &Path, all: bool) -> Result<TsaReport, TsaError> {
     if let Ok(rd) = fs::read_dir(&dir) {
         for e in rd.flatten() {
             let name = e.file_name().to_string_lossy().into_owned();
-            if let Some(date) = name.strip_suffix("_manifest.json") {
-                if !dir.join(format!("{date}.tsr")).is_file() && (all || date == today) {
-                    targets.push(date.to_string());
-                }
+            if let Some(date) = name.strip_suffix("_manifest.json")
+                && !dir.join(format!("{date}.tsr")).is_file()
+                && (all || date == today)
+            {
+                targets.push(date.to_string());
             }
         }
     }

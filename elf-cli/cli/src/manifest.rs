@@ -201,6 +201,7 @@ impl Manifest {
     /// - base(lang=None): 같은 dest의 variant가 이 lang에 있으면 제외(대체됨), 아니면 포함.
     /// - companion: lang 일치 + 비-ko 일 때 포함(`*.en.md` sibling).
     /// - variant: lang 일치 시 포함(base dest 대체).
+    ///
     /// ko(또는 미지정)는 base만 남아 현행 동작과 동일.
     pub fn for_lang(&self, tag: &str) -> Manifest {
         let p = lang_primary(tag);

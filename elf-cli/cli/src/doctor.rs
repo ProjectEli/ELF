@@ -100,10 +100,27 @@ pub fn setup_checks(cwd: &Path, _env: &DoctorEnv) -> DoctorReport {
             r.add(Health::Ok, "ELF project", format!("root: {}", root.display()));
             check_experimental(&root, &mut r);
             check_autoread(&root, &mut r);
+            check_link_fix(&root, &mut r);
         }
     }
     check_git(cwd, &mut r);
     r
+}
+
+/// 링크 자동 수정 스위치(v3.7 S056) — `.elf/config.json` `fix_links`, 부재 = 켬.
+fn check_link_fix(root: &Path, r: &mut DoctorReport) {
+    if crate::links::fix_enabled(root) {
+        r.add(
+            Health::Ok,
+            "link fix",
+            format!(
+                "on — `elf check logs` fixes links that are one folder level off (set \"{}\": false in .elf/config.json to only report them)",
+                crate::links::CONFIG_KEY
+            ),
+        );
+    } else {
+        r.add(Health::Info, "link fix", "off (config) — `elf check logs` only reports links that are one folder level off");
+    }
 }
 
 /// `elf check files`의 진단 묶음 — `.elf` 기록, `.claudeignore`, 언어 파일, overlay, AGENTS 연결, tsa.

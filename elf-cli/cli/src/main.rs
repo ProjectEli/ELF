@@ -90,7 +90,7 @@ enum Commands {
         #[command(subcommand)]
         cmd: Option<LogCmd>,
     },
-    /// 점검 / Check versions, setup, ELF-managed files, and session logs (범위 생략 = 전체, 읽기전용/read-only; 문제 시 exit 4)
+    /// 점검 / Check versions, setup, ELF-managed files, and session logs (범위 생략 = 전체, 읽기전용 — logs가 폴더 한 단계 어긋난 링크를 고치는 것만 예외 / read-only except that logs fixes links one folder level off; 문제 시 exit 4)
     Check {
         /// 범위 / scope: version (CLI와 프로젝트 manifest), setup (git, 훅, autoread), files (ELF 관리 파일), logs (세션 로그, Registry.md) — 생략 = 전체 요약
         #[arg(value_enum)]
@@ -202,7 +202,7 @@ enum CheckScope {
     Setup,
     /// ELF 관리 파일 / managed files, .elf record, overlay, AGENTS link, tsa
     Files,
-    /// 세션 로그, Registry / session logs, registry, figure embeds
+    /// 세션 로그, Registry, 문서 링크(폴더 한 단계 차이는 고침) / session logs, registry, figure embeds, document links (fixes one folder level off)
     Logs,
 }
 
@@ -349,12 +349,11 @@ fn main() {
             cli.command,
             Commands::Tsa { cmd: Some(TsaCmd::Record { quiet: true, .. }), .. } | Commands::Tsa { cmd: None, quiet: true, .. }
         );
-    if !banner_suppressed {
-        if let Ok(cwd) = std::env::current_dir() {
-            if let Some(b) = autoread::pending_banner(&cwd) {
-                println!("[elf] {b}");
-            }
-        }
+    if !banner_suppressed
+        && let Ok(cwd) = std::env::current_dir()
+        && let Some(b) = autoread::pending_banner(&cwd)
+    {
+        println!("[elf] {b}");
     }
     match cli.command {
         Commands::Init {
@@ -1219,7 +1218,7 @@ fn print_check_all(cwd: &std::path::Path, env: &doctor::DoctorEnv) -> i32 {
             continue;
         }
         println!("[elf] check {}: {} issue(s), {} warning(s)", scope.name(), r.issues(), r.warnings());
-        for item in r.items.iter().filter(|i| i.is_finding()) {
+        for item in r.items.iter().filter(|i| i.in_summary()) {
             println!("[elf]   {}", item.render());
         }
         issues += r.issues();
