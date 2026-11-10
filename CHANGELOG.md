@@ -4,6 +4,28 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.5.0] - 2026-11-10
+
+### Changed
+- **`LogConvention.md` is about a third shorter** (Korean 21,090 → 14,029 characters, English 37,523 → 22,875). The
+  "What the tool does" parts keep only what the agent must not do by hand and which command to use; format and
+  behavior details are left to the command output, `elf <command> --help` and the docs. §7 (migration) keeps the
+  criteria for filling the decision file; the procedure is in the `elf update` output and docs/projects. The English
+  version no longer repeats the trial template. Rules, section numbers and titles are unchanged, so
+  `LogConvention §N` references in your files still point to the same rule.
+- **The English `AGENTS.md` is shorter** (6,193 → 5,771 characters) with the same items.
+- **Rules state their purpose in one short clause** where it is not self-evident (in `EliRule.md`, `LogConvention.md`
+  and `AGENTS.md`), for example why Raw data is read-only, why refinements are separate trials, or why deprecated
+  content is opened only on request. A rule that carries its reason is applied correctly in cases it does not list.
+- **Shipped files are kept within Claude Code's default limits.** ELF's own test suite now fails a release when a
+  file it ships exceeds them: 200 lines for each file loaded every session (`AGENTS.md`, `CLAUDE.md`), 10,000
+  characters for the autoread digest, 40,000 characters for each rule document.
+
+### Upgrading
+- 3.5 is a new line. A project on an earlier line keeps running with that line until you run `elf update` there: it
+  prints a summary and an approval code and moves the project after the user approves. The managed files are replaced
+  as usual; a `LogConvention.md` or `AGENTS.md` you edited is kept, with the new version beside it as `.elf-new`.
+
 ## [3.4.0] - 2026-11-10
 
 ### Changed

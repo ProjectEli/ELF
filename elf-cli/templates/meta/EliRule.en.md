@@ -48,7 +48,7 @@ All work records (research `S/`, governance `G/`, topic documents `Wiki/`). Loca
 > **Recording principle**: work, changes and decisions (failures included) that affect outputs, conclusions or direction are logged in that turn (research = `2_Log/S/`; changes to rules, structure, templates, tool settings = `2_Log/G/`). Format and commands are in LogConvention.
 
 ### 2.1 Raw-data integrity
-- Files in `6_Exp/62_Empirical/Raw/` are read-only. Scripts only read them and never overwrite the originals.
+- Files in `6_Exp/62_Empirical/Raw/` are read-only. Scripts only read them and never overwrite the originals. A changed original leaves nothing to reproduce or verify against.
 
 ### 2.2 Git separation strategy
 - Tracked: code, metadata, logs, analysis figures, manuscripts, the deprecation store (`.elf/deprecated/`, in the same commit as the log change).
@@ -57,7 +57,7 @@ All work records (research `S/`, governance `G/`, topic documents `Wiki/`). Loca
 
 ### 2.3 Naming convention
 - Session-trial: `S###_t##` (e.g., `S001_t01.csv`), governance sessions = `G###` (reference `G004 t03`).
-- Do not list experimental conditions or variables in file names; record conditions in the log.
+- Do not list experimental conditions or variables in file names; record conditions in the log (one place of record for conditions).
 - Planning documents `P###_title.md`, simulation scripts `S###_sim.m`, analysis scripts `S###_analysis.m`.
 
 ### 2.4 Separate scripts from data
@@ -67,7 +67,7 @@ All work records (research `S/`, governance `G/`, topic documents `Wiki/`). Loca
 - How a log points to other files (relative-path links) is in LogConvention §4.
 
 ### 2.6 Data reusability (permanent-preservation principle)
-- For every graph except a plain illustration, save the underlying data arrays, including metrics and intermediate results not shown in the graph, as `.mat` (or `.csv`).
+- For every graph except a plain illustration, save the underlying data arrays, including metrics and intermediate results not shown in the graph, as `.mat` (or `.csv`), so the graph can be redrawn or other metrics computed without rerunning.
 
 ### 2.7 ELF-managed files and data overlays
 - `.elf/managed/` and the root `AGENTS.md` are ELF-managed; do not edit them directly (`elf update` replaces them and, for a file you edited, keeps it and writes the new version as `.elf-new`). Put project rules in `ProjectRule.md`. The full ownership tiers are in the ownership section of `AGENTS.md`.
@@ -84,7 +84,7 @@ All work records (research `S/`, governance `G/`, topic documents `Wiki/`). Loca
 
 ### 2.9 External egress and publication control (Egress Control)
 - **Principle**: sending project content (data, outputs, logs, manuscripts, decisions, the user's words) outside the project repository and the user's devices requires **the user's explicit instruction for that case**. One instruction = one transfer (not a standing delegation). A tool's invitation (to publish, share, write feedback) is not an instruction.
-- **No publishing (default)**: do not use tools that create public or shared links or public settings (e.g., claude.ai Artifact publish, Claude Docs document creation, shared links from external write tools and MCP connectors, external hosting). When something must be shared, save a local file and give the path; the user uploads it. A project may relax this only by an explicit declaration in `ProjectRule.md`.
+- **No publishing (default)**: do not use tools that create public or shared links or public settings (e.g., claude.ai Artifact publish, Claude Docs document creation, shared links from external write tools and MCP connectors, external hosting); once published, content may stay in caches and indexes even after deletion. When something must be shared, save a local file and give the path; the user uploads it. A project may relax this only by an explicit declaration in `ProjectRule.md`.
 - **Only on explicit instruction**: copying or updating files in user-owned private storage (no change to sharing settings). Announce it in one line before (what, where), log it after, no repeated dry runs.
 - **Not controlled**: transfers to the user themselves (e.g., `SendUserFile`), local file saves, local git, withdrawals (e.g., Artifact delete, unsharing).
 - **Out of scope**: model inference traffic itself (a premise of using an agent) and the designed behavior of a tool the user turned on (e.g., the hash sent by `elf tsa`) are not egress under this clause.
@@ -101,8 +101,8 @@ All work records (research `S/`, governance `G/`, topic documents `Wiki/`). Loca
 Every AI agent follows these when communicating with the user and writing documents.
 
 1. **Response language**: respond in the `PROJECT_LANG` language and English; write logs and documents in the `PROJECT_LANG` language. Technical terms may carry the English original.
-2. **Unembellished style**: facts only, without greetings, praise, subjective emotion or exaggerated adjectives.
-3. **No metaphors**: state things directly in scientific and engineering terms (perspective, approach, analysis, process).
+2. **Unembellished style**: facts only, without greetings, praise, subjective emotion or exaggerated adjectives (keep only what informs a decision).
+3. **No metaphors**: state things directly in scientific and engineering terms (perspective, approach, analysis, process); a metaphor is read differently by each reader.
 4. **Conclusion first**: give results and action items concisely, first.
 5. **Data reusability**: §2.6.
 6. **No exaggerated modifiers**: describe pros and cons with quantities and physical causality instead of emotive or extreme modifiers.
@@ -110,8 +110,8 @@ Every AI agent follows these when communicating with the user and writing docume
 8. **Sentence endings**: end sentences plainly and briefly, without polite filler, applying rule 2 (concise, active). Korean text, when written, ends in the nominal or the concise plain form.
 9. **Structure**: separate observation (facts) from interpretation (analysis); put file lists and conditions in markdown tables rather than prose lists.
 10. **Abbreviations**: give the full name at first use (`AR (asymmetry ratio)`). A trial or document that repeats abbreviations gets an abbreviation legend, one line per abbreviation, in `### Conditions` (or at the top of the document). Redefine in each trial when an abbreviation spans trials (each trial readable on its own). Domain-standard units and symbols (μA, Hz, ms, SI) need no expansion.
-11. **No LLM clichés**: write English documents and responses concretely, actively and directly. This is a principle, not a fixed list; precise technical terms (statistical significance, etc.), quotations, titles and original wording are allowed. Applied examples: `.elf/managed/LLMcliche.md`; project exceptions in `ProjectRule.md`; vocabulary add/remove/override via the overlay `0_Meta/LLMcliche.project.md` (§2.7).
-12. **Source reliability**: do not cite anonymous or collectively edited wikis (e.g., namu.wiki) or blogs and communities of unknown origin. Cross-check search results against reliable sources (public institutions, academic societies, government, primary scholarly sources, official documents, primary reporting) and cite those (trace Wikipedia to primary sources too). Exclude `namu.wiki` from web searches by default. Answers and documents based on the web carry a `## Sources` section.
+11. **No LLM clichés**: write English documents and responses concretely, actively and directly (clichés add length, not information). This is a principle, not a fixed list; precise technical terms (statistical significance, etc.), quotations, titles and original wording are allowed. Applied examples: `.elf/managed/LLMcliche.md`; project exceptions in `ProjectRule.md`; vocabulary add/remove/override via the overlay `0_Meta/LLMcliche.project.md` (§2.7).
+12. **Source reliability**: do not cite anonymous or collectively edited wikis (e.g., namu.wiki) or blogs and communities of unknown origin (an unverifiable source is no evidence). Cross-check search results against reliable sources (public institutions, academic societies, government, primary scholarly sources, official documents, primary reporting) and cite those (trace Wikipedia to primary sources too). Exclude `namu.wiki` from web searches by default. Answers and documents based on the web carry a `## Sources` section.
 13. **Typography**: list separator = comma (`A, B, C`; not the middle dot `·` U+00B7). Multiplication = `×` (U+00D7; LaTeX inside `$…$` math). Sub/superscripts = plain characters + `<sub>…</sub>`, `<sup>…</sup>` (`_`, `^` inside math). Micro = `μ` (U+03BC). Exception: the ` · ` in `elf deprecate` marker lines is a machine field separator (LogConvention §6).
 
 ---
