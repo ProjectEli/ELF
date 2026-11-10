@@ -376,6 +376,57 @@ pub fn unfilled_template_findings(content: &str, lang: LogLang) -> Vec<String> {
     out
 }
 
+/// 생성 파일 표의 경로 검사(S054, 출처 기록 중 결정론으로 되는 것). trial마다 `### 생성 파일`(`### Files`) 절의
+/// 표 줄에서 백틱 안 경로를 골라, 프로젝트 루트와 로그 폴더 어느 쪽 기준으로도 없으면 발견 사항(경고용, 거부 아님).
+/// 대상 = `/`가 있고 자리표시(`{`, `}`, `*`, `<`, `>`, `…`), 공백, URL이 없는 것 — 파일 이름만 쓴 칸과 설명은 보지
+/// 않음(판단 없이 정할 수 없는 것은 제외).
+pub fn files_table_findings(content: &str, root: &Path, log_dir: &Path, lang: LogLang) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut trial: Option<String> = None;
+    let mut in_files = false;
+    let mut fence = false;
+    for line in content.lines() {
+        let l = line.trim_end_matches('\r');
+        if l.trim_start().starts_with("```") {
+            fence = !fence;
+            continue;
+        }
+        if fence {
+            continue;
+        }
+        if let Some(rest) = l.strip_prefix("## ") {
+            trial = rest.split_once(':').filter(|(id, _)| id.starts_with('t')).map(|(id, _)| id.to_string());
+            in_files = false;
+            continue;
+        }
+        if let Some(key) = section_key(l) {
+            in_files = key == "생성 파일";
+            continue;
+        }
+        if !in_files || !l.trim_start().starts_with('|') {
+            continue;
+        }
+        let Some(id) = &trial else { continue };
+        for (i, span) in l.split('`').enumerate() {
+            let p = span.trim();
+            if i % 2 == 0
+                || !p.contains('/')
+                || p.contains(['{', '}', '*', '<', '>', '…', ' '])
+                || p.contains("://")
+            {
+                continue;
+            }
+            if !root.join(p).exists() && !log_dir.join(p).exists() {
+                out.push(format!(
+                    "{id}: '### {}' lists `{p}`, which does not exist (relative to the project root or the log folder) — fix the path or the row",
+                    sections::name("생성 파일", lang)
+                ));
+            }
+        }
+    }
+    out
+}
+
 // ── FS 실행기 ──────────────────────────────────────────────────
 
 /// `6_Exp/64_Viz/<id>/`의 이미지 파일명(정렬). 디렉토리 부재 시 빈 벡터.
@@ -483,6 +534,9 @@ pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
                     report.warn(format!("{fname}: {f}"));
                 }
                 for f in unfilled_template_findings(&content, lang) {
+                    report.warn(format!("{fname}: {f}"));
+                }
+                for f in files_table_findings(&content, root, dir, lang) {
                     report.warn(format!("{fname}: {f}"));
                 }
             }

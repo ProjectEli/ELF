@@ -12,7 +12,7 @@ Full folder structure:
 Project_Root/
 │
 ├── AGENTS.md                        # Agent entry digest (shared by all agents, ELF-managed)
-├── CLAUDE.md, .claude/settings.json   # Claude Code only (pointer, autoread hooks). Other agents ignore them
+├── .claude/settings.json             # Claude Code only (autoread hooks). Other agents ignore it
 ├── README.md, LICENSE, .gitignore, .editorconfig, .gitattributes
 │
 │  ─── Core ───────────────────────────────

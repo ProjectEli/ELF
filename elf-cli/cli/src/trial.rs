@@ -185,6 +185,25 @@ pub fn normalize(body: &str, lang: LogLang) -> (String, Vec<String>) {
 
 // ── trial 위치 ────────────────────────────────────────────────────
 
+/// 본문에서 trial 하나(`## tNN:`부터 다음 `## ` 앞까지)만 떼어 냄.
+fn trial_block(text: &str, trial_id: &str) -> String {
+    let head = format!("## {trial_id}:");
+    let mut out = Vec::new();
+    let mut inside = false;
+    for l in text.lines() {
+        if l.starts_with("## ") {
+            if inside {
+                break;
+            }
+            inside = l.starts_with(&head);
+        }
+        if inside {
+            out.push(l);
+        }
+    }
+    out.join("\n")
+}
+
 /// 로그 본문의 `## t{NN}:` trial 번호 수집 (순수).
 pub fn trial_numbers(content: &str) -> Vec<u32> {
     content
@@ -558,7 +577,13 @@ pub fn run_trial_write(root: &Path, opts: &TrialWriteOptions) -> Result<TrialRes
     out.push(new_block);
     out.extend(lines[end..].iter().map(|s| s.to_string()));
     let updated = out.join("\n");
-    let warnings = finish(root, &target, h, &updated, &opts.date, &handoff)?;
+    let mut warnings = finish(root, &target, h, &updated, &opts.date, &handoff)?;
+    // Phase 2: 생성 파일 표 경로 검사(경고만, S054)
+    if phase == Some(2) {
+        let dir = target.path.parent().unwrap_or(root);
+        let only_this = trial_block(&updated, &trial_id);
+        warnings.extend(crate::validate::files_table_findings(&only_this, root, dir, lang));
+    }
     Ok(TrialResult {
         session: target.id.clone(),
         trial: trial_id,

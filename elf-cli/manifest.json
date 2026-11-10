@@ -10,10 +10,9 @@
     { "src": "templates/meta/LLMcliche.md",         "dest": ".elf/managed/LLMcliche.md",             "tier": "managed", "overlayable": true, "sha256": "90dc673d20c5d8cdf2b9d56d6ac80b0f3b85181461cc606be068c83be804a44e" },
     { "src": "templates/log/sessionTemplate.md",    "dest": ".elf/managed/templates/sessionTemplate.md",    "tier": "managed", "sha256": "ac9c52a6054b23828d3c8c064b7db37b1ecb442da5e8b1c04369dd496732d186" },
     { "src": "templates/log/trialTemplate.md",      "dest": ".elf/managed/templates/trialTemplate.md",      "tier": "managed", "sha256": "1da3d78074728e4d925b621865bd12b907f07abb95dd9a835469eb2bdf0df2ec" },
-    { "src": "templates/root/.gitignore",           "dest": ".gitignore",                      "tier": "hybrid",  "sha256": "483d809c66d140c81ab3494d267acc88027748198840ef9c0c47a31206ddd933" },
+    { "src": "templates/root/.gitignore",           "dest": ".gitignore",                      "tier": "hybrid",  "sha256": "117fcfacd9252bca401814a695c3ea2f1cd0b6c9019d4e23efd09c216de159fa" },
     { "src": "templates/root/.editorconfig",        "dest": ".editorconfig",                   "tier": "managed", "sha256": "0964430fde7b520069a98037263a86564441b92282f1c152c13caa85a500be57" },
     { "src": "templates/root/AGENTS.md",            "dest": "AGENTS.md",                       "tier": "managed", "sha256": "18a972edccc76242e46e4bd9e36ab2f44e15dd0e1d9f4f21c73374d58726fec6" },
-    { "src": "templates/root/CLAUDE.md",            "dest": "CLAUDE.md",                       "tier": "pointer", "sha256": "0e8e36a48c4cb41c9bca91d850af477da01f6fa6760e56a71337b011a2a77c47" },
     { "src": "templates/meta/ProjectRule.md",       "dest": "0_Meta/ProjectRule.md",           "tier": "user",    "sha256": "0ac92bdf6105ace47906586d9af89b3109a1a37701edac150df355f0df68e7cd" },
     { "src": "templates/root/README.md",            "dest": "README.md",                       "tier": "user",    "sha256": "5612505521ca28480a358419e91dcde3130daad028b335a957c7f425dcc78fd6" },
     { "src": "templates/meta/EliRule.en.md",          "dest": ".elf/managed/EliRule.md",            "tier": "managed", "sha256": "5fe1abb5768464a5a7e043699ac515ca1a8e9f6fa8376ef0f4592f08b722bb11", "lang": "en", "role": "variant" },
@@ -26,8 +25,7 @@
     { "src": "templates/root/README.en.md",            "dest": "README.md",                       "tier": "user",    "sha256": "8480475eeb1c06a7404267249666ccd92488232132c65fa39caf4d5d90f44dfb", "lang": "en", "role": "variant" },
     { "src": "templates/log/sessionTemplate.en.md",   "dest": ".elf/managed/templates/sessionTemplate.md", "tier": "managed", "sha256": "76598b6d0adc9bc9c59747e3bf35e30a976ffbf7205e13889c3f1e894e54deee", "lang": "en", "role": "variant" },
     { "src": "templates/log/trialTemplate.en.md",     "dest": ".elf/managed/templates/trialTemplate.md",   "tier": "managed", "sha256": "2d8bed5a7b976cce5bff0a18a3e090e5b0d5e02a9de56b260283766888c3d595", "lang": "en", "role": "variant" },
-    { "src": "templates/root/CLAUDE.en.md",            "dest": "CLAUDE.md",                       "tier": "pointer", "sha256": "41259d95d4f77349266c6f8d3ea42bc36727badc71416194208c97ebebfe6667", "lang": "en", "role": "variant" },
-    { "src": "templates/root/.gitignore.en",           "dest": ".gitignore",                      "tier": "hybrid",  "sha256": "f7b11d4d7a9199375ca07e6060b37c6071ae367dd515246f611d5adbbfb702b4", "lang": "en", "role": "variant" },
+    { "src": "templates/root/.gitignore.en",           "dest": ".gitignore",                      "tier": "hybrid",  "sha256": "b2065bf2e08e8bb8d3d924060ba4f7c84c0fdd91160af8bb193c679a21ca43a6", "lang": "en", "role": "variant" },
     { "src": "templates/root/.editorconfig.en",        "dest": ".editorconfig",                   "tier": "managed", "sha256": "57a6a3827a6d96dc2725f6527d315a550847887e0641971f131608e53957f105", "lang": "en", "role": "variant" }
   ],
   "dirs": {

@@ -2,11 +2,11 @@
 
 ELF **QA preset**으로 생성된 질문 아카이브 프로젝트. (생성: PLACEHOLDER_DATE)
 
-Q&A를 **bundle**(의미 단위)로 capture, 분류, archive, recall합니다. 운영 규칙 정본은 루트 `AGENTS.md`(`CLAUDE.md`는 Claude Code가 이를 읽게 하는 포인터), 이 프로젝트만의 규칙은 `0_Meta/ProjectRule.md`, 정본 포맷은 `.elf/managed/templates/bundle_template.md` 참조.
+Q&A를 **bundle**(의미 단위)로 capture, 분류, archive, recall합니다. 운영 규칙 정본은 루트 `AGENTS.md`, 이 프로젝트만의 규칙은 `0_Meta/ProjectRule.md`, 정본 포맷은 `.elf/managed/templates/bundle_template.md` 참조.
 
 ## 구조
 - `<카테고리>/` — active bundle(`YYYYMMDD<L>_<Subject>.md`), `<카테고리>/archive/` — 폐기, 대체본
-- `AGENTS.md` — 운영 규칙 정본(루트, ELF 관리), `CLAUDE.md` — Claude Code용 포인터(ELF 관리)
+- `AGENTS.md` — 운영 규칙 정본(루트, ELF 관리)
 - `0_Meta/ProjectRule.md` — 이 프로젝트만의 규칙, 외부 반출 완화 선언(사용자 소유, `elf update` 미접근)
 - `.elf/managed/templates/bundle_template.md` — bundle 정본 포맷
 - `.elf/` — ELF 제어 영역(버전, manifest; `elf update`로 규칙 갱신). 직접 수정 금지.

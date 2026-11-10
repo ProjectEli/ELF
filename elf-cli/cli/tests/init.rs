@@ -100,7 +100,6 @@ fn en_init_deploys_english_rule_set() {
         (".elf/managed/LLMcliche.md", "meta/LLMcliche.en.md"),
         (".elf/managed/highIFjournals.md", "meta/highIFjournals.en.md"),
         ("AGENTS.md", "root/AGENTS.en.md"),
-        ("CLAUDE.md", "root/CLAUDE.en.md"),
         (".editorconfig", "root/.editorconfig.en"),
         (".elf/managed/templates/trialTemplate.md", "log/trialTemplate.en.md"),
     ] {
@@ -228,8 +227,8 @@ fn qa_preset_creates_question_archive_and_skips_research() {
     o.preset = "qa".into();
     let target = run_init(tmp.path(), &o).unwrap();
 
-    // qa 유형 콘텐츠 — 규칙 정본 = 루트 AGENTS.md(CLAUDE.md는 포인터), 프로젝트 규칙 = 0_Meta/ProjectRule.md
-    assert!(target.join("AGENTS.md").is_file() && target.join("CLAUDE.md").is_file());
+    // qa 유형 콘텐츠 — 규칙 정본 = 루트 AGENTS.md(3.6부터 CLAUDE.md 없음), 프로젝트 규칙 = 0_Meta/ProjectRule.md
+    assert!(target.join("AGENTS.md").is_file() && !target.join("CLAUDE.md").exists());
     assert!(target.join(".elf/managed/templates/bundle_template.md").is_file());
     // 0_Meta는 사용자 소유 규칙 파일 1개만(v2.27 — 연구 전용 파일 없음)
     let meta: Vec<_> = std::fs::read_dir(target.join("0_Meta")).unwrap().flatten().map(|e| e.file_name()).collect();

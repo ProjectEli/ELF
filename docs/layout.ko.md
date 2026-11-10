@@ -12,7 +12,7 @@
 Project_Root/
 │
 ├── AGENTS.md                        # 에이전트 진입 규칙 요약 (모든 에이전트 공통, ELF 관리)
-├── CLAUDE.md, .claude/settings.json   # Claude Code 전용 (포인터, autoread 훅). 다른 에이전트는 무시
+├── .claude/settings.json             # Claude Code 전용 (autoread 훅). 다른 에이전트는 무시
 ├── README.md, LICENSE, .gitignore, .editorconfig, .gitattributes
 │
 │  ─── Core ───────────────────────────────

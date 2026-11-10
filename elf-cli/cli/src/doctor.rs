@@ -340,8 +340,9 @@ pub fn claude_md_agents_import(root: &Path) -> Option<AgentsImport> {
 }
 
 /// L2 진입 파일 연결 진단 (S021 t04, t06) — AGENTS.md(managed 상태는 check_status 소관)와
-/// CLAUDE.md 포인터의 **연결 상태**를 봄: 포인터 부재 = Claude Code가 AGENTS.md 미로드.
-/// stamp에 AGENTS.md entry가 없는 구버전 프로젝트는 조용히 skip(missing은 status가 안내).
+/// 에이전트 진입 파일(S054, 3.6): ELF는 `AGENTS.md`만 배포함. Claude Code(v2.1.277+)는 `CLAUDE.md`와
+/// `CLAUDE.local.md`가 없으면 `AGENTS.md`를 직접 읽고, 둘 중 하나라도 있으면 그것만 읽음 — 그때는 그 안의
+/// `@AGENTS.md` import가 있어야 규칙이 실림. stamp에 AGENTS.md entry가 없는 구버전 프로젝트는 조용히 skip.
 fn check_l2(root: &Path, r: &mut DoctorReport) {
     let Some(stamp) = fs::read_to_string(root.join(".elf").join("manifest.json"))
         .ok()
@@ -352,34 +353,44 @@ fn check_l2(root: &Path, r: &mut DoctorReport) {
     if !stamp.files.iter().any(|e| e.dest == "AGENTS.md") {
         return; // pre-L2 stamp — `elf update` 후 활성화
     }
-    match fs::read_to_string(root.join("CLAUDE.md")) {
-        Err(_) => r.add(
-            Health::Warn,
+    let present: Vec<(&str, String)> = ["CLAUDE.md", "CLAUDE.local.md"]
+        .into_iter()
+        .filter_map(|n| fs::read_to_string(root.join(n)).ok().map(|c| (n, c)))
+        .collect();
+    if present.is_empty() {
+        r.add(
+            Health::Ok,
             "agent entry",
-            "CLAUDE.md missing — Claude Code will not load AGENTS.md; run `elf update` (creates the pointer)",
-        ),
-        Ok(c) if agents_import(&c) == AgentsImport::Absent => r.add(
-            Health::Warn,
-            "agent entry",
-            "CLAUDE.md lacks a `@AGENTS.md` line — Claude Code will not load AGENTS.md; add the line (your other content can stay)",
-        ),
-        Ok(c) if agents_import(&c) == AgentsImport::NotImported => r.add(
-            Health::Warn,
-            "agent entry",
-            "CLAUDE.md mentions @AGENTS.md only where Claude Code does not import it (inside backticks, a code block, an HTML comment or quotes, or with a character attached) — AGENTS.md is not loaded; put `@AGENTS.md` on a line of plain text",
-        ),
-        Ok(c) => {
-            let lines = c.lines().count();
-            if lines > 15 {
-                r.add(
-                    Health::Info,
-                    "agent entry",
-                    format!(
-                        "CLAUDE.md loads @AGENTS.md but contains {lines} lines of extra content — check for duplication with AGENTS.md"
-                    ),
-                );
-            } else {
-                r.add(Health::Ok, "agent entry", "CLAUDE.md → @AGENTS.md pointer connected");
+            "AGENTS.md is the entry file — Claude Code reads it directly (2.1.277 or later; with an older version, or a session that cannot read AGENTS.md, add a CLAUDE.md with the line `@AGENTS.md`)",
+        );
+    }
+    for (name, c) in &present {
+        match agents_import(c) {
+            AgentsImport::Absent => r.add(
+                Health::Warn,
+                "agent entry",
+                format!("{name} exists without a `@AGENTS.md` line — Claude Code then reads {name} instead of AGENTS.md; add the line (your other content can stay) or delete the file (AGENTS.md alone is enough on Claude Code 2.1.277 or later)"),
+            ),
+            AgentsImport::NotImported => r.add(
+                Health::Warn,
+                "agent entry",
+                format!("{name} mentions @AGENTS.md only where Claude Code does not import it (inside backticks, a code block, an HTML comment or quotes, or with a character attached) — AGENTS.md is not loaded; put `@AGENTS.md` on a line of plain text"),
+            ),
+            AgentsImport::Imported => {
+                let lines = c.lines().count();
+                if lines > 15 {
+                    r.add(
+                        Health::Info,
+                        "agent entry",
+                        format!("{name} loads @AGENTS.md but contains {lines} lines of extra content — check for duplication with AGENTS.md"),
+                    );
+                } else {
+                    r.add(
+                        Health::Ok,
+                        "agent entry",
+                        format!("{name} → @AGENTS.md connected (no longer required: Claude Code 2.1.277 or later reads AGENTS.md directly; ELF 3.6+ does not create {name})"),
+                    );
+                }
             }
         }
     }

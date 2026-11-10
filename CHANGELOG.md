@@ -4,6 +4,26 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.6.0] - 2026-11-10
+
+### Changed
+- **New projects no longer get a `CLAUDE.md`.** Claude Code 2.1.277 or later reads `AGENTS.md` directly when there is
+  no `CLAUDE.md`, so `AGENTS.md` is the only agent entry file (research and `qa` presets). An existing `CLAUDE.md` is
+  never modified or removed. `elf check files` now reports `AGENTS.md` alone as fine, and warns when a `CLAUDE.md` or
+  `CLAUDE.local.md` exists without a `@AGENTS.md` line, because Claude Code then reads that file instead of
+  `AGENTS.md`. With an older Claude Code, or a session that cannot read `AGENTS.md`, create a `CLAUDE.md` with the
+  line `@AGENTS.md`.
+
+### Added
+- **The Files table of a trial is checked.** When Phase 2 is written, `elf trial write` warns (it does not refuse)
+  about a path in backticks in the `### Files` table that exists neither relative to the project root nor to the log
+  folder; `elf check logs` reports the same for ongoing logs. Bare file names, placeholders and descriptions are not
+  checked.
+
+### Upgrading
+- 3.6 is a new line. A project on an earlier line keeps working with the installed `elf` and gets a daily note that
+  `elf update` can move it after you approve. The `.gitignore` block loses its `CLAUDE.md` comment line.
+
 ## [3.5.1] - 2026-11-10
 
 ### Fixed

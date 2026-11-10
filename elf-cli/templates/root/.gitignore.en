@@ -3,7 +3,6 @@
 # Add your own rules below the block (user area).
 
 # === Claude Code & AI Toolkit ===
-# (CLAUDE.md is the ELF entry pointer and stays tracked: a clone needs it to load AGENTS.md)
 # (the autoread hook in .claude/settings.json is an untracked derivative; `elf update` regenerates it after a clone)
 .claude/
 .ecc/

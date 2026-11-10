@@ -20,7 +20,7 @@ Core 폴더(`0_Meta`~`2_Log`)는 항상 만들고, 모듈 폴더(`3_HW`~`7_Paper
 
 **In-place(이름 생략)** 초기화는 기존 폴더에 ELF를 **아무것도 덮어쓰지 않고** 들입니다. 없는 ELF 파일만 추가하고 사용자 파일은 그대로 두며, 이름이 겹치는 ELF 관리 파일은 `<파일>.elf-new`로 따로 만듭니다(사용자의 `.gitignore`, `README` 등은 덮어쓰지 않음). 폴더가 비어 있지 않으면 경로를 보여 주고 한 번 확인하며, 프로젝트 이름은 폴더 이름을 씁니다. 이미 ELF 프로젝트(`.elf/manifest.json`이 있음)면 exit 3으로 거부하므로 `elf update`를 씁니다.
 
-`.elf/`는 있는데 `.elf/manifest.json`이 없는 옛 버전 ELF 폴더(`elf update`가 거부함)도 같은 방식으로 들입니다. 이때 기존 `.elf/config.json`의 키(`created` 포함)를 유지하고, `--preset`, `--lang`, 이름은 그 안의 값을 기본으로 쓰며, 이전 형식의 세션 로그는 `elf update`가 이관하도록 그대로 둡니다(출력에서 알림). `elf init`은 세션을 만들지 않으므로 첫 세션은 `elf session new`로 시작합니다. 들인 뒤 남은 일은 `elf check files`가 알려 줍니다. `0_Meta/`에 남은 옛 규칙 사본(현재 규칙은 `.elf/managed/`에 있으므로, 프로젝트에서 고친 내용은 `ProjectRule.md`로 옮긴 뒤 삭제), `@AGENTS.md` 줄이 없는 `CLAUDE.md`, ELF 블록이 없는 `.gitignore`(`elf update --force`가 맨 위에 넣고 사용자 줄은 유지)가 해당합니다. 이름을 주는 방식은 `./<이름>`이 이미 있으면 예전처럼 exit 3으로 거부합니다.
+`.elf/`는 있는데 `.elf/manifest.json`이 없는 옛 버전 ELF 폴더(`elf update`가 거부함)도 같은 방식으로 들입니다. 이때 기존 `.elf/config.json`의 키(`created` 포함)를 유지하고, `--preset`, `--lang`, 이름은 그 안의 값을 기본으로 쓰며, 이전 형식의 세션 로그는 `elf update`가 이관하도록 그대로 둡니다(출력에서 알림). `elf init`은 세션을 만들지 않으므로 첫 세션은 `elf session new`로 시작합니다. 들인 뒤 남은 일은 `elf check files`가 알려 줍니다. `0_Meta/`에 남은 옛 규칙 사본(현재 규칙은 `.elf/managed/`에 있으므로, 프로젝트에서 고친 내용은 `ProjectRule.md`로 옮긴 뒤 삭제), `@AGENTS.md` 줄이 없는 `CLAUDE.md`(Claude Code가 `AGENTS.md` 대신 그것을 읽음), ELF 블록이 없는 `.gitignore`(`elf update --force`가 맨 위에 넣고 사용자 줄은 유지)가 해당합니다. 이름을 주는 방식은 `./<이름>`이 이미 있으면 예전처럼 exit 3으로 거부합니다.
 
 ```bash
 elf init                              # in-place: 현재 폴더에 ELF 도입
@@ -33,9 +33,9 @@ elf init my_questions --preset qa                          # Q&A bundle 아카�
 elf init my_questions --preset qa --categories 일상질문,IT일반질문   # 카테고리 미리 생성
 ```
 
-> **`--lang en-*`(영어 프로젝트).** 영어 프로젝트는 모든 것을 영어로 받습니다. 규칙 문서(`.elf/managed/EliRule.md`, `LogConvention.md` 등과 루트 `AGENTS.md`)는 같은 경로의 영어판이며, 그 프로젝트에서 AI 에이전트가 따르는 정본입니다. 세션과 trial 틀은 영어 절 제목(`### Conditions`, `Prediction match:`)을 쓰고, `.gitignore` 블록, `.editorconfig`, `CLAUDE.md`, 사용자 소유인 `README.md`, `ProjectRule.md`도 영어이며, elf가 쓰는 폐기 표기도 영어입니다. 새 영어 프로젝트에는 한국어가 남지 않습니다. elf는 이전의 한국어 우선 절 제목(`### 조건 (Conditions)`)도 같은 절로 읽으므로 이전 로그도 그대로 유효합니다. 기존 영어 프로젝트는 `elf update` 승인 뒤 이 세트로 옮겨집니다. 고치지 않은 규칙 파일은 교체하고, 고친 파일은 새 버전을 `.elf-new`로 옆에 두며, 이전 영어 사본(`*.en.md`)은 고치지 않았으면 지웁니다. 기존 `CLAUDE.md`는 바꾸지 않습니다. 규칙을 바꿀 때는 `ProjectRule.md`에 씁니다. 다른 언어는 한국어 세트를 씁니다.
+> **`--lang en-*`(영어 프로젝트).** 영어 프로젝트는 모든 것을 영어로 받습니다. 규칙 문서(`.elf/managed/EliRule.md`, `LogConvention.md` 등과 루트 `AGENTS.md`)는 같은 경로의 영어판이며, 그 프로젝트에서 AI 에이전트가 따르는 정본입니다. 세션과 trial 틀은 영어 절 제목(`### Conditions`, `Prediction match:`)을 쓰고, `.gitignore` 블록, `.editorconfig`, 사용자 소유인 `README.md`, `ProjectRule.md`도 영어이며, elf가 쓰는 폐기 표기도 영어입니다. 새 영어 프로젝트에는 한국어가 남지 않습니다. elf는 이전의 한국어 우선 절 제목(`### 조건 (Conditions)`)도 같은 절로 읽으므로 이전 로그도 그대로 유효합니다. 기존 영어 프로젝트는 `elf update` 승인 뒤 이 세트로 옮겨집니다. 고치지 않은 규칙 파일은 교체하고, 고친 파일은 새 버전을 `.elf-new`로 옆에 두며, 이전 영어 사본(`*.en.md`)은 고치지 않았으면 지웁니다. 규칙을 바꿀 때는 `ProjectRule.md`에 씁니다. 다른 언어는 한국어 세트를 씁니다.
 
-> **`qa` preset.** 연구용 폴더 구조 대신 *질문 아카이브* 유형을 만듭니다. 구성은 루트 `AGENTS.md`(운영 규칙 원본), `CLAUDE.md`(불러오기용 포인터), `0_Meta/ProjectRule.md`(이 프로젝트만의 규칙과 외부 반출 완화 선언. `elf update`가 바꾸지 않고, `AGENTS.md`와 충돌하면 이쪽이 우선), `templates/bundle_template.md`, `.elf/`입니다. **카테고리는 기본 0개**이며, `AGENTS.md` 규칙대로 필요할 때 만들거나 `--categories a,b,c`로 미리 만듭니다(각각 `archive/` 포함). Q&A는 session, trial, figure가 아닌 의미 단위 **bundle**로 기록합니다. `.elf/` 제어 영역은 함께 쓰고 manifest는 따로(`manifest.qa.json`) 두며, `elf update`로 규칙을 갱신합니다. 연구용 preset과는 별개입니다.
+> **`qa` preset.** 연구용 폴더 구조 대신 *질문 아카이브* 유형을 만듭니다. 구성은 루트 `AGENTS.md`(운영 규칙 원본), `0_Meta/ProjectRule.md`(이 프로젝트만의 규칙과 외부 반출 완화 선언. `elf update`가 바꾸지 않고, `AGENTS.md`와 충돌하면 이쪽이 우선), `templates/bundle_template.md`, `.elf/`입니다. **카테고리는 기본 0개**이며, `AGENTS.md` 규칙대로 필요할 때 만들거나 `--categories a,b,c`로 미리 만듭니다(각각 `archive/` 포함). Q&A는 session, trial, figure가 아닌 의미 단위 **bundle**로 기록합니다. `.elf/` 제어 영역은 함께 쓰고 manifest는 따로(`manifest.qa.json`) 두며, `elf update`로 규칙을 갱신합니다. 연구용 preset과는 별개입니다.
 
 > **`general` preset(2.27에서 삭제).** 같은 용도에는 `minimal`(core 폴더만)을 씁니다. `elf init --preset general`은 알 수 없는 preset으로 거부됩니다. 기존 general 프로젝트에서 `elf update`를 실행하면 `minimal`(연구 계열)로 바뀝니다. ELF 관리 규칙 파일은 연구용으로 바뀌고, 사용자 소유 파일(`0_Meta/ProjectRule.md`, `README.md`, 로그)은 그대로이며, 바뀐 사실을 출력으로 알립니다(`--dry-run`으로 먼저 확인 가능).
 
@@ -117,7 +117,7 @@ elf check                # 팀이나 CI의 통과 조건. issue가 있으면 exi
 | **사용자 소유** | `0_Meta/`(`ProjectRule.md`, 프로젝트별 추가 규칙 `<이름>.project.md`), `README.md`, 모든 연구 데이터, 로그 | **건드리지 않음**(로그는 위 1회 이관만) |
 | **생성 파일** | `2_Log/S/Registry.md`, `2_Log/G/Registry.md`, `.vscode/settings.json`의 `explorer.fileNesting` 키(그 밖의 설정과 직접 둔 nesting 패턴은 사용자 소유) | 로그를 바꾸는 명령이 헤더에서 매번 다시 만듦. nesting은 종료된 로그를 한 줄에 하나씩 이어 적고(`"S001_log.md": "S002_log.md"`), 그 키 부분만 바꿔 씀. 세션을 닫을 때 diff는 1~2줄 |
 | **Hybrid** | `.gitignore` | 표시 블록(`# >>> ELF managed >>>`부터 `# <<< ELF managed <<<`까지)만 교체하고, 블록 밖의 사용자 규칙은 유지 |
-| **Pointer** | `CLAUDE.md` | 없으면 만들고, 있으면 **바꾸지 않음**(`.elf-new`도 만들지 않음). 직접 쓴 `CLAUDE.md`는 온전히 사용자 파일입니다. ELF 규칙을 불러오려면 `@AGENTS.md` 1줄을 직접 넣습니다. 연결 여부는 `elf check files`가 Claude Code의 import 해석 방식대로 점검합니다(백틱, 코드 블록, HTML 주석, 따옴표 안의 `@AGENTS.md`는 import되지 않으므로 warning) |
+| **배포 안 함** | `CLAUDE.md` | 3.6부터 ELF가 만들지 않습니다. Claude Code 2.1.277 이상은 `CLAUDE.md`가 없으면 `AGENTS.md`를 직접 읽습니다. 기존 `CLAUDE.md`는 바꾸거나 지우지 않습니다. 남겨 두거나(또는 오래된 Claude Code, `AGENTS.md`를 읽지 못하는 세션) 쓸 때는 `@AGENTS.md` 1줄을 넣습니다. Claude Code가 그때는 `AGENTS.md` 대신 `CLAUDE.md`를 읽기 때문입니다. 연결 여부는 `elf check files`가 Claude Code의 import 해석 방식대로 점검합니다(백틱, 코드 블록, HTML 주석, 따옴표 안의 `@AGENTS.md`는 import되지 않으므로 warning) |
 
 프로젝트 규칙은 관리 파일을 고치지 말고 `ProjectRule.md`(사용자 소유)에 씁니다. 그러면 갱신할 때 충돌하지 않습니다. 데이터 파일(`LLMcliche.md`, `highIFjournals.md`)의 항목 추가, 제외, 재정의는 **프로젝트별 추가 규칙** `0_Meta/<이름>.project.md`에 적습니다(사용자 소유. 실제 규칙 = 기본 규칙 ⊕ 추가 규칙. 제외할 때는 사유 필수, EliRule §2.7).
 

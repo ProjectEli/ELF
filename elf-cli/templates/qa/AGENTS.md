@@ -1,12 +1,12 @@
 # QA PKB — Operational Rules (AGENTS.md — 에이전트 진입 규칙 정본)
 
-이 프로젝트는 ELF **질문 아카이브(QA preset)** 입니다. 당신(LLM)은 여기서 Q&A를 **bundle**(의미 단위)로 capture, 분류, archive, recall합니다. 아래 규칙을 LLM, 런타임 무관하게 따르십시오. (연구 preset의 session/trial/figure와 **별개 유형** — 여기선 시간 단위가 아니라 의미 단위가 기본.) `CLAUDE.md`는 본 파일을 로드시키는 포인터입니다.
+이 프로젝트는 ELF **질문 아카이브(QA preset)** 입니다. 당신(LLM)은 여기서 Q&A를 **bundle**(의미 단위)로 capture, 분류, archive, recall합니다. 아래 규칙을 LLM, 런타임 무관하게 따르십시오. (연구 preset의 session/trial/figure와 **별개 유형** — 여기선 시간 단위가 아니라 의미 단위가 기본.)
 
 
 ## 1. 디렉토리
 - **카테고리** = 프로젝트 루트 직속 폴더(예: `일상질문/`, `IT일반질문/`, `LLMHowto/`). 맞는 카테고리가 없으면 **사용자 확인 후** 생성.
 - Raw/Registry/Wiki 계층 없음. **수명주기 = 폴더 위치**: 카테고리 루트 = active, `archive/` = 폐기.
-- ELF 관리: `AGENTS.md`(본 문서), `CLAUDE.md`(포인터), `.elf/managed/templates/bundle_template.md`(정본 포맷), `.elf/`(제어 영역). 직접 수정 금지(`elf update`만).
+- ELF 관리: `AGENTS.md`(본 문서), `.elf/managed/templates/bundle_template.md`(정본 포맷), `.elf/`(제어 영역). 직접 수정 금지(`elf update`만).
 - **프로젝트 규칙** = `0_Meta/ProjectRule.md`(사용자 소유 — `elf update`가 바꾸지 않음). 이 프로젝트에만 적용할 규칙을 적는 곳이며, 본 문서와 충돌하면 ProjectRule이 우선.
 
 ## 2. Bundle 생성 (capture)

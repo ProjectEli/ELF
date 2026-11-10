@@ -1,12 +1,12 @@
 # QA PKB — Operational Rules (AGENTS.md — canonical agent entry rules)
 
-This project is an ELF **question archive (QA preset)**. Here you (the LLM) capture, classify, archive and recall Q&A as **bundles** (units of meaning). Follow the rules below regardless of the LLM or runtime. (A **separate type** from the research preset's session/trial/figure: the unit here is meaning, not time.) `CLAUDE.md` is the pointer that loads this file.
+This project is an ELF **question archive (QA preset)**. Here you (the LLM) capture, classify, archive and recall Q&A as **bundles** (units of meaning). Follow the rules below regardless of the LLM or runtime. (A **separate type** from the research preset's session/trial/figure: the unit here is meaning, not time.)
 
 
 ## 1. Directories
 - **Category** = a folder directly under the project root (e.g. `Daily/`, `ITGeneral/`, `LLMHowto/`). When no category fits, create one **after the user confirms**.
 - No Raw/Registry/Wiki layers. **Lifecycle = folder location**: the category root = active, `archive/` = withdrawn.
-- Managed by ELF: `AGENTS.md` (this document), `CLAUDE.md` (pointer), `.elf/managed/templates/bundle_template.md` (canonical format), `.elf/` (control area). Do not edit them directly (only `elf update`).
+- Managed by ELF: `AGENTS.md` (this document), `.elf/managed/templates/bundle_template.md` (canonical format), `.elf/` (control area). Do not edit them directly (only `elf update`).
 - **Project rules** = `0_Meta/ProjectRule.md` (user-owned; `elf update` never changes it). It holds the rules for this project only; on a conflict with this document, ProjectRule wins.
 
 ## 2. Creating a bundle (capture)

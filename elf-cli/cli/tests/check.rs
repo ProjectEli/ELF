@@ -129,13 +129,24 @@ fn files_conflict_is_issue_and_status_alias_unchanged() {
 fn files_warns_when_agents_import_is_inside_backticks() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
+    // 3.6(S054): CLAUDE.md를 만들지 않음 — AGENTS.md만으로 정상
+    assert!(!root.join("CLAUDE.md").exists());
     let (_, out, _) = elf(&root, &["check", "files"]);
-    assert!(out.contains("CLAUDE.md → @AGENTS.md pointer connected"), "{out}");
-    // 백틱 안 import = Claude Code가 import하지 않음 → warn (S043, 구현은 부분 문자열만 봐서 connected로 오판)
+    assert!(out.contains("AGENTS.md is the entry file — Claude Code reads it directly"), "{out}");
+    // 백틱 안 import = Claude Code가 import하지 않음 → warn (S043)
     fs::write(root.join("CLAUDE.md"), "> 규칙 정본은 `@AGENTS.md`\n").unwrap();
     let (_, out, _) = elf(&root, &["check", "files"]);
     assert!(out.contains("warn: agent entry: CLAUDE.md mentions @AGENTS.md only where Claude Code does not import it"), "{out}");
-    assert!(!out.contains("pointer connected"), "{out}");
+    // import 없는 CLAUDE.md, CLAUDE.local.md = Claude Code가 그것만 읽음 → warn
+    fs::write(root.join("CLAUDE.md"), "my rules\n").unwrap();
+    fs::write(root.join("CLAUDE.local.md"), "local notes\n").unwrap();
+    let (_, out, _) = elf(&root, &["check", "files"]);
+    assert!(out.contains("CLAUDE.md exists without a `@AGENTS.md` line") && out.contains("CLAUDE.local.md exists without a `@AGENTS.md` line"), "{out}");
+    // import 있음 = 연결, 이제 필수 아님 안내
+    fs::write(root.join("CLAUDE.md"), "@AGENTS.md\n").unwrap();
+    fs::remove_file(root.join("CLAUDE.local.md")).unwrap();
+    let (_, out, _) = elf(&root, &["check", "files"]);
+    assert!(out.contains("CLAUDE.md → @AGENTS.md connected (no longer required"), "{out}");
 }
 
 #[test]

@@ -153,7 +153,8 @@ pub fn plan_update(new_m: &Manifest, stamp: &Manifest, current: &CurrentState) -
     // (ELF가 배포를 중단했을 뿐, 사용자가 할 일 없음). pointer도 동일(생성 후 사용자 소유 승계).
     let new_dests: BTreeSet<&str> = new_m.files.iter().map(|e| e.dest.as_str()).collect();
     for e in &stamp.files {
-        if e.tier != Tier::User && e.tier != Tier::Pointer && !new_dests.contains(e.dest.as_str()) {
+        // CLAUDE.md = 3.6부터 배포하지 않지만 기존 파일은 그대로 둠(S054 D1 — qa에서는 managed였어도 지우지 않음)
+        if e.tier != Tier::User && e.tier != Tier::Pointer && e.dest != "CLAUDE.md" && !new_dests.contains(e.dest.as_str()) {
             out.push(UpdateAction::Obsolete { dest: e.dest.clone() });
         }
     }
@@ -449,5 +450,17 @@ mod tests {
         let plan = plan_update(&new_m, &stamp, &c);
         assert!(plan.iter().all(|a| !format!("{a:?}").contains("S001")));
         assert_eq!(plan.len(), 1);
+    }
+
+    #[test]
+    fn old_claude_md_entry_is_not_reported_obsolete() {
+        // S054 D1: 3.6부터 배포하지 않아도 기존 CLAUDE.md는 지우지 않음(qa에서는 managed였음)
+        let new_m = manifest(vec![entry("templates/qa/AGENTS.md", "AGENTS.md", Tier::Managed, "a")]);
+        let stamp = manifest(vec![
+            entry("templates/qa/AGENTS.md", "AGENTS.md", Tier::Managed, "a"),
+            entry("templates/qa/CLAUDE.md", "CLAUDE.md", Tier::Managed, "c"),
+        ]);
+        let acts = plan_update(&new_m, &stamp, &cur(&[("AGENTS.md", Some("a")), ("CLAUDE.md", Some("c"))]));
+        assert!(!acts.iter().any(|a| matches!(a, UpdateAction::Obsolete { dest } if dest == "CLAUDE.md")), "{acts:?}");
     }
 }

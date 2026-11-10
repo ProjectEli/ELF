@@ -3,7 +3,7 @@
 //! (`cargo test --test size_budget -- --nocapture`) — 발행 때 줄이기 검토의 기준표.
 //!
 //! 한도(Claude Code 공식 문서, 2026-11-10 확인):
-//! - 매 세션 적재 파일(CLAUDE.md와 import한 AGENTS.md): 파일마다 200줄(memory 문서 "target under 200 lines").
+//! - 매 세션 적재 파일(AGENTS.md — Claude Code가 직접 읽음): 파일마다 200줄(memory 문서 "target under 200 lines").
 //! - autoread digest: 10,000자(hooks 문서 Output limits — 넘으면 앞 2,000자만 전달, `autoread::DIGEST_CAP`).
 //! - 필요할 때 읽는 관리 규칙 문서: 파일마다 40,000자(memory 문서, 필요할 때 적재하는 파일의 파일당 한도, 200K context).
 
@@ -66,7 +66,8 @@ fn session_loaded_files_stay_within_claude_line_limit() {
     let (_tmp, ps) = projects();
     let mut rows: Vec<Row> = Vec::new();
     for (name, root) in &ps {
-        for f in ["AGENTS.md", "CLAUDE.md"] {
+        {
+            let f = "AGENTS.md";
             let t = fs::read_to_string(root.join(f)).unwrap();
             rows.push((name.clone(), f.into(), t.lines().count(), SESSION_LINES, "lines"));
             // 참고(한도 아님): 글자 수 — 한 줄이 긴 파일은 줄 수 한도가 느슨하므로 실질 관리는 이 값으로

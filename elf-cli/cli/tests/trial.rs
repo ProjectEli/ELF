@@ -87,13 +87,13 @@ fn trial_needs_one_ongoing_session_or_flag() {
 // ── 진입 파일, pointer tier ──────────────────────────────────────
 
 #[test]
-fn init_places_agents_digest_and_claude_pointer() {
+fn init_places_agents_digest_without_claude_pointer() {
     let tmp = tempdir().unwrap();
     let root = run_init(tmp.path(), &init_opts()).unwrap();
     let agents = fs::read_to_string(root.join("AGENTS.md")).unwrap();
     assert!(agents.contains("ELF 에이전트 진입 규칙"));
     assert!(agents.contains("elf trial new") && agents.contains("elf trial write"));
-    assert!(fs::read_to_string(root.join("CLAUDE.md")).unwrap().contains("@AGENTS.md"));
+    assert!(!root.join("CLAUDE.md").exists(), "3.6: Claude Code 2.1.277+ reads AGENTS.md directly");
     assert!(!root.join("AGENTS.en.md").exists());
 }
 
@@ -112,8 +112,7 @@ fn en_project_gets_english_agents() {
 fn inplace_init_keeps_existing_claude_md_without_elf_new() {
     let tmp = tempdir().unwrap();
     fs::write(tmp.path().join("CLAUDE.md"), "user rules\n").unwrap();
-    let report = run_init_ex(tmp.path(), &init_opts(), true, false, false).unwrap();
-    assert!(report.skipped.iter().any(|s| s == "CLAUDE.md"), "{:?}", report.skipped);
+    run_init_ex(tmp.path(), &init_opts(), true, false, false).unwrap();
     assert_eq!(fs::read_to_string(tmp.path().join("CLAUDE.md")).unwrap(), "user rules\n");
     assert!(!tmp.path().join("CLAUDE.md.elf-new").exists());
     assert!(tmp.path().join("AGENTS.md").is_file());
@@ -375,4 +374,26 @@ fn update_replaces_korean_rules_and_companions_in_en_project() {
         assert_eq!(fs::read_to_string(root.join(dest)).unwrap(), tpl(en_src.trim_start_matches("templates/")), "{dest}: {:?}", rep.lines);
         assert!(!root.join(comp).exists(), "{comp} removed: {:?}", rep.lines);
     }
+}
+
+
+// ── 생성 파일 표 경로 검사(S054 D2) ─────────────────────────────────
+
+#[test]
+fn files_table_paths_are_checked_with_a_warning() {
+    let tmp = tempdir().unwrap();
+    let root = new_project(tmp.path());
+    fs::create_dir_all(root.join("6_Exp/61_Sim/Scripts")).unwrap();
+    fs::write(root.join("6_Exp/61_Sim/Scripts/S001_sim.m"), "x").unwrap();
+    fs::write(root.join("p1.md"), P1).unwrap();
+    assert!(elf(&root, &["trial", "new", "x", "--from", "p1.md"]).status.success());
+    let p2 = "### 관찰 (Observation)\n- o\n\n### 해석 (Interpretation)\n- 예상 일치 정도: 일치\n\n### 교훈 (Lessons)\n- l\n\n### 생성 파일 (Files)\n\n| 유형 | 파일 |\n|---|---|\n| Script | `6_Exp/61_Sim/Scripts/S001_sim.m` |\n| Output | `6_Exp/61_Sim/Data/S001/missing.mat` |\n| Figure | `6_Exp/64_Viz/S{NNN}/<file>.png`, `fig.png` |\n| Doc | 설명만 |\n";
+    fs::write(root.join("p2.md"), p2).unwrap();
+    let out = elf(&root, &["trial", "write", "--from", "p2.md"]);
+    assert!(out.status.success(), "a missing path warns, never refuses: {}", String::from_utf8_lossy(&out.stderr));
+    let so = String::from_utf8_lossy(&out.stdout);
+    assert!(so.contains("`6_Exp/61_Sim/Data/S001/missing.mat`, which does not exist"), "{so}");
+    assert!(!so.contains("S001_sim.m`, which") && !so.contains("S{NNN}") && !so.contains("`fig.png`, which"), "existing, placeholder, bare name are skipped: {so}");
+    let out = elf(&root, &["check", "logs"]);
+    assert!(String::from_utf8_lossy(&out.stdout).contains("missing.mat`, which does not exist"));
 }

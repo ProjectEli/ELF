@@ -136,6 +136,8 @@ fn session_start_marks_and_prompt_injects_exactly_once() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
     write_active_log(&root, 2, "state; 미완료 = X; 참조 t01");
+    // 3.6부터 CLAUDE.md를 배포하지 않음 — 사용자가 둔 CLAUDE.md가 import하는 경우를 만듦
+    fs::write(root.join("CLAUDE.md"), "@AGENTS.md\n").unwrap();
 
     // compact 감지 → 마커 (stdout 없음 — #15174 우회: 기록만)
     assert!(autoread::run_hook(&root, "session-start", &session_start_stdin("sid-1", "compact")).is_none());
@@ -158,7 +160,10 @@ fn digest_keeps_standing_duties_when_agents_md_is_not_imported() {
     let full = |d: &str| d.contains("AGENTS.md standing duties (canonical digest)") && d.contains("시작과 컨텍스트 재구성");
     // 다른 하네스, 사람 터미널(세션 ID 없음) = 블록 유지
     assert!(full(&autoread::run_manual_for(&root, None)));
-    // Claude Code + 유효 import = 1줄 안내
+    // CLAUDE.md 없음(3.6 기본) → 블록 유지(오래된 Claude Code에서도 규칙이 실림)
+    assert!(full(&autoread::run_manual_for(&root, Some("sid"))));
+    // Claude Code + 유효 import(사용자가 둔 CLAUDE.md) = 1줄 안내
+    fs::write(root.join("CLAUDE.md"), "@AGENTS.md\n").unwrap();
     assert!(!full(&autoread::run_manual_for(&root, Some("sid"))));
     // 백틱 안에만 있으면 import되지 않음(Mastication S263 t07 실측) → 블록 유지
     fs::write(root.join("CLAUDE.md"), "규칙: `@AGENTS.md`\n").unwrap();
