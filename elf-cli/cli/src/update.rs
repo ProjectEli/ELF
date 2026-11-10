@@ -7,6 +7,7 @@
 //! - user tier(사용자 소유)/instance → 절대 미접근
 //! - 블록 편집 감지 기준 = `.elf/baseline/<dest>` (init/update가 기록하는 배포본 사본)
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -182,13 +183,15 @@ pub fn run_update(root: &Path, opts: &UpdateOptions) -> Result<UpdateReport, Upd
 /// `run_update` + 이관 미리보기 폴더(`migrate::prepare_preview`로 준비, dry-run에서만 씀).
 pub fn run_update_with(root: &Path, opts: &UpdateOptions, preview: Option<&Path>) -> Result<UpdateReport, UpdateError> {
     let stamp_path = root.join(".elf").join("manifest.json");
-    if !stamp_path.is_file() {
+    // `.elf/` 없는 2.0~2.4.0 프로젝트 = 있는 ELF 파일로 만든 합성 stamp(원본 판정 = 지문, v3.0.2 S046)
+    let adopted = !stamp_path.is_file() && crate::earlier::footprint(root);
+    if !stamp_path.is_file() && !adopted {
         return Err(UpdateError::NotElfProject(root.to_path_buf()));
     }
-    let stamp_text = fs::read_to_string(&stamp_path)?;
+    let stamp_text = if adopted { crate::earlier::synthetic_stamp(root) } else { fs::read_to_string(&stamp_path)? };
     // 프로젝트 언어로 stamp, new 둘 다 해석 — companion/variant가 lang에 맞게 일관 필터됨 (P016 §9).
     // stamp는 init이 전체 JSON으로 찍으므로, 같은 lang으로 필터해야 obsolete 오탐 방지.
-    let lang = read_config_lang(root);
+    let lang = if adopted { crate::earlier::guessed_lang(root) } else { read_config_lang(root) };
     // 프로젝트나 manifest schema가 더 높으면 거부(되돌림 차단, R5, R7) — schema 해석 오류보다 먼저
     if let v @ (crate::version::Verdict::Newer(_) | crate::version::Verdict::NewerSchema(_)) = crate::version::verdict_with(root, embed::version()) {
         return Err(UpdateError::NewerProject(format!(
@@ -199,7 +202,7 @@ pub fn run_update_with(root: &Path, opts: &UpdateOptions, preview: Option<&Path>
     let stamp_full = manifest::parse(&stamp_text).map_err(UpdateError::BadStamp)?;
     // 계보 해석 — preset별 정본 세트 선택 + 모순 시 거부 (S026: 이종 manifest 계획 금지)
     let (kind, kind_source) = resolve_kind(root, &stamp_full)?;
-    let stamp = stamp_full.for_lang(&lang);
+    let mut stamp = stamp_full.for_lang(&lang);
     let new_m = manifest::embedded_kind(kind).for_lang(&lang);
 
     let mut report = UpdateReport::default();
@@ -221,6 +224,26 @@ pub fn run_update_with(root: &Path, opts: &UpdateOptions, preview: Option<&Path>
                 Some(w) => report.warn(w.to_string()),
                 None => report.note(l),
             }
+        }
+    }
+    // 로그가 없어 이관이 돌지 않은 프로젝트에 남는 이전 배치의 빈 폴더(`.gitkeep`만) — 예: `2_Log/Archive/`
+    for d in crate::logs::OLD_EMPTY_DIRS {
+        let full = root.join(d);
+        if full.is_dir() && fs::read_dir(&full).is_ok_and(|rd| rd.flatten().all(|e| e.file_name() == ".gitkeep")) {
+            if !opts.dry_run {
+                let _ = fs::remove_file(full.join(".gitkeep"));
+                let _ = fs::remove_dir(&full);
+            }
+            report.note(format!("{} empty folder of the earlier layout: {d}/", if opts.dry_run { "would remove" } else { "removed" }));
+        }
+    }
+    if adopted {
+        let what = "ELF 2.0–2.4.0 project without .elf/ — creates .elf/ (config, project manifest); ELF files still as delivered are replaced, edited ones are kept with a .elf-new beside them";
+        if opts.dry_run {
+            report.note(format!("would adopt: {what}"));
+        } else {
+            write_adopted_config(root, &lang)?;
+            report.note(format!("adopted: {what}"));
         }
     }
     match kind_source {
@@ -271,23 +294,61 @@ pub fn run_update_with(root: &Path, opts: &UpdateOptions, preview: Option<&Path>
     if !migrated {
         warn_if_git_dirty(root, &mut report);
     }
-    warn_if_legacy_leftovers(root, &mut report);
+    // 2.15 이전 배치(규칙 `0_Meta/`, 틀 `templates/`) → 현재 위치(`.elf/managed/`)로 옮김. 옮긴 파일은 원래 stamp sha로
+    // 판정 → 원본이면 새 판으로 교체, 고쳤으면 그대로 두고 `.elf-new`(v3.0.2 S046, 2.15.1 `elf migrate`와 같은 이동)
+    let new_dests: BTreeSet<&str> = new_m.files.iter().map(|e| e.dest.as_str()).collect();
+    // stamp에 없는 구 규칙 사본(`0_Meta/`의 ELF 규칙 이름)도 대상 — 원본 판정 = 지문, 모르면 고친 것으로(지우지 않음)
+    for rel in legacy_rule_copies(root) {
+        if !stamp.files.iter().any(|e| e.dest == rel) {
+            let bytes = fs::read(root.join(&rel))?;
+            let sha256 = if crate::earlier::pristine(&rel, &bytes).is_some() { hash::sha256_lf(&bytes) } else { crate::earlier::EDITED.into() };
+            stamp.files.push(manifest::Entry { src: format!("earlier/{rel}"), dest: rel, tier: manifest::Tier::Managed, sha256, lang: None, role: None, overlayable: false });
+        }
+    }
+    let mut moves: Vec<(String, String)> = Vec::new();
+    for e in &stamp.files {
+        if e.tier != manifest::Tier::Managed || new_dests.contains(e.dest.as_str()) {
+            continue;
+        }
+        let Some(to) = crate::earlier::relocated(&e.dest) else { continue };
+        if new_dests.contains(to.as_str()) && root.join(&e.dest).is_file() && !root.join(&to).exists() && !moves.iter().any(|(_, t)| *t == to) {
+            moves.push((e.dest.clone(), to));
+        }
+    }
+    for e in stamp.files.iter_mut() {
+        if let Some((_, to)) = moves.iter().find(|(from, _)| *from == e.dest) {
+            e.dest = to.clone();
+        }
+    }
+    warn_if_legacy_leftovers(root, &moves, &mut report);
 
-    // 현재 상태 수집 (new manifest의 dest들)
+    // 현재 상태 수집 (new manifest의 dest들 — 옮길 파일은 옮기기 전 위치에서)
     let mut current: CurrentState = CurrentState::new();
     for e in &new_m.files {
-        let p = root.join(&e.dest);
-        let state = match fs::read(&p) {
+        let from = moves.iter().find(|(_, to)| *to == e.dest).map(|(f, _)| f.as_str()).unwrap_or(&e.dest);
+        let state = match fs::read(root.join(from)) {
             Ok(bytes) => Some(hash::sha256_lf(&bytes)),
             Err(_) => None,
         };
         current.insert(e.dest.clone(), state);
     }
+    for (from, to) in &moves {
+        if !opts.dry_run {
+            move_file(root, from, to)?;
+            let pending = format!("{from}.elf-new");
+            if root.join(&pending).is_file() {
+                move_file(root, &pending, &format!("{to}.elf-new"))?;
+            }
+            crate::earlier::prune_empty_parents(root, from);
+        }
+        report.note(format!("{} (earlier layout): {from} → {to}", if opts.dry_run { "would move" } else { "moved" }));
+    }
+    let stamp_sha: BTreeMap<String, String> = stamp.files.iter().map(|e| (e.dest.clone(), e.sha256.clone())).collect();
 
     let actions = plan::plan_update(&new_m, &stamp, &current);
 
     for a in &actions {
-        apply(root, a, opts, &new_m, &mut report)?;
+        apply(root, a, opts, &new_m, &stamp_sha, &mut report)?;
     }
 
     // re-stamp는 무조건 (t02 재점검 §2: NoChange여도 stamp 해시는 구버전) — 반드시 같은 계보로 (S026)
@@ -338,6 +399,7 @@ fn apply(
     action: &UpdateAction,
     opts: &UpdateOptions,
     new_m: &Manifest,
+    stamp_sha: &BTreeMap<String, String>,
     report: &mut UpdateReport,
 ) -> Result<(), UpdateError> {
     match action {
@@ -354,9 +416,23 @@ fn apply(
             ));
         }
         UpdateAction::Obsolete { dest } => {
-            report.warn(format!(
-                "obsolete (no longer managed by ELF — left in place): {dest}"
-            ));
+            // 없으면 말하지 않음. 전달된 그대로면 지움(빈 상위 폴더도), 고쳤으면 남기고 경고(v3.0.2 S046)
+            let Ok(bytes) = fs::read(root.join(dest)) else { return Ok(()) };
+            if stamp_sha.get(dest).is_some_and(|s| *s == hash::sha256_lf(&bytes)) {
+                if !opts.dry_run {
+                    fs::remove_file(root.join(dest))?;
+                    crate::earlier::prune_empty_parents(root, dest);
+                }
+                report.changed += 1;
+                report.note(format!(
+                    "{} (no longer used by ELF, unchanged since delivered): {dest}",
+                    if opts.dry_run { "would remove" } else { "removed" }
+                ));
+            } else {
+                report.warn(format!(
+                    "obsolete (no longer managed by ELF; edited, so left in place — delete it once you no longer need your edits): {dest}"
+                ));
+            }
         }
         UpdateAction::Overwrite { dest } | UpdateAction::CreateMissing { dest } => {
             if !opts.dry_run {
@@ -396,7 +472,7 @@ fn apply(
             }
         }
         UpdateAction::MergeBlock { dest } => {
-            merge_hybrid(root, dest, opts, new_m, report)?;
+            merge_hybrid(root, dest, opts, new_m, stamp_sha.get(dest).map(String::as_str), report)?;
         }
     }
     Ok(())
@@ -407,6 +483,7 @@ fn merge_hybrid(
     dest: &str,
     opts: &UpdateOptions,
     new_m: &Manifest,
+    stamp_sha: Option<&str>,
     report: &mut UpdateReport,
 ) -> Result<(), UpdateError> {
     let template = std::str::from_utf8(template_bytes(new_m, dest)?)
@@ -416,6 +493,16 @@ fn merge_hybrid(
 
     let current_path = root.join(dest);
     let current_bytes = fs::read(&current_path)?;
+    // 파일 전체가 전달된 그대로(이전 판, 표지 없는 generator 판 포함) — 사용자 내용이 없으므로 통째로 새 판(v3.0.2 S046)
+    if stamp_sha == Some(hash::sha256_lf(&current_bytes).as_str()) {
+        if !opts.dry_run {
+            fs::write(&current_path, template.as_bytes())?;
+            write_baseline(root, dest, template.as_bytes())?;
+        }
+        report.changed += 1;
+        report.note(format!("updated (unchanged since delivered): {dest}"));
+        return Ok(());
+    }
     let Ok(current) = std::str::from_utf8(&current_bytes) else {
         report.conflicts += 1;
         report.warn(format!("not UTF-8 — skipped: {dest}"));
@@ -424,15 +511,21 @@ fn merge_hybrid(
 
     match extract_block(current) {
         None => {
-            // 마커 부재 (사용자가 삭제) — 보수적 기본 = 미변경 경고; --force = 상단 재삽입
-            if opts.force {
+            // 마커 부재 (사용자가 삭제) — 보수적 기본 = 미변경 경고; --force = 상단 재삽입.
+            // 표지가 생기기 전 판(2.0~2.4.0, 합성 stamp에서 고친 것으로 판정)은 지운 것이 아니므로 상단에 넣음(v3.0.2 S046)
+            let before_markers = stamp_sha == Some(crate::earlier::EDITED);
+            if opts.force || before_markers {
                 if !opts.dry_run {
                     let rebuilt = format!("{new_block}\n{current}");
                     fs::write(&current_path, &rebuilt)?;
                     write_baseline(root, dest, template.as_bytes())?;
                 }
                 report.changed += 1;
-                report.note(format!("marker reinserted at top: {dest}"));
+                if before_markers {
+                    report.note(format!("ELF block added at the top (earlier file without markers; your lines kept below): {dest}"));
+                } else {
+                    report.note(format!("marker reinserted at top: {dest}"));
+                }
             } else {
                 report.conflicts += 1;
                 report.warn(format!(
@@ -577,7 +670,7 @@ pub(crate) fn legacy_rule_copies(root: &Path) -> Vec<String> {
         .collect()
 }
 
-/// 현행 배치(`.elf/managed/`에 정본)에서 구 사본에 대한 안내 — 읽히지 않는 사본이므로 검토 후 삭제.
+/// `0_Meta/`에 남은 구 규칙 사본 안내 — `elf update`가 옮기지 못한 경우(같은 이름이 `.elf/managed/`에도 있음)만 남음.
 pub(crate) fn legacy_copies_message(root: &Path, leftovers: &[String]) -> String {
     if root.join(".elf").join("managed").join("EliRule.md").is_file() {
         format!(
@@ -586,18 +679,39 @@ pub(crate) fn legacy_copies_message(root: &Path, leftovers: &[String]) -> String
         )
     } else {
         format!(
-            "pre-2.15 legacy rule files remain ({}) — this CLI no longer reads or migrates the legacy layout. Upgrade path: install v2.15.1 from the Releases page, run `elf update` then `elf migrate` there, then return to the latest CLI (see CHANGELOG 2.16.0). These files are left untouched.",
+            "rule files of the earlier layout remain ({}) — `elf update` moves them to .elf/managed/ (as delivered = replaced by the current version, edited = kept with a .elf-new beside them)",
             leftovers.join(", ")
         )
     }
 }
 
-fn warn_if_legacy_leftovers(root: &Path, report: &mut UpdateReport) {
-    let leftovers = legacy_rule_copies(root);
+/// 이번 갱신이 옮기지 않는 구 규칙 사본만 경고(옮길 것은 이동 줄이 알림).
+fn warn_if_legacy_leftovers(root: &Path, moves: &[(String, String)], report: &mut UpdateReport) {
+    let leftovers: Vec<String> = legacy_rule_copies(root).into_iter().filter(|l| !moves.iter().any(|(from, _)| from == l)).collect();
     if !leftovers.is_empty() {
         let msg = legacy_copies_message(root, &leftovers);
         report.warn(msg);
     }
+}
+
+fn move_file(root: &Path, from: &str, to: &str) -> io::Result<()> {
+    let dst = root.join(to);
+    if let Some(dir) = dst.parent() {
+        fs::create_dir_all(dir)?;
+    }
+    fs::rename(root.join(from), dst)
+}
+
+/// `.elf/` 없는 2.0~2.4.0 프로젝트에 `.elf/config.json`을 만듦(`elf init`과 같은 키: name, lang, preset, created).
+/// 연구 계열 기본 preset = full(그때 generator 기본 = 모든 모듈).
+fn write_adopted_config(root: &Path, lang: &str) -> io::Result<()> {
+    let name = root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let created = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let v = serde_json::json!({ "name": name, "lang": lang, "preset": manifest::normalize_preset(None), "created": created });
+    let mut text = serde_json::to_string_pretty(&v).expect("config serializes");
+    text.push('\n');
+    fs::create_dir_all(root.join(".elf"))?;
+    fs::write(root.join(".elf").join("config.json"), text)
 }
 
 /// git 작업트리가 dirty면 경고 (차단하지 않음 — git 없는 프로젝트도 지원).

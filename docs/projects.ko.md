@@ -95,7 +95,17 @@ elf check                # 팀이나 CI의 통과 조건. issue가 있으면 exi
 
 헤더 값은 7키로 옮깁니다(`Created`나 `Date` → created, `목표`나 `Goal` → goal, `Handoff` → handoff, `결론`이나 Registry key finding → conclusion, 상태 `★ 활성` → ongoing, `Complete` → complete, `Deprecated`나 `Purged` → deprecated). 그 밖의 헤더 필드(`관련` 등)는 제목 아래 본문 한 줄(`> 이관 전 헤더: …`)로 남기므로 값과 링크가 사라지지 않습니다. 링크와, 상대 경로 하나만 담은 코드 span은 실제 파일을 가리킬 때 새 위치 기준으로 다시 계산합니다. 링크 재계산과 언급 검사는 git이 추적하는 파일만 대상으로 합니다(추적 밖 사본, 임시 폴더는 그대로). 바뀐 코드 span은 출력에 파일과 줄로 나오므로, 당시 경로를 적은 이력 문장이면 원래 표기로 되돌립니다. conclusion 앞머리에 상태어(완료, 보관 등)가 남은 로그와, 이관이 고치지 않는 옛 로그 경로나 지운 파일(`Session_Registry.tsv` 등) 언급이 남은 파일(스크립트 먼저)도 출력에 나옵니다. 이관 뒤 구버전 CLI가 `2_Log/`에 만든 로그는 다음 `elf update`가 다음 빈 번호로 `2_Log/S/`에 옮깁니다. `.elf/` 없이 `2_Log/`만 있는 폴더도 같은 방식으로 이관합니다.
 
-> **v2.15 이전 프로젝트**: `elf update`는 옛 구조(규칙은 `0_Meta/`, 틀은 루트 `templates/`)를 읽거나 옮기지 않습니다. 옛 파일이 남아 있으면 경고로 파일 이름을 알려 주고 그대로 둡니다. 옮기는 순서: Releases 페이지에서 **v2.15.1**을 설치하고, 그 버전으로 `elf update`, `elf migrate`를 실행한 뒤 최신 CLI로 돌아옵니다. 자세한 내용은 [CHANGELOG.md](../CHANGELOG.md)의 2.16.0 항목에 있습니다.
+#### 2.x 어느 버전에서든
+
+3.0.2부터 `elf update`는 2.0부터 2.28.x까지 어느 버전으로 만든 프로젝트든 같은 순서(요약, 확인 코드, 승인)로 3.0 줄로 올립니다. 버전마다 따로 할 일은 없습니다.
+
+| 시작 버전 | `elf update`가 더 하는 일 |
+|---|---|
+| 2.0~2.3(generator), 2.4.0 | `.elf/`가 없어도 `0_Meta/`의 ELF 규칙 파일로 ELF 프로젝트임을 알아보고 `.elf/`(설정, 프로젝트 manifest)를 만듭니다. 옛 로그 위치(`5_Exp/53_Analysis/Logs/`, `7_Log/`)와 폴더 이름(`9_Archive`, `1_Wiki`, `2_Wiki`)의 로그와 Registry도 이관합니다 |
+| 2.14 이하 | 옛 위치의 규칙(`0_Meta/`)과 틀(루트 `templates/`)을 `.elf/managed/`로 옮깁니다 |
+| 모든 버전 | 지금은 쓰지 않는 ELF 파일(`.claudeignore`, 옛 gallery 스크립트, 옛 틀 사본 등)을 지웁니다 |
+
+옮기거나 지우는 ELF 파일은 그 버전이 넣은 그대로일 때만 새 판으로 바꾸거나 지웁니다. 사용자가 고친 파일은 남기고, 옮긴 규칙이면 새 판을 `<파일>.elf-new`로 둡니다(위 Managed와 같은 처리). `.gitignore`는 표시 블록이 없는 옛 판이면 사용자 줄을 그대로 두고 맨 위에 블록을 넣습니다. `0_Meta/ProjectRule.md`, `README.md`, `AI_Sync.md`와 연구 폴더(옛 번호 포함)는 사용자 파일이라 그대로 둡니다. 판정은 `elf check version`이 보여 줍니다.
 
 ## 파일 소유권
 

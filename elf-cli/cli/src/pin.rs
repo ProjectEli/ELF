@@ -175,6 +175,9 @@ pub fn read(root: &Path) -> Result<Option<Pin>, String> {
             let v = parse(&raw).ok_or_else(|| format!("elf_version \"{raw}\" is not a version"))?;
             Ok(Some(Pin { line: v.line(), source: Source::Manifest(raw) }))
         }
+        Err(_) if crate::earlier::footprint(root) => {
+            Ok(Some(Pin { line: earlier_line(), source: Source::Inferred("ELF 2.0–2.4.0 layout, no .elf/") }))
+        }
         Err(_) if crate::legacy::active(root) => {
             Ok(Some(Pin { line: earlier_line(), source: Source::Inferred("earlier log layout, no .elf/") }))
         }

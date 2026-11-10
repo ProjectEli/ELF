@@ -835,7 +835,7 @@ fn walk_md(dir: &Path, out: &mut Vec<PathBuf>) {
 
 fn collect_sources(root: &Path, p: &mut Plan) -> Vec<Source> {
     let mut v = Vec::new();
-    for d in ["2_Log", "2_Log/Archive", "2_Log/Deprecated"] {
+    for d in logs::OLD_LOG_DIRS {
         for path in read_dir_sorted(&root.join(d)) {
             let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             if !path.is_file() || !name.ends_with("_log.md") || name.ends_with(".partial.md") {
@@ -868,23 +868,25 @@ fn collect_sources(root: &Path, p: &mut Plan) -> Vec<Source> {
 pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> io::Result<Plan> {
     let mut p = Plan::default();
 
-    // Registry TSV
+    // Registry TSV(2.4~2.27 = `2_Log/Wiki/`, 그 전 = 옛 로그 폴더의 `1_Wiki/`, `2_Wiki/` — 먼저 나온 행 우선)
     let mut rows: BTreeMap<String, session::RegistryRow> = BTreeMap::new();
-    let tsv = root.join(session::REGISTRY_REL);
-    if let Ok(t) = fs::read_to_string(&tsv) {
+    let tsvs: Vec<&str> = logs::OLD_REGISTRY_RELS.into_iter().filter(|r| root.join(r).is_file()).collect();
+    for rel in &tsvs {
+        let Ok(t) = fs::read_to_string(root.join(rel)) else { continue };
         match session::parse_registry(&t) {
             Ok(v) => {
                 for r in v {
-                    rows.insert(r.session.clone(), r);
+                    rows.entry(r.session.clone()).or_insert(r);
                 }
             }
             Err(e) => p.warnings.push(Warning::fix(
-                session::REGISTRY_REL,
+                rel,
                 "Registry row cannot be read",
                 format!("line {}: expected {}, found {} — fix the row", e.line, e.expected, e.found),
             )),
         }
     }
+    let registry_rel = tsvs.first().copied().unwrap_or(session::REGISTRY_REL);
 
     let sources = collect_sources(root, &mut p);
 
@@ -1204,7 +1206,7 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
                 p.lines.push(format!("{id}: purged before the migration — wrote a header-only log (number kept, no store)"));
             }
             _ => p.warnings.push(Warning::fix(
-                session::REGISTRY_REL,
+                registry_rel,
                 "Registry row without a log file",
                 format!("{id} ({}) — restore the log from git, or delete the row", r.status),
             )),
@@ -1291,10 +1293,10 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
     for (c, _) in &containers {
         p.deletes.push(c.clone());
     }
-    if tsv.is_file() {
-        p.deletes.push(session::REGISTRY_REL.into());
+    for rel in &tsvs {
+        p.deletes.push(rel.to_string());
     }
-    for d in ["2_Log/Archive", "2_Log/Deprecated", "1_Concept/12_Planning/Deprecated"] {
+    for d in logs::OLD_EMPTY_DIRS.into_iter().chain(["1_Concept/12_Planning/Deprecated"]) {
         if root.join(d).is_dir() {
             p.dirs.push(d.into());
         }
@@ -1329,8 +1331,8 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
     if norm_refreshed > 0 {
         p.lines.push(format!("ELF norm comment refreshed in {norm_refreshed} log(s)"));
     }
-    if tsv.is_file() {
-        p.lines.push(format!("{} → removed (Key Finding moved to conclusion)", session::REGISTRY_REL));
+    for rel in &tsvs {
+        p.lines.push(format!("{rel} → removed (Key Finding moved to conclusion)"));
     }
     if !status_words.is_empty() {
         p.lines.push(format!(
@@ -1414,7 +1416,8 @@ fn path_mentions(root: &Path, p: &Plan, moves: &BTreeMap<String, String>, tracke
         }
     };
     for rel in files {
-        if p.deletes.contains(&rel) || written.contains_key(rel.as_str()) {
+        // ELF가 넣은 이전 배치 파일(구 규칙, 틀, gallery 스크립트)은 같은 갱신이 옮기거나 바꾸거나 지움 — 언급 보고 제외
+        if p.deletes.contains(&rel) || written.contains_key(rel.as_str()) || crate::earlier::delivered_dest(&rel) {
             continue;
         }
         let path = root.join(&rel);

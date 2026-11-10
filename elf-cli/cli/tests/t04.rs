@@ -270,17 +270,22 @@ fn pre215_leftovers_warn_but_are_left_untouched() {
     assert!(files.items.iter().any(|i| i.text.starts_with("0_Meta: old rule copies remain")), "{:?}", files.items);
 }
 
-/// 구 배치(.elf/managed/ 정본 없음)에서는 종전 안내(v2.15.1 경로) 유지.
+/// 구 배치(.elf/managed/ 정본 없음): update가 `0_Meta/`의 규칙을 `.elf/managed/`로 옮김(v3.0.2 — v2.15.1 우회 안내 없음).
+/// stamp에 없고 지문도 모르는 내용 = 고친 것으로 보고 옮긴 뒤 `.elf-new`.
 #[test]
-fn legacy_layout_keeps_two_step_upgrade_message() {
+fn legacy_layout_rules_move_to_managed() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path(), "P");
     fs::write(root.join("0_Meta/EliRule.md"), b"legacy
 ").unwrap();
     fs::remove_file(root.join(".elf/managed/EliRule.md")).unwrap();
     let dry = run_update(&root, &UpdateOptions { dry_run: true, force: false }).unwrap();
-    let warn = dry.lines.iter().find(|l| l.contains("pre-2.15 legacy rule files remain")).expect("구 배치 안내");
-    assert!(warn.contains("v2.15.1") && warn.contains("elf migrate"), "{warn}");
+    assert!(dry.lines.iter().any(|l| l == "would move (earlier layout): 0_Meta/EliRule.md → .elf/managed/EliRule.md"), "{:?}", dry.lines);
+    assert!(!dry.lines.iter().any(|l| l.contains("v2.15.1")), "{:?}", dry.lines);
+    let r = run_update(&root, &plain()).unwrap();
+    assert!(!root.join("0_Meta/EliRule.md").exists());
+    assert_eq!(fs::read(root.join(".elf/managed/EliRule.md")).unwrap(), b"legacy\n", "고친 내용은 그대로");
+    assert!(root.join(".elf/managed/EliRule.md.elf-new").is_file(), "{:?}", r.lines);
 }
 
 #[test]

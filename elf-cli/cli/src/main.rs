@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use elf_cli::{autoread, check, consent, deprecate, dispatch, doctor, embed, gallery, init, legacy, logcmd, manifest, migrate, pin, selfupdate, session, status, store, trial, tsa, update, validate, version};
+use elf_cli::{autoread, check, consent, deprecate, dispatch, doctor, earlier, embed, gallery, init, legacy, logcmd, manifest, migrate, pin, selfupdate, session, status, store, trial, tsa, update, validate, version};
 
 /// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드, 갱신 CLI (research project scaffold & update CLI)
 #[derive(Parser)]
@@ -541,7 +541,8 @@ fn main() {
                     }
                 }
             };
-            let Some(root) = update::find_project_root(&cwd) else {
+            // `.elf/` 없는 2.0~2.4.0 프로젝트(규칙이 `0_Meta/`)도 프로젝트로 갱신 — 합성 stamp(v3.0.2 S046)
+            let Some(root) = update::find_project_root(&cwd).or_else(|| earlier::find_root(&cwd)) else {
                 // 로그만 있는 폴더(`.elf/` 없음, 예: 프레임워크 `_dev`) — 구조 이관만
                 if let Some(lr) = session::find_log_root(&cwd)
                     && migrate::needed(&lr)

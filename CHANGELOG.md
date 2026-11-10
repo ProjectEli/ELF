@@ -4,6 +4,24 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.0.2] - 2026-11-10
+
+### Fixed
+- **`elf update` brings a project made with any 2.x version to 3.0.** Checked with projects made by every 2.x
+  release: the generator of 2.0 to 2.3 and the CLI from 2.4.0 to 2.28.1.
+  - Projects of 2.0 to 2.3 (made by the generator) and of 2.4.0 have no `.elf/`. `elf update` now recognizes them
+    from the ELF rule files in `0_Meta/`, creates `.elf/`, and migrates their logs from the old locations
+    (`5_Exp/53_Analysis/Logs/`, `7_Log/`) and old folder names (`9_Archive`, `1_Wiki`, `2_Wiki`). Before, they were
+    reported as not an ELF project, or only their logs were migrated.
+  - Projects of 2.14 or earlier keep the rules in `0_Meta/` and the stubs in a root `templates/`. `elf update` now
+    moves them to `.elf/managed/`. Before, it created new copies beside the old ones and pointed to installing 2.15.1.
+  - ELF files no longer used (`.claudeignore`, `.elf/managed/templates/Archive/sessionTemplate_v1.md`, the old
+    gallery scripts) are removed. Before, they were left with a warning.
+
+  An ELF file is replaced or removed only when it is exactly as that version delivered it. A file you edited is kept,
+  and a moved rule gets the new version beside it as `<file>.elf-new`. `elf check version` reads a 2.0 to 2.4.0
+  project as the 2.27 line. See [From any 2.x version](docs/projects.md#from-any-2x-version).
+
 ## [3.0.1] - 2026-11-10
 
 ### Fixed

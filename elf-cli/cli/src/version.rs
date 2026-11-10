@@ -16,6 +16,8 @@ pub enum Verdict {
     Unreadable(String),
     /// 이전 형식(schema 1) — 기록 버전 = `.elf/version`(있으면). `elf update`로 이관
     Earlier(Option<String>),
+    /// `.elf/` 없는 2.0~2.4.0 프로젝트(규칙이 `0_Meta/`) — `elf update`가 `.elf/`를 만들고 이관(v3.0.2)
+    EarlierLayout,
     /// MAJOR.MINOR 같음(프로젝트 기록 버전)
     Same(String),
     /// 프로젝트가 낮음 → `elf update`
@@ -64,6 +66,7 @@ pub fn verdict_with(root: &Path, cli: &str) -> Verdict {
 pub fn verdict(cwd: &Path) -> Verdict {
     match update::find_project_root(cwd) {
         Some(root) => verdict_with(&root, embed::version()),
+        None if crate::earlier::find_root(cwd).is_some() => Verdict::EarlierLayout,
         None => Verdict::NoProject,
     }
 }
@@ -79,6 +82,10 @@ pub fn verdict_line(v: &Verdict, cli: &str) -> (char, String) {
                 "project manifest is the earlier format (schema 1{}) — `elf update` is recommended: it prints a summary and an approval code and migrates only after the user approves (`elf update --dry-run` to preview; LogConvention §7)",
                 old.as_deref().map(|o| format!(", ELF {o}")).unwrap_or_default()
             ),
+        ),
+        Verdict::EarlierLayout => (
+            'w',
+            "ELF 2.0–2.4.0 project without .elf/ (rules in 0_Meta/) — `elf update` is recommended: it prints a summary and an approval code, then creates .elf/ and migrates only after the user approves (`elf update --dry-run` to preview)".into(),
         ),
         Verdict::Same(p) => {
             let line = pin::parse(p).map(|v| v.line().to_string()).unwrap_or_default();

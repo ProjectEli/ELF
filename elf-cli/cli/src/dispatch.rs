@@ -50,9 +50,11 @@ pub fn choose(stored: Option<&Ver>, newest_known: Option<&Ver>) -> Option<(Ver, 
     }
 }
 
-/// 고정값을 읽을 폴더: 프로젝트 루트, 없으면 `.elf/` 없이 로그만 있는 폴더.
+/// 고정값을 읽을 폴더: 프로젝트 루트, 없으면 `.elf/` 없는 2.0~2.4.0 프로젝트, 없으면 `.elf/` 없이 로그만 있는 폴더.
 fn pin_root(cwd: &Path) -> Option<PathBuf> {
-    update::find_project_root(cwd).or_else(|| session::find_log_root(cwd).filter(|lr| !lr.join(".elf").join("manifest.json").exists()))
+    update::find_project_root(cwd)
+        .or_else(|| crate::earlier::find_root(cwd))
+        .or_else(|| session::find_log_root(cwd).filter(|lr| !lr.join(".elf").join("manifest.json").exists()))
 }
 
 /// 위임 결정(보관소 설치 포함 — 받는 동안 표준 오류에 안내 한 줄).

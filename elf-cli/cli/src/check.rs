@@ -119,8 +119,10 @@ fn run_version(cwd: &Path, env: &doctor::DoctorEnv) -> ScopeReport {
         r.items.push(Item::new(Level::Info, "install receipt: absent — `elf self update` unavailable (dev/manual build)"));
     }
     let root = update::find_project_root(cwd);
+    let earlier_root = if root.is_none() { crate::earlier::find_root(cwd) } else { None };
     let v = match &root {
         Some(root) => version::verdict_with(root, &env.version),
+        None if earlier_root.is_some() => version::Verdict::EarlierLayout,
         None => version::Verdict::NoProject,
     };
     match &v {
@@ -136,10 +138,16 @@ fn run_version(cwd: &Path, env: &doctor::DoctorEnv) -> ScopeReport {
         _ => {}
     }
     // 고정값(R1, R6): 프로젝트 루트, 없으면 `.elf/` 없이 로그만 있는 폴더
-    let pin_root = root.or_else(|| session::find_log_root(cwd).filter(|lr| !lr.join(".elf").join("manifest.json").exists()));
+    let pin_root = root.or(earlier_root).or_else(|| session::find_log_root(cwd).filter(|lr| !lr.join(".elf").join("manifest.json").exists()));
     let pinned = pin_root.as_ref().and_then(|pr| pin::read(pr).ok().flatten().map(|p| (pr.clone(), p)));
     if let Some((pr, p)) = &pinned {
-        let where_ = if pr.join(".elf").join("manifest.json").exists() { "" } else { "log-only folder (no .elf/): " };
+        let where_ = if pr.join(".elf").join("manifest.json").exists() {
+            ""
+        } else if crate::earlier::footprint(pr) {
+            "ELF 2.0–2.4.0 folder (no .elf/): "
+        } else {
+            "log-only folder (no .elf/): "
+        };
         r.items.push(Item::new(Level::Info, format!("{where_}{}", pin::describe(p))));
     }
     // 버전 보관소(v3.0 S044 t58, 읽기만): 위치와 개수, 고정값 줄을 실행할 파일

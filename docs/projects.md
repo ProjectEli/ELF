@@ -107,11 +107,17 @@ The guideline gives the direction only. The details differ from project to proje
 
 Header values map to the 7 keys (`Created` or `Date` → created, `목표` or `Goal` → goal, `Handoff` → handoff, `결론` or the Registry key finding → conclusion; status `★ 활성` → ongoing, `Complete` → complete, `Deprecated` or `Purged` → deprecated). Other header fields (such as `관련`) are kept as one body line under the title (`> 이관 전 헤더: …`), so their values and links stay. Links and code spans that hold a single relative path are recomputed for the new location when they point to an existing file. Link recomputation and the mention check cover only files tracked by git (untracked copies and scratch folders are left alone). The output lists each changed code span with its file and line: if a span recorded the path as it was at the time (a history note), put the old notation back. The output also lists logs whose conclusion starts with a status word (such as 완료 or 보관), and the files that still mention old log paths or removed files such as `Session_Registry.tsv` (scripts first), which the migration does not edit. A log that an older CLI creates in `2_Log/` after the migration is moved to `2_Log/S/` under the next free number by the next `elf update`. A folder with `2_Log/` but no `.elf/` (logs only) is migrated the same way.
 
-> **Pre-2.15 projects**: `elf update` does not read or migrate the legacy layout (rules in
-> `0_Meta/`, stubs in a root `templates/`). When legacy rule files remain it warns, names
-> them, and leaves them untouched. Upgrade path: install **v2.15.1** from the Releases
-> page → `elf update` → `elf migrate` there → then return to the latest CLI. Details:
-> the 2.16.0 entry in [CHANGELOG.md](../CHANGELOG.md).
+#### From any 2.x version
+
+From 3.0.2, `elf update` brings a project made with any version from 2.0 to 2.28.x to the 3.0 line in the same steps (summary, approval code, approval). Nothing else is needed per version.
+
+| Made with | What `elf update` also does |
+|---|---|
+| 2.0 to 2.3 (generator), 2.4.0 | Recognizes the project from the ELF rule files in `0_Meta/` even without `.elf/`, and creates `.elf/` (settings, project manifest). Logs and the Registry in the old log locations (`5_Exp/53_Analysis/Logs/`, `7_Log/`) and old folder names (`9_Archive`, `1_Wiki`, `2_Wiki`) are migrated too |
+| 2.14 or earlier | Moves the rules in the old location (`0_Meta/`) and the stubs in a root `templates/` to `.elf/managed/` |
+| Any version | Removes ELF files no longer used (`.claudeignore`, the old gallery scripts, old stub copies, and so on) |
+
+An ELF file is replaced or removed only when it is still exactly as that version delivered it. A file you edited is kept; for a moved rule the new version is written as `<file>.elf-new` (the same as Managed below). A `.gitignore` from before the marker block keeps your lines and gets the block at the top. `0_Meta/ProjectRule.md`, `README.md`, `AI_Sync.md` and research folders (including old numbering) are yours and are left as they are. `elf check version` shows the verdict.
 
 ## File ownership
 

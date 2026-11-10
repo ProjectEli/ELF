@@ -59,7 +59,7 @@ ELF is used together with an AI agent such as Claude Code or Codex. To use it wi
    cd MyProject
    ```
 
-   This prints `[elf] created MyProject (ELF v3.0.1, preset: exp, lang: en-US)` and creates the folder structure, `AGENTS.md` (the rule summary the agent reads first), and `2_Log/S/` (where session logs go). The agent starts by reading `AGENTS.md`, so there is nothing else to set up. `--lang en-US` makes the agent answer in English and adds English copies of the rule documents for reading; the operative rules are Korean. Presets, languages, and the files created are covered in [Creating and updating projects](docs/projects.md).
+   This prints `[elf] created MyProject (ELF v3.0.2, preset: exp, lang: en-US)` and creates the folder structure, `AGENTS.md` (the rule summary the agent reads first), and `2_Log/S/` (where session logs go). The agent starts by reading `AGENTS.md`, so there is nothing else to set up. `--lang en-US` makes the agent answer in English and adds English copies of the rule documents for reading; the operative rules are Korean. Presets, languages, and the files created are covered in [Creating and updating projects](docs/projects.md).
 
 3. Open the project folder in your agent and ask it to start a session.
 

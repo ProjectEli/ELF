@@ -7,6 +7,8 @@ pub mod consent;
 pub mod deprecate;
 pub mod dispatch;
 pub mod doctor;
+pub mod earlier;
+mod earlier_files;
 pub mod embed;
 pub mod gallery;
 pub mod hash;

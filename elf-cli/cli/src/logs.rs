@@ -148,33 +148,68 @@ pub fn resolve(root: &Path, id: Option<&str>) -> Result<LogFile, SessionError> {
     }
 }
 
-/// 이관 전(구 형식) 흔적: 루트 로그, `Archive/`, `Deprecated/`, TSV Registry. 없으면 빈 목록.
+/// 이전 버전의 로그 폴더(이관 대상). 2.4~2.27 = `2_Log/`와 `2_Log/Archive/`, 2.2~2.3 보관 = `2_Log/9_Archive/`,
+/// 2.1 = `7_Log/`, 2.0 = `5_Exp/53_Analysis/Logs/`(그 뒤 번호 = `6_Exp/63_Analysis/Logs/`). `Deprecated/`는 따로(v3.0.2 S046).
+pub const OLD_LOG_DIRS: [&str; 10] = [
+    "2_Log",
+    "2_Log/Archive",
+    "2_Log/9_Archive",
+    "7_Log",
+    "7_Log/9_Archive",
+    "5_Exp/53_Analysis/Logs",
+    "5_Exp/53_Analysis/Logs/9_Archive",
+    "6_Exp/63_Analysis/Logs",
+    "6_Exp/63_Analysis/Logs/9_Archive",
+    "2_Log/Deprecated",
+];
+
+/// 이전 버전의 Registry TSV 위치(2.4~2.27 = `2_Log/Wiki/`, 그 전 = `1_Wiki/`, `2_Wiki/`).
+pub const OLD_REGISTRY_RELS: [&str; 6] = [
+    "2_Log/Wiki/Session_Registry.tsv",
+    "2_Log/1_Wiki/Session_Registry.tsv",
+    "2_Log/2_Wiki/Session_Registry.tsv",
+    "7_Log/2_Wiki/Session_Registry.tsv",
+    "5_Exp/53_Analysis/Logs/2_Wiki/Session_Registry.tsv",
+    "6_Exp/63_Analysis/Logs/2_Wiki/Session_Registry.tsv",
+];
+
+/// 이관 뒤 비면(`.gitkeep`만 남아도) 지우는 이전 버전 폴더 — 자식 먼저.
+pub const OLD_EMPTY_DIRS: [&str; 14] = [
+    "2_Log/Archive",
+    "2_Log/Deprecated",
+    "2_Log/9_Archive",
+    "2_Log/1_Wiki",
+    "2_Log/2_Wiki",
+    "7_Log/9_Archive",
+    "7_Log/2_Wiki",
+    "7_Log",
+    "5_Exp/53_Analysis/Logs/9_Archive",
+    "5_Exp/53_Analysis/Logs/2_Wiki",
+    "5_Exp/53_Analysis/Logs",
+    "6_Exp/63_Analysis/Logs/9_Archive",
+    "6_Exp/63_Analysis/Logs/2_Wiki",
+    "6_Exp/63_Analysis/Logs",
+];
+
+/// 이관 전(구 형식) 흔적: 옛 로그 폴더의 루트 로그, 보관과 폐기 폴더, TSV Registry. 없으면 빈 목록.
 pub fn legacy_markers(root: &Path) -> Vec<String> {
     let mut v = Vec::new();
-    let log = root.join("2_Log");
-    if let Ok(rd) = fs::read_dir(&log) {
-        for e in rd.flatten() {
-            let name = e.file_name().to_string_lossy().into_owned();
-            if e.path().is_file() && name.ends_with("_log.md") {
-                v.push(format!("2_Log/{name}"));
-            }
+    for d in OLD_LOG_DIRS {
+        let Ok(rd) = fs::read_dir(root.join(d)) else { continue };
+        let names: Vec<String> = rd
+            .flatten()
+            .filter(|e| e.path().is_file())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        if !d.contains("Archive") && !d.ends_with("Deprecated") {
+            // 루트 로그 폴더 = 로그 파일마다
+            v.extend(names.iter().filter(|n| n.ends_with("_log.md")).map(|n| format!("{d}/{n}")));
+        } else if names.iter().any(|n| n.ends_with("_log.md") || n.ends_with(".partial.md")) {
+            // 보관, 폐기 폴더 = 로그(`*_log.md`)나 부분 폐기 파일(`*.partial.md`)이 있을 때만 — 이관 뒤 남은 다른 파일은 이전 형식이 아님
+            v.push(format!("{d}/"));
         }
     }
-    // Archive/, Deprecated/ = 로그(`*_log.md`)나 부분 폐기 파일(`*.partial.md`)이 있을 때만 — 이관 뒤 남은 다른 파일은 이전 형식이 아님
-    for d in ["Archive", "Deprecated"] {
-        let has_md = fs::read_dir(log.join(d)).is_ok_and(|rd| {
-            rd.flatten().any(|e| {
-                let n = e.file_name().to_string_lossy().into_owned();
-                e.path().is_file() && (n.ends_with("_log.md") || n.ends_with(".partial.md"))
-            })
-        });
-        if has_md {
-            v.push(format!("2_Log/{d}/"));
-        }
-    }
-    if log.join("Wiki/Session_Registry.tsv").is_file() {
-        v.push("2_Log/Wiki/Session_Registry.tsv".into());
-    }
+    v.extend(OLD_REGISTRY_RELS.iter().filter(|r| root.join(r).is_file()).map(|r| r.to_string()));
     v.sort();
     v
 }
