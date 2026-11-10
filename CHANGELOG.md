@@ -4,6 +4,25 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.3.0] - 2026-11-10
+
+### Changed
+- **The communication rules now reach the agent in every context.** Measured on Claude Code transcripts, the agent had
+  read `EliRule.md` before its first file write in only 15 to 25% of working stretches, so the rules needed in every
+  response (EliRule §3: language, style, no metaphors, sentence endings, no emojis, tables, abbreviations, sources,
+  typography) were often missing. `AGENTS.md`, which Claude Code always loads, now carries a short digest of them as
+  its first standing duty; EliRule §3 stays the canonical text.
+- **`EliRule.md` is about half as long** (14,151 → 7,316 characters in Korean). It keeps only current rules: the file
+  ownership table and command details are left to `AGENTS.md` and the docs, the log rules to LogConvention, and
+  background explanations are removed. The old `→ see` cross-reference notation (§2.5), which disagreed with the
+  LogConvention link rules, now points to LogConvention §4. **Section and rule numbers are unchanged**, so references
+  such as `EliRule §2.8` or `EliRule §3 rule 13` in your files still point to the same rule.
+
+### Upgrading
+- 3.3 is a new line. A project on an earlier line keeps running with that line until you run `elf update` there: it
+  prints a summary and an approval code and moves the project after the user approves. The managed files are replaced
+  as usual; an `EliRule.md` or `AGENTS.md` you edited is kept, with the new version beside it as `.elf-new`.
+
 ## [3.2.0] - 2026-11-10
 
 ### Changed

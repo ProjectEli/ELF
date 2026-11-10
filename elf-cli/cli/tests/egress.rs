@@ -18,7 +18,7 @@ fn egress_clause_present_in_elirule_both_lineages() {
         let t = tpl(p);
         assert!(t.contains(&format!("### {num} 외부 반출과 공개 통제 (Egress Control)")), "{p}: clause heading");
         assert!(t.contains("명시 선언을 둘 때만"), "{p}: ProjectRule relaxation clause");
-        assert!(t.contains("본 조항의 반출이 아닙니다"), "{p}: explicit exclusion (inference, opt-in tools)");
+        assert!(t.contains("본 조항의 반출이 아니다"), "{p}: explicit exclusion (inference, opt-in tools)");
     }
     for (p, num) in [("meta/EliRule.en.md", "2.9")] {
         assert!(tpl(p).contains(&format!("### {num} External egress and publication control (Egress Control)")), "{p}");

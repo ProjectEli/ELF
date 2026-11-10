@@ -59,7 +59,7 @@ Claude Code, Codex 같은 AI 에이전트와 함께 씁니다. 에이전트 없�
    cd MyProject
    ```
 
-   `[elf] created MyProject (ELF v3.2.0, preset: exp, lang: ko-KR)`가 출력되고, 폴더 구조와 함께 `AGENTS.md`(에이전트가 처음 읽는 규칙 요약)와 `2_Log/S/`(세션 로그를 두는 곳)가 만들어집니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 따로 설정할 것이 없습니다. preset, 언어, 만들어지는 파일은 [프로젝트 생성과 갱신](docs/projects.ko.md)에 있습니다.
+   `[elf] created MyProject (ELF v3.3.0, preset: exp, lang: ko-KR)`가 출력되고, 폴더 구조와 함께 `AGENTS.md`(에이전트가 처음 읽는 규칙 요약)와 `2_Log/S/`(세션 로그를 두는 곳)가 만들어집니다. 에이전트는 `AGENTS.md`를 읽고 시작하므로 따로 설정할 것이 없습니다. preset, 언어, 만들어지는 파일은 [프로젝트 생성과 갱신](docs/projects.ko.md)에 있습니다.
 
 3. 에이전트에서 프로젝트 폴더를 열고 세션을 시작하라고 말합니다.
 
