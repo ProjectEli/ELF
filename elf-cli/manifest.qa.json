@@ -3,13 +3,13 @@
   "generated": "2026-06-15",
   "note": "ELF QA preset deployment spec: the question archive type, kept separate from the research manifest (manifest.json). src = relative to elf-cli, dest = relative to the project root. `elf init <name> --preset qa` deploys and stamps .elf from this spec. sha256 = hash of the original LF bytes (hash::sha256_lf). lang + role variant = replaces the entry with the same dest for that project language. dest = based on the managed layout.",
   "files": [
-    { "src": "templates/qa/AGENTS.md",          "dest": "AGENTS.md",                   "tier": "managed", "sha256": "f47d3e92fe9838286118b87d465dcb784f12ad8552d07b70fde71c149a1ac720" },
-    { "src": "templates/qa/bundle_template.md", "dest": ".elf/managed/templates/bundle_template.md", "tier": "managed", "sha256": "1a69cd0fe2d6bd315b982a4fefd6dc75db47276f53b805e3c05e27b8e5011ca9" },
-    { "src": "templates/qa/README.md",          "dest": "README.md",                   "tier": "user",    "sha256": "02c199aabc89709a786e7fe5dc09e25c23910e63324b71b3e43ff7a5371ca97c" },
+    { "src": "templates/qa/AGENTS.md",          "dest": "AGENTS.md",                   "tier": "managed", "sha256": "604193d075adb4a2d8cc516fdafe673ba136205534ef94b47ec309913a279e13" },
+    { "src": "templates/qa/bundle_template.md", "dest": ".elf/managed/templates/bundle_template.md", "tier": "managed", "sha256": "c71dd3e509b047432a56f6cfefc51d8a8c4ec02ac0e0ae774829e81be2f5ce90" },
+    { "src": "templates/qa/README.md",          "dest": "README.md",                   "tier": "user",    "sha256": "6bd6440716e57fd8ec2e1a1b5298fc3243138d0829020a3bda860401c6b10ae1" },
     { "src": "templates/qa/ProjectRule.md",     "dest": "0_Meta/ProjectRule.md",       "tier": "user",    "sha256": "7eb40438febaf56ce0e7bf986a69eecf091114cb09028137f478173b04b9cc21" },
-    { "src": "templates/qa/AGENTS.en.md",       "dest": "AGENTS.md",                   "tier": "managed", "sha256": "e56b6c84f0c51ba43531d3760cfe8fb25fc00f27e9a6552d1a6e182f865d3679", "lang": "en", "role": "variant" },
-    { "src": "templates/qa/bundle_template.en.md", "dest": ".elf/managed/templates/bundle_template.md", "tier": "managed", "sha256": "ab43f8b973c7c74eb44e04cacea3e0207ed1df422f3fc800b24f0582774fda57", "lang": "en", "role": "variant" },
-    { "src": "templates/qa/README.en.md",       "dest": "README.md",                   "tier": "user",    "sha256": "a5e1598ef9714b624c111520d79f7daf0e5ce4c0ad3e3cf8fad1d28dd639d6a3", "lang": "en", "role": "variant" },
+    { "src": "templates/qa/AGENTS.en.md",       "dest": "AGENTS.md",                   "tier": "managed", "sha256": "cbea1dfe5a9d36b8912f5f2aabb54b3dac7d5951b7a97cccba7021ac348960d8", "lang": "en", "role": "variant" },
+    { "src": "templates/qa/bundle_template.en.md", "dest": ".elf/managed/templates/bundle_template.md", "tier": "managed", "sha256": "c7081a51d0b1edd275ef773f9f99bc9ceb3951e592acfe282d94147ad0a162a4", "lang": "en", "role": "variant" },
+    { "src": "templates/qa/README.en.md",       "dest": "README.md",                   "tier": "user",    "sha256": "40d1704919f3bef39ab8c19f5689b45324471d6886a7274506fd9a853e60e88d", "lang": "en", "role": "variant" },
     { "src": "templates/qa/ProjectRule.en.md",  "dest": "0_Meta/ProjectRule.md",       "tier": "user",    "sha256": "5b1c23af883979d4edb4fb24c29993fc150726463d0541d5eadb154cd038323b", "lang": "en", "role": "variant" }
   ],
   "dirs": {

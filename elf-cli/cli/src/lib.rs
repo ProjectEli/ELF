@@ -22,6 +22,7 @@ pub mod manifest;
 pub mod migrate;
 pub mod pin;
 pub mod plan;
+pub mod qa;
 pub mod sections;
 pub mod selfupdate;
 pub mod session;

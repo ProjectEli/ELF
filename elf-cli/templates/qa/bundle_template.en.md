@@ -2,7 +2,7 @@
 date: [YYYY-MM-DD HH:mm:ss]
 category: [category — exactly the folder name]
 tags: [tag1, tag2, tag3]
-status: active
+status: active   # active | archive | deprecated (AGENTS.md §5)
 # thread: [thread-slug]   ← optional: add only when this is part of a chain of thought (AGENTS.md §4). Otherwise delete this line.
 ---
 

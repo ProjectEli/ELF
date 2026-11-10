@@ -2,7 +2,7 @@
 date: [YYYY-MM-DD HH:mm:ss]
 category: [카테고리 — 폴더명과 정확히 일치]
 tags: [tag1, tag2, tag3]
-status: active
+status: active   # active | archive | deprecated (AGENTS.md §5)
 # thread: [thread-slug]   ← 선택: 사고 chain의 일부일 때만 추가(AGENTS.md §4). 아니면 이 줄 삭제.
 ---
 

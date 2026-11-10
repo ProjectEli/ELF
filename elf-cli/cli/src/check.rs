@@ -220,6 +220,15 @@ fn run_files(cwd: &Path, env: &doctor::DoctorEnv) -> ScopeReport {
 
 fn run_logs(cwd: &Path) -> ScopeReport {
     let mut r = ScopeReport::new(Scope::Logs);
+    // qa preset(v3.8 S057): 세션 로그 대신 번들 검사 — 같은 명령, 범위를 넓힘
+    if let Some(root) = update::find_project_root(cwd)
+        && crate::qa::is_qa(&root)
+    {
+        let lines: Result<Vec<String>, validate::ValidateError> =
+            Ok(crate::qa::run_check(&root, crate::links::fix_enabled(&root)));
+        push_lines(&mut r, lines);
+        return r;
+    }
     let Some(root) = crate::session::find_log_root(cwd) else {
         r.skipped = Some("no 2_Log/ directory found".into());
         return r;
@@ -230,6 +239,12 @@ fn run_logs(cwd: &Path) -> ScopeReport {
     } else {
         validate::run_validate_opts(&root, crate::links::fix_enabled(&root)).map(|v| v.lines)
     };
+    push_lines(&mut r, lines);
+    r
+}
+
+/// 검사 줄의 접두(`issue:`, `warn:`, `fixed:`, `ok:`, `hint:`/`info:`)를 수준으로 옮김.
+fn push_lines(r: &mut ScopeReport, lines: Result<Vec<String>, validate::ValidateError>) {
     match lines {
         Ok(lines) => {
             for line in lines {
@@ -251,5 +266,4 @@ fn run_logs(cwd: &Path) -> ScopeReport {
         }
         Err(validate::ValidateError::Io(e)) => r.items.push(Item::new(Level::Issue, format!("io error: {e}"))),
     }
-    r
 }

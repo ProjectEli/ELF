@@ -4,6 +4,27 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.8.0] - 2026-11-11
+
+### Changed
+- **`qa` preset: `archive/` keeps finished bundles.** A bundle with nothing more to add moves to `archive/` with
+  `status: archive` and stays in recall. A bundle that was wrong or is replaced moves there with the new value
+  `status: deprecated` (and a `> Replaced by:` line when there is a replacement); recall leaves it out by default.
+- **`qa` preset: category rules, user templates and work folders.** `<category>/README.md` holds the rules of that
+  category (it wins over `0_Meta/ProjectRule.md`, which wins over `AGENTS.md`), `0_Meta/templates/<category>.md`
+  is used instead of the managed template for that category, folders starting with `_` are tools or work areas,
+  and other subfolders are reference material. The rolling-capture rule no longer assumes a particular tool's
+  conversation files.
+
+### Added
+- **`elf check logs` checks `qa` bundles.** It no longer skips a `qa` project: it checks the frontmatter, the
+  category and status against the folder, the names, letters used twice on one date, and the paths on related and
+  replaced-by lines (all warnings), and fixes a path to a bundle moved to or from `archive/` (turn off with
+  `"fix_links": false`).
+
+### Upgrading
+- `elf update` refreshes `AGENTS.md` and the bundle template of a `qa` project. Existing bundles need no change.
+
 ## [3.7.0] - 2026-11-11
 
 ### Added
