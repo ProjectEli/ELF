@@ -1,0 +1,61 @@
+# >>> ELF managed >>>
+# This block is managed by `elf update`; do not edit it.
+# Add your own rules below the block (user area).
+
+# === Claude Code & AI Toolkit ===
+# (CLAUDE.md is the ELF entry pointer and stays tracked: a clone needs it to load AGENTS.md)
+# (the autoread hook in .claude/settings.json is an untracked derivative; `elf update` regenerates it after a clone)
+.claude/
+.ecc/
+
+# === ELF runtime state (autoread rebuild markers etc.; per session, untracked) ===
+.elf/runtime/
+
+# === MATLAB Autosave files ===
+*.asv
+*.m~
+*.mlapp~
+
+# === Compiled binaries / MEX files ===
+*.mex*
+*.mexa64
+*.mexw64
+*.mexw32
+*.mexmaci64
+
+# === Simulink generated files and caches ===
+slprj/
+sfprj/
+*.slxc
+
+# === MATLAB specific temporary files ===
+*.prj~
+*.log
+
+# === Office autosave files ===
+*.tmp
+~$*.xls*
+~$*.ppt*
+~$*.doc*
+~*.doc*
+
+# === HWP (Hangul word processor) autosave files ===
+~$*.hwp*
+~$*.hwpx*
+*.hwp.bak
+*.hwpx.bak
+
+# === Raw Data (original sensor data; never tracked by Git) ===
+6_Exp/62_Empirical/Raw/
+
+# === Python cache (cache from running project scripts) ===
+__pycache__/
+*.py[cod]
+
+# (end of the managed block: add your rules in the user area below, not inside the block; editing inside makes elf check files report block edited)
+# <<< ELF managed <<<
+
+# === User area (ELF never touches it) ===
+# (optional) exclude large data files; uncomment if needed
+# *.mat
+# *.fig

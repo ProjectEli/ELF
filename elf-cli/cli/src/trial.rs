@@ -17,10 +17,11 @@ use chrono::{DateTime, FixedOffset};
 
 use crate::header;
 use crate::logs::{self, LogFile};
+use crate::sections::{self, INTERP_EN, INTERP_KO, INTERP_LEGACY, LogLang, SECTIONS};
 use crate::session::{SessionError, refuse_legacy};
 use crate::validate::{
-    INTERP_LABEL, INTERP_LABEL_LEGACY, extract_image_targets, noembed_filenames, section_key, trial_structure_findings,
-    trial_template, unfilled_template_findings,
+    extract_image_targets, noembed_filenames, section_key, trial_structure_findings, trial_template,
+    unfilled_template_findings,
 };
 
 /// Phase 1 절(배경은 선택). Phase 2 절(시행착오는 선택).
@@ -28,20 +29,6 @@ pub const PHASE1: [&str; 5] = ["배경", "목표", "조건", "가설", "예상"]
 pub const PHASE1_REQUIRED: [&str; 4] = ["목표", "조건", "가설", "예상"];
 pub const PHASE2: [&str; 5] = ["관찰", "해석", "교훈", "생성 파일", "시행착오"];
 pub const PHASE2_REQUIRED: [&str; 4] = ["관찰", "해석", "교훈", "생성 파일"];
-
-/// 정본 절 제목(한국어 키, 영어 표기).
-const CANON: [(&str, &str); 10] = [
-    ("배경", "Background"),
-    ("목표", "Goal"),
-    ("조건", "Conditions"),
-    ("가설", "Hypothesis"),
-    ("예상", "Prediction"),
-    ("관찰", "Observation"),
-    ("해석", "Interpretation"),
-    ("교훈", "Lessons"),
-    ("생성 파일", "Files"),
-    ("시행착오", "Trial-and-Error"),
-];
 
 const META_PREFIX: &str = "<!-- elf-trial:";
 
@@ -131,8 +118,8 @@ fn mtime(p: &Path) -> Option<i64> {
 // ── 템플릿 ────────────────────────────────────────────────────────
 
 /// 틀의 Phase 1 부분(첫 Phase 2 절 앞까지, 제목 줄 제외)과 Phase 2 부분.
-fn template_parts() -> (String, String) {
-    let tpl = trial_template();
+fn template_parts(lang: LogLang) -> (String, String) {
+    let tpl = trial_template(lang);
     let mut lines = tpl.lines();
     lines.next(); // `## t{NN}: [작업 제목]`
     let rest: Vec<&str> = lines.collect();
@@ -144,21 +131,26 @@ fn template_parts() -> (String, String) {
 
 // ── 바로잡기(정확한 동의어 표만) ───────────────────────────────────
 
-/// `### 목표`, `### Goal`, `### Goal (목표)` → `### 목표 (Goal)`; 해석 첫 줄의 이전 라벨 → `예상 일치 정도:`.
-pub fn normalize(body: &str) -> (String, Vec<String>) {
+/// 절 제목의 정확한 동의어(`### 목표`, `### Goal`, `### Goal (목표)`, `### 목표 (Goal)`) → 프로젝트 언어 표기
+/// (영어 프로젝트 `### Goal`, 그 밖 `### 목표 (Goal)`, P017); 해석 첫 줄의 다른 라벨 → 프로젝트 언어 라벨.
+pub fn normalize(body: &str, lang: LogLang) -> (String, Vec<String>) {
     let mut notes = Vec::new();
     let mut out = Vec::new();
     let mut interp_pending = false;
+    let target = lang.interp_label();
     for line in body.lines() {
         let l = line.trim_end_matches('\r');
         if let Some(rest) = l.strip_prefix("### ") {
             let rest = rest.trim();
-            let hit = CANON.iter().find(|(ko, en)| {
-                rest == *ko || rest.eq_ignore_ascii_case(en) || rest == format!("{en} ({ko})")
+            let hit = SECTIONS.iter().find(|(ko, en)| {
+                rest == *ko
+                    || rest.eq_ignore_ascii_case(en)
+                    || rest == format!("{en} ({ko})")
+                    || rest == format!("{ko} ({en})")
             });
             let fixed = match hit {
-                Some((ko, en)) => {
-                    let canon = format!("### {ko} ({en})");
+                Some((ko, _)) => {
+                    let canon = sections::heading(ko, lang);
                     if l != canon {
                         notes.push(format!("heading '{l}' → '{canon}'"));
                     }
@@ -175,10 +167,11 @@ pub fn normalize(body: &str) -> (String, Vec<String>) {
             let t = l.trim_start();
             let lead = &l[..l.len() - t.len()];
             let mut fixed = None;
-            for old in [format!("- {INTERP_LABEL_LEGACY}:"), "- Prediction match:".to_string()] {
+            for old in [INTERP_LEGACY, INTERP_KO, INTERP_EN].into_iter().filter(|x| *x != target) {
+                let old = format!("- {old}:");
                 if let Some(v) = t.strip_prefix(&old) {
-                    notes.push(format!("interpretation label '{old}' → '- {INTERP_LABEL}:'"));
-                    fixed = Some(format!("{lead}- {INTERP_LABEL}:{v}"));
+                    notes.push(format!("interpretation label '{old}' → '- {target}:'"));
+                    fixed = Some(format!("{lead}- {target}:{v}"));
                     break;
                 }
             }
@@ -278,7 +271,7 @@ fn keys_of(body: &str) -> Vec<String> {
 }
 
 /// 본문(바로잡은 뒤) 공통 검사: 제목 줄 금지, 정본 절 이름, Phase 혼합. 반환 = 이 본문의 Phase(1 또는 2).
-fn common_checks(body: &str, problems: &mut Vec<String>) -> Option<u8> {
+fn common_checks(body: &str, lang: LogLang, problems: &mut Vec<String>) -> Option<u8> {
     for (n, l) in body.lines().enumerate() {
         if l.starts_with("# ") || l.starts_with("## ") {
             problems.push(format!(
@@ -292,7 +285,9 @@ fn common_checks(body: &str, problems: &mut Vec<String>) -> Option<u8> {
     for k in &keys {
         if !PHASE1.contains(&k.as_str()) && !PHASE2.contains(&k.as_str()) {
             problems.push(format!(
-                "non-canonical heading '### {k}' — canonical: 배경/목표/조건/가설/예상 (Phase 1), 관찰/해석/교훈/생성 파일/시행착오 (Phase 2)"
+                "non-canonical heading '### {k}' — canonical: {} (Phase 1), {} (Phase 2)",
+                sections::names(&PHASE1, lang),
+                sections::names(&PHASE2, lang)
             ));
         }
     }
@@ -312,11 +307,15 @@ fn common_checks(body: &str, problems: &mut Vec<String>) -> Option<u8> {
     }
 }
 
-fn required(body: &str, req: &[&str], phase: u8, problems: &mut Vec<String>) {
+fn required(body: &str, req: &[&str], phase: u8, lang: LogLang, problems: &mut Vec<String>) {
     let keys = keys_of(body);
     for k in req {
         if !keys.iter().any(|x| x == k) {
-            problems.push(format!("missing '### {k}' — Phase {phase} needs {} (LogConvention §5.1)", req.join(", ")));
+            problems.push(format!(
+                "missing '### {}' — Phase {phase} needs {} (LogConvention §5.1)",
+                sections::name(k, lang),
+                req.iter().map(|x| sections::name(x, lang)).collect::<Vec<_>>().join(", ")
+            ));
         }
     }
 }
@@ -390,8 +389,9 @@ pub fn run_trial_new(root: &Path, opts: &TrialNewOptions) -> Result<TrialResult,
     if opts.body.is_some() && title.is_none() {
         return Err(SessionError::Rejected(vec!["--from needs a trial title: elf trial new \"<title>\" --from <file>".into()]));
     }
-    let title = title.unwrap_or("[작업 제목]");
-    let (p1_tpl, _) = template_parts();
+    let lang = LogLang::of(root);
+    let title = title.unwrap_or(lang.title_placeholder());
+    let (p1_tpl, _) = template_parts(lang);
     let p1_tpl = p1_tpl.replace("S{NNN}", &target.id);
     let stub = format!("## {trial_id}: {title}\n{}\n\n{p1_tpl}\n", TrialMeta::default().render());
     match &opts.body {
@@ -412,16 +412,16 @@ pub fn run_trial_new(root: &Path, opts: &TrialNewOptions) -> Result<TrialResult,
         Some(raw) => {
             // new 다음 write와 같음 — 검사를 먼저 해서, 거부되면 trial도 만들지 않음
             let (handoff, body) = split_input(raw).map_err(SessionError::Rejected)?;
-            let (body, normalized) = normalize(&body);
+            let (body, normalized) = normalize(&body, lang);
             let mut problems = Vec::new();
-            let phase = common_checks(&body, &mut problems);
+            let phase = common_checks(&body, lang, &mut problems);
             if phase == Some(2) {
                 problems.push("`elf trial new --from` takes Phase 1 sections; Phase 2 goes in `elf trial write` after the run".into());
             }
-            required(&body, &PHASE1_REQUIRED, 1, &mut problems);
+            required(&body, &PHASE1_REQUIRED, 1, lang, &mut problems);
             let text = format!("## {trial_id}: {title}\n\n{body}\n");
-            problems.extend(trial_structure_findings(&text));
-            problems.extend(unfilled_template_findings(&text, trial_template()));
+            problems.extend(trial_structure_findings(&text, lang));
+            problems.extend(unfilled_template_findings(&text, lang));
             if !problems.is_empty() {
                 return Err(SessionError::Rejected(problems));
             }
@@ -461,8 +461,9 @@ pub fn run_trial_write(root: &Path, opts: &TrialWriteOptions) -> Result<TrialRes
             None => return Err(SessionError::Rejected(vec![format!("{} has no trial yet — start one with `elf trial new \"<title>\" --from <file>`", target.id)])),
         },
     };
+    let lang = LogLang::of(root);
     let (handoff, body) = split_input(&opts.body).map_err(SessionError::Rejected)?;
-    let (body, normalized) = normalize(&body);
+    let (body, normalized) = normalize(&body, lang);
 
     let lines: Vec<&str> = content.split('\n').collect();
     let (hi, end) = trial_span(&lines, &trial_id).ok_or_else(|| SessionError::NotFound(format!("{} {trial_id}", target.id)))?;
@@ -475,7 +476,7 @@ pub fn run_trial_write(root: &Path, opts: &TrialWriteOptions) -> Result<TrialRes
     let since = meta.p1_last.as_deref().and_then(epoch);
 
     let mut problems = Vec::new();
-    let phase = common_checks(&body, &mut problems);
+    let phase = common_checks(&body, lang, &mut problems);
     let now = opts.now.to_rfc3339();
     let new_block: String;
     match phase {
@@ -485,7 +486,7 @@ pub fn run_trial_write(root: &Path, opts: &TrialWriteOptions) -> Result<TrialRes
                     "{trial_id} already has Phase 2 — Phase 1 is fixed after the run; a change that reflects results is a new trial"
                 )]));
             }
-            required(&body, &PHASE1_REQUIRED, 1, &mut problems);
+            required(&body, &PHASE1_REQUIRED, 1, lang, &mut problems);
             if let Some(s) = since {
                 let newer = newer_outputs(root, &target.id, s, 5);
                 if !newer.is_empty() {
@@ -497,8 +498,8 @@ pub fn run_trial_write(root: &Path, opts: &TrialWriteOptions) -> Result<TrialRes
                 }
             }
             let text = format!("{title_line}\n\n{body}\n");
-            problems.extend(trial_structure_findings(&text));
-            problems.extend(unfilled_template_findings(&text, trial_template()));
+            problems.extend(trial_structure_findings(&text, lang));
+            problems.extend(unfilled_template_findings(&text, lang));
             meta.p1_first.get_or_insert_with(|| now.clone());
             meta.p1_last = Some(now.clone());
             meta.writes += 1;
@@ -511,16 +512,16 @@ pub fn run_trial_write(root: &Path, opts: &TrialWriteOptions) -> Result<TrialRes
                     "{trial_id} already has Phase 2 — a rerun is a new trial (LogConvention §2 trial and error)"
                 )]));
             }
-            required(&body, &PHASE2_REQUIRED, 2, &mut problems);
+            required(&body, &PHASE2_REQUIRED, 2, lang, &mut problems);
             let p1_keys = keys_of(&existing_text);
             for k in PHASE1_REQUIRED {
                 if !p1_keys.iter().any(|x| x == k) {
-                    problems.push(format!("{trial_id} has no '### {k}' — write Phase 1 first"));
+                    problems.push(format!("{trial_id} has no '### {}' — write Phase 1 first", sections::name(k, lang)));
                 }
             }
             let full = format!("{title_line}\n\n{}\n\n{body}\n", existing_text.trim_matches('\n'));
-            problems.extend(unfilled_template_findings(&full, trial_template()).into_iter().map(|f| format!("{f} (Phase 1 is still the template)")));
-            problems.extend(trial_structure_findings(&full));
+            problems.extend(unfilled_template_findings(&full, lang).into_iter().map(|f| format!("{f} (Phase 1 is still the template)")));
+            problems.extend(trial_structure_findings(&full, lang));
             if let Some(s) = since {
                 let viz = root.join(format!("6_Exp/64_Viz/{}", target.id));
                 let mut targets = extract_image_targets(&full);
@@ -537,8 +538,9 @@ pub fn run_trial_write(root: &Path, opts: &TrialWriteOptions) -> Result<TrialRes
                     missing.sort();
                     if !missing.is_empty() {
                         problems.push(format!(
-                            "figures created after Phase 1 are not embedded: {} — embed each in '### 관찰' with a Fig number and a one-line alt (or `<!-- noembed: name -->`)",
-                            missing.join(", ")
+                            "figures created after Phase 1 are not embedded: {} — embed each in '### {}' with a Fig number and a one-line alt (or `<!-- noembed: name -->`)",
+                            missing.join(", "),
+                            sections::name("관찰", lang)
                         ));
                     }
                 }
@@ -670,6 +672,20 @@ mod tests {
         let r2 = write(root, &p2, 12).unwrap();
         assert!(r2.normalized.iter().any(|n| n.contains("interpretation label")));
         assert!(log(root).contains("- 예상 일치 정도: 일치"));
+    }
+
+    #[test]
+    fn normalize_follows_project_language() {
+        // P017: 영어 프로젝트 = `### Goal`, 해석 라벨 `Prediction match`; 모르는 괄호 표기는 그대로
+        let body = "### 목표 (Goal)\n- a\n\n### 조건\n- b\n\n### hypothesis\n- c\n\n### 예상 (메모)\n- d\n\n### 해석 (Interpretation)\n- 예상 일치 정도: 일치\n";
+        let (out, notes) = normalize(body, LogLang::En);
+        assert!(out.contains("### Goal\n- a") && out.contains("### Conditions\n") && out.contains("### Hypothesis\n"), "{out}");
+        assert!(out.contains("### 예상 (메모)"), "{out}");
+        assert!(out.contains("### Interpretation\n- Prediction match: 일치"), "{out}");
+        assert_eq!(notes.len(), 5, "{notes:?}");
+        let (out, notes) = normalize("### Goal\n- a\n\n### 목표 (Goal)\n- b\n", LogLang::Ko);
+        assert_eq!(out, "### 목표 (Goal)\n- a\n\n### 목표 (Goal)\n- b");
+        assert_eq!(notes.len(), 1);
     }
 
     #[test]

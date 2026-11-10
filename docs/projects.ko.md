@@ -14,7 +14,7 @@ ELF 프로젝트를 만듭니다. **이름을 생략하면 현재 폴더를 그 
 | `--force` | 꺼짐 | 기존 파일도 덮어씀(기본은 사용자 파일 유지) |
 | `--preset <p>` | `full` | 모듈 구성: `full`(모든 모듈), `exp`(6_Exp, 7_Paper), `sw`(5_SW, 7_Paper), `minimal`(모듈 없음). 연구용 preset은 이름과 같은 주 모듈에 `paper`가 붙습니다. 2.26 이전 이름(`experimental`, `software`)도 받습니다. **`qa`**는 질문 아카이브 유형입니다(연구용 아님). `general` preset은 2.27에서 삭제되었으므로 `minimal`을 씁니다 |
 | `--modules <목록>` | 없음 | 모듈 직접 지정(쉼표로 구분): `hw,fab,sw,exp,paper`. `--preset`보다 우선하며, `.elf/config.json`에 `"preset": "custom"`과 모듈 목록으로 기록 |
-| `--lang <언어>` | `ko-KR` | AI 에이전트의 응답 언어, BCP-47 태그(`.elf/config.json`에 기록). 한국어가 아닌 태그(예: `en-US`)면 영어본 문서도 함께 설치(아래 참고) |
+| `--lang <언어>` | `ko-KR` | AI 에이전트의 응답 언어, BCP-47 태그(`.elf/config.json`에 기록). 영어 태그(`en-*`)면 영어 규칙 세트로 설치(아래 참고) |
 
 Core 폴더(`0_Meta`~`2_Log`)는 항상 만들고, 모듈 폴더(`3_HW`~`7_Paper`)는 preset이나 `--modules`에 따라 추가합니다. ELF 관리 규칙(규칙과 로그 형식 틀)은 `.elf/managed/`에 설치하고, `0_Meta/`에는 사용자 소유 파일(`ProjectRule.md`, 프로젝트별 추가 규칙)만 둡니다.
 
@@ -33,7 +33,7 @@ elf init my_questions --preset qa                          # Q&A bundle 아카�
 elf init my_questions --preset qa --categories 일상질문,IT일반질문   # 카테고리 미리 생성
 ```
 
-> **`--lang en-*`(영어본, 실험 기능).** 실제로 적용되는 규칙 문서는 한국어(`*.md`) 그대로입니다. AI는 항상 한국어 원본을 따르므로 언어와 상관없이 프로젝트 동작은 같습니다. 한국어가 아닌 `--lang`을 주면 사람이 읽을 영어본(`.elf/managed/EliRule.en.md` 등)을 함께 설치하고, 사용자 소유인 `README.md`, `ProjectRule.md`는 영어로 만듭니다. 영어본은 적용되지 않는 문서이며(`NOT OPERATIVE` 표기), 규칙을 바꿀 때는 영어본이 아니라 `ProjectRule.md`에 씁니다. `elf update`가 영어본을 맞추고, `elf check files`가 언어별 문서 상태를 보고합니다. 지금은 영어(`en`)만 제공하고, 다른 언어는 한국어를 씁니다.
+> **`--lang en-*`(영어 프로젝트).** 영어 프로젝트는 모든 것을 영어로 받습니다. 규칙 문서(`.elf/managed/EliRule.md`, `LogConvention.md` 등과 루트 `AGENTS.md`)는 같은 경로의 영어판이며, 그 프로젝트에서 AI 에이전트가 따르는 정본입니다. 세션과 trial 틀은 영어 절 제목(`### Conditions`, `Prediction match:`)을 쓰고, `.gitignore` 블록, `.editorconfig`, `CLAUDE.md`, 사용자 소유인 `README.md`, `ProjectRule.md`도 영어이며, elf가 쓰는 폐기 표기도 영어입니다. 새 영어 프로젝트에는 한국어가 남지 않습니다. elf는 이전의 한국어 우선 절 제목(`### 조건 (Conditions)`)도 같은 절로 읽으므로 이전 로그도 그대로 유효합니다. 기존 영어 프로젝트는 `elf update` 승인 뒤 이 세트로 옮겨집니다. 고치지 않은 규칙 파일은 교체하고, 고친 파일은 새 버전을 `.elf-new`로 옆에 두며, 이전 영어 사본(`*.en.md`)은 고치지 않았으면 지웁니다. 기존 `CLAUDE.md`는 바꾸지 않습니다. 규칙을 바꿀 때는 `ProjectRule.md`에 씁니다. 다른 언어는 한국어 세트를 씁니다.
 
 > **`qa` preset.** 연구용 폴더 구조 대신 *질문 아카이브* 유형을 만듭니다. 구성은 루트 `AGENTS.md`(운영 규칙 원본), `CLAUDE.md`(불러오기용 포인터), `0_Meta/ProjectRule.md`(이 프로젝트만의 규칙과 외부 반출 완화 선언. `elf update`가 바꾸지 않고, `AGENTS.md`와 충돌하면 이쪽이 우선), `templates/bundle_template.md`, `.elf/`입니다. **카테고리는 기본 0개**이며, `AGENTS.md` 규칙대로 필요할 때 만들거나 `--categories a,b,c`로 미리 만듭니다(각각 `archive/` 포함). Q&A는 session, trial, figure가 아닌 의미 단위 **bundle**로 기록합니다. `.elf/` 제어 영역은 함께 쓰고 manifest는 따로(`manifest.qa.json`) 두며, `elf update`로 규칙을 갱신합니다. 연구용 preset과는 별개입니다.
 
@@ -113,7 +113,7 @@ elf check                # 팀이나 CI의 통과 조건. issue가 있으면 exi
 
 | 구분 | 파일 | update 동작 |
 |------|------|-------------|
-| **Managed** | `.elf/managed/`(`EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`, 영어본), 루트 `.editorconfig`, `AGENTS.md` | 새 버전으로 교체. 사용자가 고친 파일은 **그대로 두고** 새 버전을 `<파일>.elf-new`로 만듦(`--force`면 덮어씀) |
+| **Managed** | `.elf/managed/`(`EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`), 루트 `.editorconfig`, `AGENTS.md` | 새 버전으로 교체. 사용자가 고친 파일은 **그대로 두고** 새 버전을 `<파일>.elf-new`로 만듦(`--force`면 덮어씀) |
 | **사용자 소유** | `0_Meta/`(`ProjectRule.md`, 프로젝트별 추가 규칙 `<이름>.project.md`), `README.md`, 모든 연구 데이터, 로그 | **건드리지 않음**(로그는 위 1회 이관만) |
 | **생성 파일** | `2_Log/S/Registry.md`, `2_Log/G/Registry.md`, `.vscode/settings.json`의 `explorer.fileNesting` 키(그 밖의 설정과 직접 둔 nesting 패턴은 사용자 소유) | 로그를 바꾸는 명령이 헤더에서 매번 다시 만듦. nesting은 종료된 로그를 한 줄에 하나씩 이어 적고(`"S001_log.md": "S002_log.md"`), 그 키 부분만 바꿔 씀. 세션을 닫을 때 diff는 1~2줄 |
 | **Hybrid** | `.gitignore` | 표시 블록(`# >>> ELF managed >>>`부터 `# <<< ELF managed <<<`까지)만 교체하고, 블록 밖의 사용자 규칙은 유지 |
@@ -127,7 +127,7 @@ elf check                # 팀이나 CI의 통과 조건. issue가 있으면 exi
 
 - `config.json`: 프로젝트 이름, 언어, preset(프로젝트 유형), 생성일
 - `manifest.json`: 프로젝트 manifest. 관리 파일 기록과 프로젝트를 마지막으로 갱신한 ELF 버전(`elf_version`). 2.28 이전에는 버전이 별도 `version` 파일에 있었음
-- `managed/`: 설치된 규칙(규칙, 영어본, 로그 형식 틀)
+- `managed/`: 설치된 규칙(규칙, 로그 형식 틀)
 - `baseline/`: hybrid 파일의 원본 사본(블록 안 편집 감지용)
 - `deprecated/`: 폐기한 내용의 압축 원문([내용 폐기](deprecate.ko.md)). git으로 추적
 - `runtime/`: 도구 임시 상태(autoread 표시, 이관 결정 파일). git 추적 밖

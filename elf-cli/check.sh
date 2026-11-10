@@ -13,7 +13,8 @@ if [ ! -f "$MANIFEST" ]; then
     exit 0
 fi
 
-drift=$(grep '"tier": "managed"' "$MANIFEST" | while IFS= read -r line; do
+# 언어 variant("lang" 있는 항목 — 영어 프로젝트용, 같은 dest)는 제외: 이 저장소 루트는 한국어 기본 배포의 사본 (v3.4).
+drift=$(grep '"tier": "managed"' "$MANIFEST" | grep -v '"lang":' | while IFS= read -r line; do
     src=$(printf '%s' "$line" | sed -n 's/.*"src": *"\([^"]*\)".*/\1/p')
     dest=$(printf '%s' "$line" | sed -n 's/.*"dest": *"\([^"]*\)".*/\1/p')
     [ -z "$src" ] && continue

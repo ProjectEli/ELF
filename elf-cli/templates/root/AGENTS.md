@@ -15,7 +15,7 @@
 ## 상시 의무 (요약)
 
 - **소통(EliRule §3 요약, 매 응답과 문서)**: `PROJECT_LANG`(`.elf/config.json`의 `lang`) 언어로 응답하고 기록. 사실과 수치로 쓰고, 인사, 칭찬, 감정 표현, 과장 수식어 없이 결론과 할 일을 먼저. 비유 대신 직접 용어. 한국어 문장 끝 = 명사형('-음', '-함', '-임')이나 간결한 '-다'. 이모지 쓰지 않음. 파일 목록과 조건은 표로. 약어는 첫 사용 때 원어 병기. 영어 글은 구체, 능동, 직접 서술(`.elf/managed/LLMcliche.md`). 인용은 신뢰 출처만(익명 편집 위키 제외), 웹 근거 답변에는 `## 출처`. 표기 = 나열은 쉼표, 곱하기 `×`, 첨자 `<sub>`, `<sup>`, micro `μ`.
-- **시작과 컨텍스트 재구성**: 새 세션을 시작하거나 컨텍스트가 재구성되면(compact, 재개 등) `.elf/managed/LogConvention.md` §0 핵심 요약과 진행 중 로그의 헤더(front matter)를 읽고, `elf check logs`로 미이행(미embed 등)을 확인한 뒤 이어감. `elf autoread`가 이 내용을 한 번에 출력함(Claude Code는 훅이 첫 프롬프트에 자동으로 넣음). 작업 관련 정본(`0_Meta/`)은 전문으로 재독 — 재구성은 미이행 상태와 규칙 인지의 추적을 함께 끊는 지점.
+- **시작과 컨텍스트 재구성**: 새 세션을 시작하거나 컨텍스트가 재구성되면(compact, 재개 등) `.elf/managed/LogConvention.md` §0 핵심 요약과 진행 중 로그의 헤더(front matter)를 읽고, `elf check logs`로 미이행(미embed 등)을 확인한 뒤 이어감. `elf autoread`가 이 내용을 한 번에 출력함(Claude Code는 훅이 첫 프롬프트에 자동으로 넣음). 작업 관련 정본(`.elf/managed/`의 규칙과 `0_Meta/ProjectRule.md`)은 전문으로 재독 — 재구성은 미이행 상태와 규칙 인지의 추적을 함께 끊는 지점.
 - **기록**: 산출물, 결론, 방향에 영향 주는 작업은 그 turn에 trial(`t##`)로 기록. 연구 = `2_Log/S/S###_log.md`, 규칙, 구조, 템플릿, 도구 설정 변경 = `2_Log/G/G###_log.md`.
 - **상태**: 로그의 상태는 헤더 `status`(`ongoing`, `complete`, `deprecated`)로 판단. 폴더 위치는 상태를 나타내지 않음.
 - **trial 쓰기 = 명령으로**: 시작 `elf trial new "<제목>" --from <Phase 1 파일>`, Phase 1 수정과 Phase 2는 `elf trial write [tNN] --from <파일>`(셸 escape 없이 추가, 파일 맨 앞 YAML 블록 `handoff: '…'`이 있으면 헤더 handoff 교체). 로그 손 편집은 내용 절의 오탈자 정도로 자제(구조는 `elf check logs`가 감사). CLI 미설치 시 `.elf/managed/templates/trialTemplate.md` 수동 복사. (LogConvention §5.1)
@@ -28,7 +28,7 @@
 
 ## 소유권과 우선순위
 
-- ELF 관리 파일(`.elf/managed/`의 EliRule, LogConvention, AI_PARA_Framework, highIFjournals, LLMcliche, `templates/*`와 companion, 본 파일) **직접 수정 금지** — `elf update`가 교체(편집 시 `.elf-new` 병기). 커스터마이즈, 예외 선언은 `0_Meta/ProjectRule.md`.
+- ELF 관리 파일(`.elf/managed/`의 EliRule, LogConvention, AI_PARA_Framework, highIFjournals, LLMcliche, `templates/*`, 본 파일) **직접 수정 금지** — `elf update`가 교체(편집 시 `.elf-new` 병기). 커스터마이즈, 예외 선언은 `0_Meta/ProjectRule.md`.
 - `0_Meta/` = 프로젝트 전용(사용자 영역): ProjectRule, data overlay, 프로젝트 재량 — `elf update` 미접근.
 - data 파일(LLMcliche, highIFjournals)의 항목 커스터마이즈 = project overlay `0_Meta/<이름>.project.md`(사용자 소유) — base와 **병행 로드**, 유효 규칙 = base ⊕ overlay(추가 / 제외[사유 필수] / 재정의). 규약: EliRule §2.7.
 - 규칙 충돌 시 우선순위: `0_Meta/ProjectRule.md`(프로젝트 특화) > 정본 일반 규칙(`.elf/managed/*`) > 본 요약 > 상위 디렉토리, 전역 에이전트 규칙.

@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use crate::embed;
 use crate::header::{self, Header, Status};
 use crate::logs::{self, Series};
+use crate::sections::LogLang;
 
 #[derive(Debug)]
 pub enum SessionError {
@@ -52,17 +53,29 @@ pub fn has_session_records(root: &Path) -> bool {
     !logs::scan_all(root).is_empty() || !logs::legacy_markers(root).is_empty()
 }
 
-/// 내장 sessionTemplate 원문.
-pub fn template_text() -> &'static str {
+/// 내장 sessionTemplate 원문. 영어(`en`) 프로젝트 = `sessionTemplate.en.md`, 그 밖 = `sessionTemplate.md`(P017).
+pub fn template_text(lang: LogLang) -> &'static str {
+    let path = match lang {
+        LogLang::Ko => "log/sessionTemplate.md",
+        LogLang::En => "log/sessionTemplate.en.md",
+    };
     embed::TEMPLATES
-        .get_file("log/sessionTemplate.md")
+        .get_file(path)
         .and_then(|f| f.contents_utf8())
         .expect("sessionTemplate embedded (gated by tests)")
 }
 
+/// sessionTemplate 제목 placeholder.
+fn title_placeholder(lang: LogLang) -> &'static str {
+    match lang {
+        LogLang::Ko => "[세션 제목]",
+        LogLang::En => "[session title]",
+    }
+}
+
 /// 내장 sessionTemplate의 헤더 뒤 본문(제목 줄과 규범 주석).
-fn template_body() -> &'static str {
-    let tpl = template_text();
+fn template_body(lang: LogLang) -> &'static str {
+    let tpl = template_text(lang);
     match header::parse(tpl) {
         Ok((_, at)) => &tpl[at..],
         Err(_) => tpl,
@@ -116,7 +129,8 @@ pub fn run_session_new(root: &Path, opts: &SessionNewOptions) -> Result<SessionN
         )));
     };
     let h = Header::new(&opts.date, &opts.goal);
-    let body = template_body().replace("S{NNN}", &id).replace("[세션 제목]", opts.title.trim());
+    let lang = LogLang::of(root);
+    let body = template_body(lang).replace("S{NNN}", &id).replace(title_placeholder(lang), opts.title.trim());
     file.write_all(format!("{}{}", header::render(&h), body).as_bytes())?;
     drop(file);
     let warnings = logs::refresh(root)?;
@@ -140,6 +154,8 @@ pub struct CloseResult {
 
 /// 종료 파일 예(거부 메시지에 함께 출력).
 pub const CLOSE_FILE_EXAMPLE: &str = "---\nconclusion: '현재 유효한 최종 결론'\nuser_note: '사용자 원문(건너뛰면 빈 값)'\nhandoff: ''\n---";
+/// 영어 프로젝트의 종료 파일 예시(v3.4, S050 t02).
+pub const CLOSE_FILE_EXAMPLE_EN: &str = "---\nconclusion: 'the final conclusion that holds now'\nuser_note: 'the user''s own words (empty if skipped)'\nhandoff: ''\n---";
 
 /// `elf session close --from <파일>`: status complete, conclusion(필수), user_note, handoff 기록. 파일은 옮기지 않음.
 pub fn run_session_close(root: &Path, opts: &CloseOptions) -> Result<CloseResult, SessionError> {
@@ -159,7 +175,10 @@ pub fn run_session_close(root: &Path, opts: &CloseOptions) -> Result<CloseResult
         return Err(SessionError::Rejected(vec![
             "a conclusion is required: elf session close --from <file>".into(),
             approval.into(),
-            format!("file example:\n{CLOSE_FILE_EXAMPLE}"),
+            format!(
+                "file example:\n{}",
+                if LogLang::of(root) == LogLang::En { CLOSE_FILE_EXAMPLE_EN } else { CLOSE_FILE_EXAMPLE }
+            ),
         ]));
     };
     let (pairs, rest) = header::split_block(raw).map_err(|e| SessionError::Rejected(vec![e]))?;
@@ -446,9 +465,11 @@ mod tests {
 
     #[test]
     fn template_has_yaml_header_and_body() {
-        let tpl = embed::TEMPLATES.get_file("log/sessionTemplate.md").unwrap().contents_utf8().unwrap();
-        assert!(header::parse(tpl).is_ok());
-        assert!(template_body().starts_with("# S{NNN}: [세션 제목]"));
+        for lang in [LogLang::Ko, LogLang::En] {
+            assert!(header::parse(template_text(lang)).is_ok());
+        }
+        assert!(template_body(LogLang::Ko).starts_with("# S{NNN}: [세션 제목]"));
+        assert!(template_body(LogLang::En).starts_with("# S{NNN}: [session title]"));
     }
 
     #[test]

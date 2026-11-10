@@ -53,7 +53,7 @@ fn clean_project_all_ok_no_warnings() {
 }
 
 #[test]
-fn en_project_reports_i18n_companions_info() {
+fn en_project_reports_english_rule_set_info() {
     let tmp = tempdir().unwrap();
     let root = run_init(
         tmp.path(),
@@ -70,7 +70,8 @@ fn en_project_reports_i18n_companions_info() {
     let r = run_doctor(&root, &env(true));
     let c = check(&r, "i18n");
     assert_eq!(c.health, Health::Info, "{:?}", r.checks);
-    assert!(c.detail.contains("companion") && c.detail.contains("operative source = *.md"));
+    assert!(c.detail.contains("managed file(s) in this language") && c.detail.contains("canonical in this project"), "{}", c.detail);
+    assert!(!r.checks.iter().any(|c| c.detail.contains("translation copies")), "no leftovers in a new project");
     assert_eq!(r.warnings(), 0, "{:?}", r.checks); // i18n은 Info — 경고 증가 없음
 }
 

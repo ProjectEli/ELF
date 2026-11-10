@@ -59,7 +59,7 @@ ELF is used together with an AI agent such as Claude Code or Codex. To use it wi
    cd MyProject
    ```
 
-   This prints `[elf] created MyProject (ELF v3.3.0, preset: exp, lang: en-US)` and creates the folder structure, `AGENTS.md` (the rule summary the agent reads first), and `2_Log/S/` (where session logs go). The agent starts by reading `AGENTS.md`, so there is nothing else to set up. `--lang en-US` makes the agent answer in English and adds English copies of the rule documents for reading; the operative rules are Korean. Presets, languages, and the files created are covered in [Creating and updating projects](docs/projects.md).
+   This prints `[elf] created MyProject (ELF v3.4.0, preset: exp, lang: en-US)` and creates the folder structure, `AGENTS.md` (the rule summary the agent reads first), and `2_Log/S/` (where session logs go). The agent starts by reading `AGENTS.md`, so there is nothing else to set up. `--lang en-US` makes the agent answer in English and adds English copies of the rule documents for reading; the operative rules are Korean. Presets, languages, and the files created are covered in [Creating and updating projects](docs/projects.md).
 
 3. Open the project folder in your agent and ask it to start a session.
 
@@ -94,31 +94,31 @@ The t02 the agent writes in step 5:
 ```markdown
 ## t02: photons 1e9
 
-### 목표 (Goal)
+### Goal
 - Raise t01's photon count 1e8 → 1e9 to check that the 810 nm lead is not sampling noise
 
-### 조건 (Conditions)
+### Conditions
 - base = t01, delta = photons 1e8 → 1e9 (reason: 810 and 940 nm confidence intervals overlap in t01)
 
-### 가설 (Hypothesis)
+### Hypothesis
 - Less noise narrows the intervals; the ranking holds
 
-### 예상 (Prediction)
+### Prediction
 - 810 nm keeps the lead; interval width ≤ 1/3
 - Output: `S001_t02_SNR_ci.png`
 
-### 관찰 (Observation)
+### Observation
 - 810 nm keeps the lead; interval width 0.28×
 - ![S001_t02: SNR by wavelength, 1e9 photons](../../6_Exp/64_Viz/S001/S001_t02_SNR_ci.png)
 
-### 해석 (Interpretation)
-- 예상 일치 정도: match
+### Interpretation
+- Prediction match: match
 - The overlap at 1e8 was sampling noise
 
-### 교훈 (Lessons)
+### Lessons
 - Ranking calls need 1e9 photons or more
 
-### 생성 파일 (Files)
+### Files
 
 | Type | File |
 |------|------|
@@ -126,6 +126,8 @@ The t02 the agent writes in step 5:
 | Output | `6_Exp/61_Sim/Data/S001/S001_t02_results.mat` |
 | Figure | `6_Exp/64_Viz/S001/S001_t02_SNR_ci.png` |
 ```
+
+This is an English project (`--lang en-US`). A Korean project writes the same sections with Korean-first headings (`### 목표 (Goal)`).
 
 ## How it works
 

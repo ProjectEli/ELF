@@ -1,11 +1,5 @@
 # LLMcliche: LLM Cliché Ban Reference
 
-> **INFORMATIVE TRANSLATION — NOT OPERATIVE.**
-> Authoritative source: `LLMcliche.md` (Korean). The AI agent operates from the Korean
-> original, not this file; this English version is for human reading only.
-> To customize project rules, edit `ProjectRule.md` (not this file). See
-> `AI_PARA_Framework.md` §1.1.
-
 > **Status**: this document is a **non-exhaustive, non-binding reference** that helps
 > apply the *principle* of `EliRule.md §3 rule 11` (LLM Cliché Ban). **Not a fixed
 > whitelist/blacklist** — an unlisted word is still excluded if it reads as cliché, and a

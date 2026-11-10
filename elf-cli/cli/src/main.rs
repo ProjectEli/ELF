@@ -142,7 +142,7 @@ enum Commands {
         /// trial 단위 / one trial (e.g. t03) — leaves the numbered heading and a marker line
         #[arg(long, value_name = "tNN")]
         trial: Option<String>,
-        /// 절 단위 / one section of --trial (e.g. 해석) — the heading goes with the body
+        /// 절 단위 / one section of --trial (e.g. 해석 or Interpretation) — the heading goes with the body
         #[arg(long, value_name = "NAME", requires = "trial")]
         section: Option<String>,
         /// 표시 블록 / the block wrapped in <!-- deprecate:begin --> … <!-- deprecate:end -->
@@ -1031,6 +1031,8 @@ fn main() {
                     trial::run_trial_write(&root, &trial::TrialWriteOptions { trial: t, session: sess, date, body, now })
                 }
             };
+            let lang = elf_cli::sections::LogLang::of(&root);
+            let sec = |k: &str| elf_cli::sections::name(k, lang).to_string();
             match result {
                 Ok(r) => {
                     for w in &r.warnings {
@@ -1042,7 +1044,10 @@ fn main() {
                     match r.phase {
                         0 => {
                             println!("[elf] appended {} to {} ({}) — Phase 1 template", r.trial, r.log_rel, r.session);
-                            println!("[elf] next: fill Phase 1 (목표/조건/가설/예상), or write it to a file and run `elf trial write --from <file>`; stop before running (LogConvention §5.1)");
+                            println!(
+                                "[elf] next: fill Phase 1 ({}), or write it to a file and run `elf trial write --from <file>`; stop before running (LogConvention §5.1)",
+                                elf_cli::sections::names(&trial::PHASE1_REQUIRED, lang)
+                            );
                         }
                         1 => {
                             println!(
@@ -1050,7 +1055,11 @@ fn main() {
                                 r.trial, r.log_rel, r.session, r.writes
                             );
                             println!("[elf] next: stop — show Phase 1 to the user and get confirmation; revise with `elf trial write --from <file>`; run only after approval (LogConvention §5.1)");
-                            println!("[elf] note: list expected figures in 예상, and embed each into `### 관찰` the moment it is created — a table path is not an embed; sub-agent outputs included (LogConvention §2)");
+                            println!(
+                                "[elf] note: list expected figures in {}, and embed each into `### {}` the moment it is created — a table path is not an embed; sub-agent outputs included (LogConvention §2)",
+                                sec("예상"),
+                                sec("관찰")
+                            );
                         }
                         _ => {
                             println!("[elf] {} Phase 2 written to {} ({})", r.trial, r.log_rel, r.session);

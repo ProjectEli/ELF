@@ -17,13 +17,13 @@
 - 상태 폴더(`Archive/`)는 평탄함(하위 폴더 없음). 파일명은 이동해도 바뀌지 않음.
 - 폐기 여부는 사용자가 결정함. 에이전트는 후보와 사유를 제시하고, 사용자의 지시나 승인이 있은 뒤 `elf deprecate`로 실행함. 형식, 절차는 `.elf/managed/LogConvention.md` §6.
 
-### 1.1 정보용 companion (Informative Companion)
+### 1.1 프로젝트 언어별 규칙 문서 (Rule documents per project language)
 
-`*.en.md`(일반화 `*.<lang>.md`) 형식 파일은 거버넌스 문서의 **정보용 번역(read-only human companion)**임 — 국제 사용자의 *독해*용이며 operative source가 아님. operative 정본은 항상 동명 `*.md`(PROJECT_LANG 정본, 기본 한국어)임.
+규칙 문서는 프로젝트마다 한 언어로 한 벌만 배포됨: 영어(`en`) 프로젝트 = 영어 규칙 문서, 그 밖 = 한국어 규칙 문서. 파일 이름과 경로는 언어와 무관하게 같음(`.elf/managed/EliRule.md` 등). 다른 언어 번역본(`*.en.md` 등)을 따로 두지 않음.
 
-*   **AI 동작 규칙**: AI는 규칙, 구조, 지시를 **`*.md` 정본에서만** 취함. `*.en.md`는 동작 근거로 삼지 않음(읽더라도 규칙 source 아님). 정본과 companion이 충돌하면 **`*.md` 정본 우선**.
-*   **커스터마이즈 방법**: 프로젝트 규칙 변경은 **`ProjectRule.md`(사용자 소유, operative, 프로젝트 언어)**에 작성함 — managed 정본이나 companion을 직접 편집하지 않음(managed는 `elf update`가 교체, companion 편집은 무효).
-*   **효과**: operative 버전을 정본 하나로 고정하여 번역 차이가 AI 동작을 바꾸지 못하게 함. 국제 사용자도 ProjectRule로 자기 언어로 override 가능.
+*   **AI 동작 규칙**: AI는 그 프로젝트에 배포된 규칙 문서를 정본으로 따름. 다른 언어판은 동작 근거로 삼지 않음.
+*   **커스터마이즈 방법**: 프로젝트 규칙 변경은 **`ProjectRule.md`(사용자 소유, 프로젝트 언어)**에 작성함 — managed 정본을 직접 편집하지 않음(`elf update`가 교체, 편집한 파일은 `.elf-new` 병기).
+*   **효과**: 한 프로젝트에 정본이 하나라 언어판 사이의 차이가 한 프로젝트 안에서 충돌하지 않음.
 
 ---
 

@@ -11,6 +11,7 @@ use std::path::Path;
 
 use crate::header::{self, Status};
 use crate::logs::{self, Series};
+use crate::sections::{self, INTERP_EN, INTERP_KO, INTERP_LEGACY, LogLang};
 
 #[derive(Debug, Default)]
 pub struct ValidateReport {
@@ -180,31 +181,32 @@ pub fn noembed_filenames(content: &str) -> BTreeSet<String> {
 // 문체, 내용 수준 규칙은 검사하지 않음(기계 판정 불가, 정본↔검사기 동기 부채 방지).
 // 활성 로그 전용 — Archive 제외(소급 정책 §2: 신규 작성분부터 적용).
 
-/// 해석 절 첫 줄 라벨(v2.24) — `예상 일치 정도: 일치 / 부분 일치 / 불일치`.
-pub const INTERP_LABEL: &str = "예상 일치 정도";
-/// 이전 라벨(≤ v2.23) — 기존 로그는 계속 유효(소급 정책).
-pub const INTERP_LABEL_LEGACY: &str = "가설 적중 여부";
-
 /// 코어 절의 정본 순서 (배경=0 … 생성 파일=8). `시행착오`는 위치 자유(순서 검사 제외).
 pub(crate) const TRIAL_SECTIONS: [&str; 9] =
     ["배경", "목표", "조건", "가설", "예상", "관찰", "해석", "교훈", "생성 파일"];
 
-/// `### 헤딩 (Gloss)` → 한국어 키("생성 파일" 등 공백 포함). `### ` 아닌 줄은 None.
+/// `### 헤딩 (Gloss)` → 한국어 키("생성 파일" 등 공백 포함). 영어 표기(`### Conditions`, `### Conditions (조건)`)도
+/// 같은 키(P017). 모르는 이름은 그대로. `### ` 아닌 줄은 None.
 pub(crate) fn section_key(line: &str) -> Option<&str> {
     let rest = line.trim_end_matches('\r').strip_prefix("### ")?;
     let key = match rest.find(" (") {
         Some(i) => &rest[..i],
         None => rest,
-    };
-    Some(key.trim())
+    }
+    .trim();
+    Some(match sections::key_of(key) {
+        Some(k) => k,
+        None => key,
+    })
 }
 
-/// 로그 본문의 trial 구조 발견 사항(순수). 메시지는 trial id 포함, 파일명은 호출자가 접두.
-pub fn trial_structure_findings(content: &str) -> Vec<String> {
+/// 로그 본문의 trial 구조 발견 사항(순수). 메시지는 trial id 포함, 파일명은 호출자가 접두. 절 이름은 `lang` 표기.
+pub fn trial_structure_findings(content: &str, lang: LogLang) -> Vec<String> {
     let mut out = Vec::new();
     // trial 블록 분할: `## tNN:` ~ 다음 `## `
     let mut current: Option<(String, Vec<String>)> = None; // (trial id, 헤딩 키 순서)
     let mut interp_pending = false; // 해석 헤딩 직후 첫 내용 줄 검사 대기
+    let nm = |k: &str| sections::name(k, lang).to_string();
 
     let flush = |trial: &str, keys: &[String], out: &mut Vec<String>| {
         // ② 코어 절 순서 (등장한 것들끼리 단조 증가 — 시행착오 등 비코어는 제외)
@@ -215,8 +217,9 @@ pub fn trial_structure_findings(content: &str) -> Vec<String> {
                 && idx < prev
             {
                 out.push(format!(
-                    "{trial}: '### {k}' out of canonical order (after '### {}') — spec: LogConvention §2",
-                    TRIAL_SECTIONS[prev]
+                    "{trial}: '### {}' out of canonical order (after '### {}') — spec: LogConvention §2",
+                    nm(k),
+                    nm(TRIAL_SECTIONS[prev])
                 ));
             }
             last = Some(last.map_or(idx, |p| p.max(idx)));
@@ -225,7 +228,10 @@ pub fn trial_structure_findings(content: &str) -> Vec<String> {
         let has = |k: &str| keys.iter().any(|x| x == k);
         if has("관찰") && (!has("가설") || !has("예상")) {
             out.push(format!(
-                "{trial}: has '### 관찰' but missing '### 가설'/'### 예상' — Phase 1 sections are written before execution (LogConvention §5.1)"
+                "{trial}: has '### {}' but missing '### {}'/'### {}' — Phase 1 sections are written before execution (LogConvention §5.1)",
+                nm("관찰"),
+                nm("가설"),
+                nm("예상")
             ));
         }
     };
@@ -251,19 +257,25 @@ pub fn trial_structure_findings(content: &str) -> Vec<String> {
         if let Some(key) = section_key(l) {
             // ① 비정본 헤딩
             if !TRIAL_SECTIONS.contains(&key) && key != "시행착오" {
+                let all: Vec<&str> = sections::SECTIONS.iter().map(|(ko, _)| *ko).collect();
                 out.push(format!(
-                    "{trial}: non-canonical heading '### {key}' — canonical: 배경/목표/조건/가설/예상/관찰/해석/교훈/생성 파일/시행착오 (LogConvention §2)"
+                    "{trial}: non-canonical heading '### {key}' — canonical: {} (LogConvention §2)",
+                    sections::names(&all, lang)
                 ));
             }
             interp_pending = key == "해석";
             keys.push(key.to_string());
             continue;
         }
-        // ③ 해석 첫 내용 줄 = `예상 일치 정도: …` (v2.24 — 이전 라벨 `가설 적중 여부`도 인식: 기존 로그 유효)
+        // ③ 해석 첫 내용 줄 = `예상 일치 정도: …` 또는 `Prediction match: …`(언어 무관 인정, P017).
+        //    이전 라벨 `가설 적중 여부`도 인식: 기존 로그 유효.
         if interp_pending && !l.trim().is_empty() {
-            if !l.contains(INTERP_LABEL) && !l.contains(INTERP_LABEL_LEGACY) {
+            if !l.contains(INTERP_KO) && !l.contains(INTERP_EN) && !l.contains(INTERP_LEGACY) {
                 out.push(format!(
-                    "{trial}: '### 해석' must start with '{INTERP_LABEL}: 일치/부분 일치/불일치' (LogConvention §2; the older '{INTERP_LABEL_LEGACY}' line is still accepted)"
+                    "{trial}: '### {}' must start with '{}: {}' (LogConvention §2; the older '{INTERP_LEGACY}' line is still accepted)",
+                    nm("해석"),
+                    lang.interp_label(),
+                    lang.interp_values()
                 ));
             }
             interp_pending = false;
@@ -275,18 +287,20 @@ pub fn trial_structure_findings(content: &str) -> Vec<String> {
     out
 }
 
-/// 내장 정본 trialTemplate(빌드 시 embed — 테스트가 존재 보증).
-pub(crate) fn trial_template() -> &'static str {
-    crate::embed::TEMPLATES
-        .get_file("log/trialTemplate.md")
-        .and_then(|f| f.contents_utf8())
-        .unwrap_or("")
+/// 내장 정본 trialTemplate(빌드 시 embed — 테스트가 존재 보증). 영어(`en`) 프로젝트 = `trialTemplate.en.md`,
+/// 그 밖 = `trialTemplate.md`(P017).
+pub(crate) fn trial_template(lang: LogLang) -> &'static str {
+    let path = match lang {
+        LogLang::Ko => "log/trialTemplate.md",
+        LogLang::En => "log/trialTemplate.en.md",
+    };
+    crate::embed::TEMPLATES.get_file(path).and_then(|f| f.contents_utf8()).unwrap_or("")
 }
 
 /// Phase 1 절 — 실행 전에 채워야 하는 절(Phase 2 절은 Phase 2 대기 trial에 템플릿 문구가 정상적으로 남음).
 pub(crate) const PHASE1_SECTIONS: [&str; 4] = ["목표", "조건", "가설", "예상"];
-/// trialTemplate 제목 placeholder (`elf trial new`를 제목 없이 실행하면 남음).
-const TITLE_PLACEHOLDER: &str = "[작업 제목]";
+/// 두 언어 틀(빈 틀 판정은 언어와 무관 — 언어를 바꾼 프로젝트의 옛 틀 문구도 찾음).
+const LANGS: [LogLang; 2] = [LogLang::Ko, LogLang::En];
 
 /// 절 키 → 그 절의 비어 있지 않은 줄들(trim). 줄 단위 상태 기계 — `## `에서 trial 경계.
 fn section_lines(body: &[&str]) -> Vec<(String, Vec<String>)> {
@@ -304,13 +318,23 @@ fn section_lines(body: &[&str]) -> Vec<(String, Vec<String>)> {
     out
 }
 
-/// 빈 틀 발견 사항(순수) — 활성 로그의 trial 중 (1) 제목이 `[작업 제목]` (2) Phase 1 절의 내용이
-/// 정본 trialTemplate의 같은 절 문구로만 이루어진 경우. 판정 = 템플릿 줄과 정확히 일치(결정적).
-/// 템플릿 문구가 일부 남아도 사용자가 쓴 줄이 있으면 채운 것으로 봄(안내 줄 잔존은 경고 대상 아님).
-pub fn unfilled_template_findings(content: &str, template: &str) -> Vec<String> {
-    let tpl_lines: Vec<&str> = template.lines().collect();
-    let tpl: Vec<(String, Vec<String>)> = section_lines(&tpl_lines);
-    let tpl_of = |key: &str| -> Option<&Vec<String>> { tpl.iter().find(|(k, _)| k == key).map(|(_, v)| v) };
+/// 빈 틀 발견 사항(순수) — 활성 로그의 trial 중 (1) 제목이 틀 placeholder(`[작업 제목]`, `[task title]`) (2) Phase 1
+/// 절의 내용이 정본 trialTemplate(한영 어느 쪽이든)의 같은 절 문구로만 이루어진 경우. 판정 = 템플릿 줄과 정확히
+/// 일치(결정적). 템플릿 문구가 일부 남아도 사용자가 쓴 줄이 있으면 채운 것으로 봄(안내 줄 잔존은 경고 대상 아님).
+/// 메시지의 절 이름은 `lang` 표기.
+pub fn unfilled_template_findings(content: &str, lang: LogLang) -> Vec<String> {
+    let tpls: Vec<Vec<(String, Vec<String>)>> = LANGS
+        .iter()
+        .map(|l| {
+            let lines: Vec<&str> = trial_template(*l).lines().collect();
+            section_lines(&lines)
+        })
+        .collect();
+    let only_template = |key: &str, body: &[String]| -> bool {
+        tpls.iter().any(|tpl| {
+            tpl.iter().find(|(k, _)| k == key).is_some_and(|(_, tl)| body.iter().all(|x| tl.contains(x)))
+        })
+    };
 
     let mut out = Vec::new();
     let lines: Vec<&str> = content.lines().collect();
@@ -332,18 +356,17 @@ pub fn unfilled_template_findings(content: &str, template: &str) -> Vec<String> 
         if is_trial {
             let id: String = rest.chars().take_while(|c| *c != ':').collect();
             let title = rest.split_once(':').map(|(_, x)| x.trim()).unwrap_or("");
-            if title == TITLE_PLACEHOLDER {
-                out.push(format!("{id}: title is still the template placeholder '{TITLE_PLACEHOLDER}' — give the trial a title"));
+            if let Some(ph) = LANGS.iter().map(|l| l.title_placeholder()).find(|p| title == *p) {
+                out.push(format!("{id}: title is still the template placeholder '{ph}' — give the trial a title"));
             }
             for (key, body) in section_lines(&lines[start..end]) {
                 if !PHASE1_SECTIONS.contains(&key.as_str()) || body.is_empty() {
                     continue;
                 }
-                if let Some(tl) = tpl_of(&key)
-                    && body.iter().all(|x| tl.contains(x))
-                {
+                if only_template(&key, &body) {
                     out.push(format!(
-                        "{id}: '### {key}' still holds only the template text — fill it in before execution (LogConvention §5.1)"
+                        "{id}: '### {}' still holds only the template text — fill it in before execution (LogConvention §5.1)",
+                        sections::name(&key, lang)
                     ));
                 }
             }
@@ -393,6 +416,7 @@ pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
     }
 
     let mut structure_hit = false;
+    let lang = LogLang::of(root);
     for s in Series::ALL {
         let logs = logs::scan(root, s);
         for name in logs::malformed_names(root, s) {
@@ -454,11 +478,11 @@ pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
                 }
             }
             if matches!(&parsed, Ok((h, _)) if h.status == Status::Ongoing) {
-                for f in trial_structure_findings(&content) {
+                for f in trial_structure_findings(&content, lang) {
                     structure_hit = true;
                     report.warn(format!("{fname}: {f}"));
                 }
-                for f in unfilled_template_findings(&content, trial_template()) {
+                for f in unfilled_template_findings(&content, lang) {
                     report.warn(format!("{fname}: {f}"));
                 }
             }
@@ -561,27 +585,27 @@ mod tests {
     #[test]
     fn canonical_trial_passes_structure_check() {
         let log = "# S001: T\n\n## t01: 작업\n\n### 배경 (Background)\n- 맥락\n\n### 목표 (Goal)\n- x\n\n### 조건 (Conditions)\n- c\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n\n### 관찰 (Observation)\n- o\n\n### 해석 (Interpretation)\n- 가설 적중 여부: 적중\n\n### 교훈 (Lessons)\n- l\n\n### 생성 파일 (Files)\n\n| 유형 | 파일 |\n|---|---|\n\n## 다음 세션 후보\n- 후보\n";
-        assert!(trial_structure_findings(log).is_empty());
+        assert!(trial_structure_findings(log, LogLang::Ko).is_empty());
     }
 
     #[test]
     fn phase1_only_trial_is_clean() {
         // 진행 중 trial(멈춤점 상태) — 관찰 이후 절 부재는 정상
         let log = "## t02: 진행중\n\n### 목표 (Goal)\n- x\n\n### 조건 (Conditions)\n- c\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n";
-        assert!(trial_structure_findings(log).is_empty());
+        assert!(trial_structure_findings(log, LogLang::Ko).is_empty());
     }
 
     #[test]
     fn header_only_log_has_no_structure_findings() {
         // v2.22: session new/init 직후(헤더 + 규범 주석만, trial 0) — 구조 검사 findings 없음
         let log = "# S001: T\n\n> **Created**: 2026-09-07\\\n> **Modified**: 2026-09-07\\\n> **Status**: ★ 활성\\\n> **목표**: x\\\n> **관련**: -\\\n> **Handoff**: -\n\n---\n\n<!-- 규범 -->\n";
-        assert!(trial_structure_findings(log).is_empty());
+        assert!(trial_structure_findings(log, LogLang::Ko).is_empty());
     }
 
     #[test]
     fn detects_unknown_heading_and_order() {
         let log = "## t01: 작업\n\n### 결과 (Results)\n- r\n\n### 가설 (Hypothesis)\n- h\n\n### 목표 (Goal)\n- x\n";
-        let f = trial_structure_findings(log);
+        let f = trial_structure_findings(log, LogLang::Ko);
         assert!(f.iter().any(|m| m.contains("non-canonical heading '### 결과'")), "{f:?}");
         assert!(f.iter().any(|m| m.contains("'### 목표' out of canonical order")), "{f:?}");
     }
@@ -589,7 +613,7 @@ mod tests {
     #[test]
     fn detects_missing_phase1_and_interpretation_rule() {
         let log = "## t03: 작업\n\n### 목표 (Goal)\n- x\n\n### 관찰 (Observation)\n- o\n\n### 해석 (Interpretation)\n- 그냥 해석\n";
-        let f = trial_structure_findings(log);
+        let f = trial_structure_findings(log, LogLang::Ko);
         assert!(f.iter().any(|m| m.contains("missing '### 가설'/'### 예상'")), "{f:?}");
         assert!(f.iter().any(|m| m.contains("예상 일치 정도")), "{f:?}");
     }
@@ -597,22 +621,51 @@ mod tests {
     #[test]
     fn interpretation_accepts_current_and_legacy_labels() {
         let base = "## t01: 작업\n\n### 목표 (Goal)\n- x\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n\n### 관찰 (Observation)\n- o\n\n### 해석 (Interpretation)\n";
-        assert!(trial_structure_findings(&format!("{base}- 예상 일치 정도: 부분 일치\n")).is_empty());
-        assert!(trial_structure_findings(&format!("{base}- 가설 적중 여부: 적중\n")).is_empty()); // 이전 라벨 유효
-        let f = trial_structure_findings(&format!("{base}- 해석만\n"));
+        assert!(trial_structure_findings(&format!("{base}- 예상 일치 정도: 부분 일치\n"), LogLang::Ko).is_empty());
+        assert!(trial_structure_findings(&format!("{base}- 가설 적중 여부: 적중\n"), LogLang::Ko).is_empty()); // 이전 라벨 유효
+        assert!(trial_structure_findings(&format!("{base}- Prediction match: partial\n"), LogLang::Ko).is_empty()); // 영어 라벨(P017)
+        let f = trial_structure_findings(&format!("{base}- 해석만\n"), LogLang::Ko);
         assert!(f.iter().any(|m| m.contains("예상 일치 정도") && m.contains("가설 적중 여부")), "{f:?}");
+        let f = trial_structure_findings(&format!("{base}- only text\n"), LogLang::En);
+        assert!(f.iter().any(|m| m.contains("'### Interpretation' must start with 'Prediction match: match/partial/mismatch'")), "{f:?}");
+    }
+
+    #[test]
+    fn english_headings_are_the_same_sections() {
+        // P017: 영어 표기(`### Conditions`)와 한국어 표기가 같은 절 — 언어와 무관하게 인정, 섞여도 순서 검사는 키로
+        let en = "## t01: task\n\n### Background\n- c\n\n### Goal\n- x\n\n### Conditions\n- c\n\n### Hypothesis\n- h\n\n### Prediction\n- p\n\n### Observation\n- o\n\n### Trial-and-Error\n- e\n\n### Interpretation\n- Prediction match: match\n\n### Lessons\n- l\n\n### Files\n- f\n";
+        assert!(trial_structure_findings(en, LogLang::En).is_empty());
+        assert!(trial_structure_findings(en, LogLang::Ko).is_empty());
+        let mixed = "## t01: a\n\n### 목표 (Goal)\n- x\n\n### Conditions (조건)\n- c\n\n### Hypothesis\n- h\n\n### 예상 (Prediction)\n- p\n";
+        assert!(trial_structure_findings(mixed, LogLang::En).is_empty());
+        let bad = "## t01: a\n\n### Results\n- r\n\n### Hypothesis\n- h\n\n### Goal\n- x\n";
+        let f = trial_structure_findings(bad, LogLang::En);
+        assert!(f.iter().any(|m| m.contains("non-canonical heading '### Results' — canonical: Background/Goal/")), "{f:?}");
+        assert!(f.iter().any(|m| m.contains("'### Goal' out of canonical order (after '### Hypothesis')")), "{f:?}");
+    }
+
+    #[test]
+    fn unfilled_template_found_in_either_language() {
+        let ko = format!("## t01: [작업 제목]\n\n{}", trial_template(LogLang::Ko).split_once('\n').unwrap().1);
+        let en = format!("## t01: [task title]\n\n{}", trial_template(LogLang::En).split_once('\n').unwrap().1);
+        for (text, lang, word) in [(&ko, LogLang::Ko, "### 목표"), (&en, LogLang::En, "### Goal"), (&ko, LogLang::En, "### Goal")] {
+            let f = unfilled_template_findings(text, lang);
+            assert!(f.iter().any(|m| m.contains("template placeholder")), "{f:?}");
+            assert_eq!(f.iter().filter(|m| m.contains("still holds only the template text")).count(), 4, "{f:?}");
+            assert!(f.iter().any(|m| m.contains(word)), "{f:?}");
+        }
     }
 
     #[test]
     fn sihaengchago_is_allowed_anywhere() {
         let log = "## t01: 작업\n\n### 목표 (Goal)\n- x\n\n### 조건 (Conditions)\n- c\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n\n### 관찰 (Observation)\n- o\n\n### 시행착오\n\n| 시도 | 결과 |\n|---|---|\n\n### 해석 (Interpretation)\n- 가설 적중 여부: 탈락\n\n### 교훈 (Lessons)\n- l\n\n### 생성 파일 (Files)\n- f\n";
-        assert!(trial_structure_findings(log).is_empty());
+        assert!(trial_structure_findings(log, LogLang::Ko).is_empty());
     }
 
     #[test]
     fn non_trial_sections_are_ignored() {
         // trial 밖(세션 헤더, 다음 세션 후보)의 `###`는 검사 대상 아님
         let log = "# S001: T\n\n### 임의 절\n\n## 다음 세션 후보\n\n### 가설 후보\n- x\n";
-        assert!(trial_structure_findings(log).is_empty());
+        assert!(trial_structure_findings(log, LogLang::Ko).is_empty());
     }
 }

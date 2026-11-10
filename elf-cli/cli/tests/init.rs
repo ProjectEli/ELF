@@ -85,34 +85,74 @@ fn user_tier_substitution_applied_and_no_placeholders_remain() {
     assert!(target.join("2_Log/S/Registry.md").is_file());
 }
 
-/// P016: `--lang en` → KO operative 정본 유지 + EN companion 동반 + user tier는 EN variant로 대체
+/// v3.4(S050 t02): `--lang en` → 영어 규칙 세트가 같은 경로의 정본(번역본 `.en.md` 없음), 한글 0건.
 #[test]
-fn en_init_deploys_companions_and_variants() {
+fn en_init_deploys_english_rule_set() {
     let tmp = tempdir().unwrap();
     let o = InitOptions { lang: "en-US".into(), ..opts("EnProj") };
     let target = run_init(tmp.path(), &o).unwrap();
 
-    // KO operative 정본은 그대로 배포
-    assert!(target.join(".elf/managed/EliRule.md").is_file());
-
-    // EN companion 동반 배포 + embed 정본과 byte-identical (managed, 비치환)
-    let comp = std::fs::read(target.join(".elf/managed/EliRule.en.md")).unwrap();
-    let expected = embed::TEMPLATES.get_file("meta/EliRule.en.md").unwrap().contents();
-    assert_eq!(comp, expected, "EN companion must be byte-identical to embed");
-    for c in ["LogConvention", "AI_PARA_Framework", "LLMcliche", "highIFjournals"] {
-        assert!(target.join(format!(".elf/managed/{c}.en.md")).is_file(), "missing companion: {c}");
+    // 영어 규칙 문서 = 같은 경로, embed 영어본과 byte-identical
+    for (dest, src) in [
+        (".elf/managed/EliRule.md", "meta/EliRule.en.md"),
+        (".elf/managed/LogConvention.md", "meta/LogConvention.en.md"),
+        (".elf/managed/AI_PARA_Framework.md", "meta/AI_PARA_Framework.en.md"),
+        (".elf/managed/LLMcliche.md", "meta/LLMcliche.en.md"),
+        (".elf/managed/highIFjournals.md", "meta/highIFjournals.en.md"),
+        ("AGENTS.md", "root/AGENTS.en.md"),
+        ("CLAUDE.md", "root/CLAUDE.en.md"),
+        (".editorconfig", "root/.editorconfig.en"),
+        (".elf/managed/templates/trialTemplate.md", "log/trialTemplate.en.md"),
+    ] {
+        let got = std::fs::read(target.join(dest)).unwrap();
+        assert_eq!(got, embed::TEMPLATES.get_file(src).unwrap().contents(), "{dest} must be {src}");
     }
+    for c in ["EliRule", "LogConvention", "AI_PARA_Framework", "LLMcliche", "highIFjournals"] {
+        assert!(!target.join(format!(".elf/managed/{c}.en.md")).exists(), "no translation copy: {c}");
+    }
+    assert!(!target.join("AGENTS.en.md").exists());
 
-    // user tier variant: README.md = EN 내용(base 대체) + placeholder 치환
+    // user tier variant: README.md, ProjectRule = 영어 + placeholder 치환
     let readme = std::fs::read_to_string(target.join("README.md")).unwrap();
-    assert!(readme.contains("Project Overview"), "README should be EN variant");
-    assert!(!readme.contains("프로젝트 개요"), "README should not be KO base");
-    assert!(readme.contains("EnProj") && !readme.contains("PLACEHOLDER_"));
-
-    // ProjectRule = EN scaffold + name 치환
+    assert!(readme.contains("Project Overview") && readme.contains("EnProj") && !readme.contains("PLACEHOLDER_"));
     let pr = std::fs::read_to_string(target.join("0_Meta/ProjectRule.md")).unwrap();
-    assert!(pr.contains("Project Overview"), "ProjectRule should be EN scaffold");
-    assert!(pr.contains("EnProj") && !pr.contains("[Project Name]"));
+    assert!(pr.contains("Project Overview") && pr.contains("EnProj") && !pr.contains("[Project Name]"));
+
+    assert_eq!(hangul_files(&target), Vec::<String>::new(), "an English project has no Korean text");
+}
+
+/// v3.4(S050 t02): qa preset `--lang en`도 한글 0건.
+#[test]
+fn en_qa_init_has_no_korean() {
+    let tmp = tempdir().unwrap();
+    let o = InitOptions { lang: "en-US".into(), preset: "qa".into(), categories: vec!["Daily".into()], ..opts("EnQa") };
+    let target = run_init(tmp.path(), &o).unwrap();
+    let agents = std::fs::read_to_string(target.join("AGENTS.md")).unwrap();
+    assert!(agents.contains("question archive (QA preset)"), "{agents}");
+    assert_eq!(hangul_files(&target), Vec::<String>::new());
+}
+
+/// 프로젝트 안 한글이 든 파일(루트 기준 경로, `.git` 제외).
+fn hangul_files(root: &std::path::Path) -> Vec<String> {
+    fn walk(dir: &std::path::Path, root: &std::path::Path, out: &mut Vec<String>) {
+        for e in std::fs::read_dir(dir).unwrap().flatten() {
+            let p = e.path();
+            if p.file_name().is_some_and(|n| n == ".git") {
+                continue;
+            }
+            if p.is_dir() {
+                walk(&p, root, out);
+            } else if let Ok(t) = std::fs::read_to_string(&p)
+                && t.chars().any(|c| ('\u{AC00}'..='\u{D7A3}').contains(&c))
+            {
+                out.push(p.strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/"));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(root, root, &mut out);
+    out.sort();
+    out
 }
 
 /// P022: init은 세션을 만들지 않음 — 첫 세션은 `elf session new --goal`(목표 필수). 빈 Registry.md만 생성.

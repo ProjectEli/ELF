@@ -14,7 +14,7 @@ Scaffold an ELF project. **With no name, `elf init` initializes the current fold
 | `--force` | off | Overwrite existing files (default keeps yours) |
 | `--preset <p>` | `full` | Module set: `full` (all modules) / `exp` (6_Exp + 7_Paper) / `sw` (5_SW + 7_Paper) / `minimal` (none). A research preset is the module of the same name plus `paper`; the names before 2.26 (`experimental`, `software`) are still accepted. **`qa`** = question-archive project type (not research). The `general` preset was removed in 2.27. Use `minimal` |
 | `--modules <list>` | none | Custom modules (comma-separated): `hw,fab,sw,exp,paper`. Overrides `--preset`; recorded as `"preset": "custom"` plus the module list in `.elf/config.json` |
-| `--lang <lang>` | `ko-KR` | AI agent response language, BCP-47 tag (written to `.elf/config.json`). For a non-Korean tag (e.g. `en-US`), English **companion** docs are also deployed (see the note below) |
+| `--lang <lang>` | `ko-KR` | AI agent response language, BCP-47 tag (written to `.elf/config.json`). With an English tag (`en-*`) the project gets the English rule set (see the note below) |
 
 Core folders (`0_Meta` to `2_Log`) are always created; module folders (`3_HW` to `7_Paper`) are added per preset or `--modules`. The managed rule payload (rules + log-format stubs) is deployed under `.elf/managed/`; `0_Meta/` holds only user-owned files (`ProjectRule.md`, data overlays).
 
@@ -31,15 +31,17 @@ elf init my_questions --preset qa                          # Q&A bundle archive 
 elf init my_questions --preset qa --categories Daily,ITGeneral   # pre-create categories
 ```
 
-> **`--lang en-*` (English companions, experimental).** The operative governance docs
-> stay Korean (`*.md`). The AI agent always operates from the Korean originals, so project
-> behavior is identical across languages. For a non-Korean `--lang`, ELF additionally
-> deploys **informative English companions** (`.elf/managed/EliRule.en.md`, etc.) for human
-> reading, and the user-owned `README.md` / `ProjectRule.md` are scaffolded in English.
-> Companions are non-operative (marked `NOT OPERATIVE`). Customize rules via
-> `ProjectRule.md` instead of the companion. `elf update` keeps companions in sync and
-> `elf check files` reports i18n status. English (`en`) is provided today; other languages fall
-> back to Korean.
+> **`--lang en-*` (English projects).** An English project gets everything in English. The rule
+> documents (`.elf/managed/EliRule.md`, `LogConvention.md`, etc., and the root `AGENTS.md`) are the English
+> versions at the same paths, and they are the canonical rules the AI agent follows in that project. The session
+> and trial templates write English headings (`### Conditions`, `Prediction match:`); the `.gitignore` block,
+> `.editorconfig`, `CLAUDE.md` and the user-owned `README.md` / `ProjectRule.md` are in English; elf writes
+> deprecation markers in English. A new English project contains no Korean text. elf still reads the older
+> Korean-first headings (`### 조건 (Conditions)`) as the same sections, so earlier logs stay valid. `elf update`
+> moves an existing English project to this set after approval: unchanged rule files are replaced, an edited one
+> gets the new version beside it as `.elf-new`, and the earlier English copies (`*.en.md`) are removed when
+> unchanged. An existing `CLAUDE.md` is never changed. Customize rules in `ProjectRule.md`. Other languages use
+> the Korean set.
 
 > **`qa` preset.** Scaffolds a *question-archive* project type instead of the research hierarchy: a root `AGENTS.md` (operational rules) + `CLAUDE.md` (loader pointer), `0_Meta/ProjectRule.md` (your project rules and egress relaxations, never touched by `elf update`; it overrides `AGENTS.md` on conflict), `templates/bundle_template.md`, and `.elf/`. **No categories are pre-created by default.** Create them on demand per `AGENTS.md`, or pre-create them with `--categories a,b,c` (each gets an `archive/`). Q&A is captured as semantic **bundles** (not sessions/trials/figures). Shares the `.elf/` control area with its own manifest (`manifest.qa.json`), so `elf update` propagates the convention. Kept separate from the research preset.
 
@@ -125,7 +127,7 @@ An ELF file is replaced or removed only when it is still exactly as that version
 
 | Tier | Files | On update |
 |------|-------|-----------|
-| **Managed** | `.elf/managed/` (`EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`, companions); root `.editorconfig`, `AGENTS.md` | Replaced with the new version. If you edited one, it is **kept** and the new version is written as `<file>.elf-new` (use `--force` to overwrite) |
+| **Managed** | `.elf/managed/` (`EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `highIFjournals.md`, `LLMcliche.md`, `templates/*`); root `.editorconfig`, `AGENTS.md` | Replaced with the new version. If you edited one, it is **kept** and the new version is written as `<file>.elf-new` (use `--force` to overwrite) |
 | **Yours** | `0_Meta/` (`ProjectRule.md`, `<name>.project.md` overlays), `README.md`, all research data and logs | **Never touched** (logs: only the one-time migration above) |
 | **Generated** | `2_Log/S/Registry.md`, `2_Log/G/Registry.md`, the `explorer.fileNesting` keys in `.vscode/settings.json` (other settings and nesting patterns you add are yours) | Rebuilt from the log headers by every command that changes a log. The nesting lists closed logs one per line, each linked to the previous one (`"S001_log.md": "S002_log.md"`), and only those keys are rewritten, so closing a session changes one or two lines in the diff |
 | **Hybrid** | `.gitignore` | Only the marker block (`# >>> ELF managed >>>` … `# <<< ELF managed <<<`) is replaced; your rules outside the block are preserved |
@@ -139,7 +141,7 @@ Customize project rules in `ProjectRule.md` (yours) instead of editing managed f
 
 - `config.json`: project name, language, preset (project type), creation date
 - `manifest.json`: the project manifest, the record of managed files and the ELF version that last updated the project (`elf_version`); before 2.28 the version was in a separate `version` file
-- `managed/`: the deployed rule payload (rules, companions, log-format stubs)
+- `managed/`: the deployed rule payload (rules, log-format stubs)
 - `baseline/`: pristine copies of hybrid files, used to detect edits inside the managed block
 - `deprecated/`: compressed originals of deprecated content ([Deprecating content](deprecate.md)); tracked by git
 - `runtime/`: temporary tool state (autoread markers, the migration decision file); not tracked by git

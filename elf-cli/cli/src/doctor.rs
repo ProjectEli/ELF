@@ -172,13 +172,14 @@ fn check_status(root: &Path, r: &mut DoctorReport) {
     }
 }
 
-/// i18n 위상 advisory (P016 M4) — 비-ko 프로젝트의 companion 상태, operative 정본 안내.
-/// 누락, 편집의 actionable 분류는 `check_status`가 담당(중복 경고 회피) → 여기선 Info 위주 framing.
+/// i18n 위상 advisory — 비-ko 프로젝트의 규칙 세트 언어(v3.4, S050 t02: 영어 프로젝트는 영어 규칙 문서가 같은 경로의
+/// 정본, 다른 언어는 한국어 정본). 3.4 이전 영어 companion(`*.en.md`)이 남아 있으면 안내.
+/// 누락, 편집의 actionable 분류는 `check_status`가 담당(중복 경고 회피) → 여기선 Info.
 fn check_i18n(root: &Path, r: &mut DoctorReport) {
     let lang = update::read_config_lang(root);
     let p = manifest::lang_primary(&lang);
     if p.is_empty() || p == "ko" {
-        return; // base(ko) 프로젝트 — companion 비적용
+        return; // 한국어 프로젝트 — 해당 없음
     }
     let Some(stamp) = fs::read_to_string(root.join(".elf").join("manifest.json"))
         .ok()
@@ -186,30 +187,49 @@ fn check_i18n(root: &Path, r: &mut DoctorReport) {
     else {
         return; // stamp 문제는 check_elf가 이미 보고
     };
-    let companions: Vec<String> = stamp
-        .for_lang(&lang)
+    let view = stamp.for_lang(&lang);
+    let variants = view.files.iter().filter(|e| e.role == Some(manifest::Role::Variant) && e.tier != manifest::Tier::User).count();
+    let leftovers: Vec<String> = view
         .files
         .iter()
         .filter(|e| e.role == Some(manifest::Role::Companion))
         .map(|e| e.dest.clone())
+        .chain(["AGENTS.en.md".to_string()])
+        .chain(
+            fs::read_dir(root.join(".elf/managed"))
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|e| format!(".elf/managed/{}", e.file_name().to_string_lossy()))
+                .filter(|n| n.ends_with(".en.md")),
+        )
+        .filter(|d| root.join(d).is_file())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
         .collect();
-    if companions.is_empty() {
+    if variants == 0 {
         r.add(
             Health::Info,
             "i18n",
-            format!("lang={lang}: no companions available — KO fallback (operative source = *.md)"),
+            format!("lang={lang}: no rule set in this language — the Korean rule documents apply (customize via ProjectRule)"),
         );
-        return;
+    } else {
+        r.add(
+            Health::Info,
+            "i18n",
+            format!("lang={lang}: {variants} managed file(s) in this language (rule documents, templates, comments) — canonical in this project (customize via ProjectRule)"),
+        );
     }
-    let present = companions.iter().filter(|d| root.join(d).is_file()).count();
-    r.add(
-        Health::Info,
-        "i18n",
-        format!(
-            "lang={lang}: {present}/{} EN companion(s) present — informative; operative source = *.md (customize via ProjectRule)",
-            companions.len()
-        ),
-    );
+    if !leftovers.is_empty() {
+        r.add(
+            Health::Info,
+            "i18n",
+            format!(
+                "translation copies from before 3.4 are no longer used: {} — delete them after moving any edits into ProjectRule",
+                leftovers.join(", ")
+            ),
+        );
+    }
 }
 
 /// CLAUDE.md의 `@AGENTS.md` import 상태 — check files와 autoread digest 공용 (S043).
@@ -390,7 +410,7 @@ fn check_overlay(root: &Path, r: &mut DoctorReport) {
         .for_lang(&lang)
         .files
         .iter()
-        .filter(|e| e.overlayable && e.role.is_none())
+        .filter(|e| e.overlayable && e.role != Some(manifest::Role::Companion))
     {
         let Some(ov) = overlay_path(&e.dest) else { continue };
         allowed.insert(ov.clone());

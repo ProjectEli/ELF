@@ -1,11 +1,5 @@
 # High-IF Journal Whitelist (External Source Retrieval)
 
-> **INFORMATIVE TRANSLATION — NOT OPERATIVE.**
-> Authoritative source: `highIFjournals.md` (Korean). The AI agent operates from the
-> Korean original, not this file; this English version is for human reading only.
-> To customize project rules, edit `ProjectRule.md` (not this file). See
-> `AI_PARA_Framework.md` §1.1.
-
 A domain-whitelist reference for literature search. Referenced from `EliRule.md §4`
 (External Source Retrieval). Use: set the domains below as the web-search tool's
 `allowed_domains` → return high-tier journals first. Define the per-project priority

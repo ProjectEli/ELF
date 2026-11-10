@@ -1,10 +1,5 @@
 # AI PARA Framework & Context Management
 
-> **INFORMATIVE TRANSLATION — NOT OPERATIVE.**
-> Authoritative source: `AI_PARA_Framework.md` (Korean). The AI agent operates from the
-> Korean original, not this file; this English version is for human reading only.
-> To customize project rules, edit `ProjectRule.md` (not this file). See §1.1 below.
-
 This document defines where each kind of project document (session logs, planning
 documents, scripts) states its status, and how an AI agent reads and writes documents in
 each status. The rule keeps withdrawn or outdated records from being used as current fact and
@@ -28,16 +23,13 @@ tags, or hand-kept ledgers.
 - The state folder (`Archive/`) is flat (no subfolders). File names do not change when a file moves.
 - The user decides what to deprecate. The agent proposes candidates with reasons and runs `elf deprecate` only after the user's instruction or approval. Format and procedure: `.elf/managed/LogConvention.md` §6.
 
-### 1.1 Informative Companion
+### 1.1 Rule documents per project language
 
-A file of the form `*.en.md` (general: `*.<lang>.md`) is an **informative translation
-(read-only human companion)** of a governance document — for international users to
-*read*, and **not an operative source**. The operative authority is always the
-same-named `*.md` (the PROJECT_LANG original, Korean by default).
+Each project gets one set of rule documents in one language: English (`en`) projects = the English rule documents, others = the Korean ones. File names and paths are the same in every language (`.elf/managed/EliRule.md`, etc.). No separate translation (`*.en.md`, etc.) is deployed.
 
-*   **AI behavior rule**: the AI takes rules, structure, and instructions **only from the `*.md` original**. It does not treat `*.en.md` as a basis (even if read, it is not a rule source). On a conflict between the original and the companion, **the `*.md` original takes precedence**.
-*   **Customization method**: write project-rule changes in **`ProjectRule.md` (user-owned, operative, project language)** — do not edit the managed original or the companion (the managed file is replaced by `elf update`, and a companion edit has no effect).
-*   **Effect**: fixing the operative version to a single original keeps a translation difference from changing AI behavior. Every language project runs under the same governance; international users still override in their own language via ProjectRule.
+*   **AI behavior rule**: the AI follows the rule documents deployed in the project as the canonical rules. A version in another language is not a basis for behavior.
+*   **Customization method**: write project-rule changes in **`ProjectRule.md` (user-owned, project language)** — do not edit the managed rule documents (`elf update` replaces them; an edited file gets the new version beside it as `.elf-new`).
+*   **Effect**: one canonical set per project, so differences between language versions never conflict inside a project.
 
 ---
 

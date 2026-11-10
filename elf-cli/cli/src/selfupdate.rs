@@ -14,7 +14,7 @@ pub fn run_self_update() -> Result<String, String> {
     let mut updater = AxoUpdater::new_for("elf-cli");
     updater.load_receipt().map_err(|e| {
         format!(
-            "install receipt를 찾지 못함 ({e}).\n  self update는 인스톨러로 설치된 elf에서만 동작합니다. 수동 갱신:\n  {INSTALLER_HINT}"
+            "install receipt not found ({e}).\n  self update works only for an elf installed by the installer. Update manually:\n  {INSTALLER_HINT}"
         )
     })?;
 
@@ -25,6 +25,6 @@ pub fn run_self_update() -> Result<String, String> {
             env!("CARGO_PKG_VERSION")
         )),
         Ok(None) => Ok(format!("already up to date ({})", env!("CARGO_PKG_VERSION"))),
-        Err(e) => Err(format!("self update 실패: {e}")),
+        Err(e) => Err(format!("self update failed: {e}")),
     }
 }

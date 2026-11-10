@@ -17,6 +17,7 @@ use std::path::{Path, PathBuf};
 use crate::deprecate;
 use crate::header::{self, Header, Status};
 use crate::logs::{self, Series};
+use crate::sections::LogLang;
 use crate::session;
 
 pub const DECISION_REL: &str = ".elf/runtime/migration.yaml";
@@ -25,6 +26,23 @@ const OLD_ORIGIN: &str = "> **Deprecated** → ";
 const OLD_BLOCK: &str = "> **Deprecated**: ";
 /// 7키에 없는 이전 헤더 필드를 남기는 본문 줄(제목 바로 아래)
 pub const KEPT_PREFIX: &str = "> 이관 전 헤더: ";
+/// 영어 프로젝트의 보존 줄 머리(v3.4, S050 t02).
+pub const KEPT_PREFIX_EN: &str = "> Header before migration: ";
+
+fn kept_prefix(lang: LogLang) -> &'static str {
+    match lang {
+        LogLang::Ko => KEPT_PREFIX,
+        LogLang::En => KEPT_PREFIX_EN,
+    }
+}
+
+/// 이관 전에 지워진(purged) 흔적의 꼬리: 표기 줄 끝 + 괄호 설명.
+fn purged_tail(lang: LogLang, what: &str) -> String {
+    match lang {
+        LogLang::Ko => format!("{}({what})", deprecate::PURGED_TAG),
+        LogLang::En => format!("{} ({what})", deprecate::PURGED_TAG_EN),
+    }
+}
 
 // ── 판정, 전제 ────────────────────────────────────────────────────
 
@@ -382,10 +400,13 @@ fn evidence(body: &str, has_conclusion: bool) -> String {
     format!("last trial: {}; conclusion line: {}; deprecation marker: {}", last.unwrap_or_else(|| "-".into()), yn(concl), yn(dep))
 }
 
-/// 내장 sessionTemplate의 규범 주석(`<!-- ELF 규범 … -->`).
-fn norm_comment() -> String {
-    let t = session::template_text();
-    let Some(a) = t.find("<!-- ELF 규범") else { return String::new() };
+/// 규범 주석의 시작 표지(한국어 틀, 영어 틀 — P017).
+const NORM_MARKS: [&str; 2] = ["<!-- ELF 규범", "<!-- ELF norms"];
+
+/// 내장 sessionTemplate(프로젝트 언어)의 규범 주석(`<!-- ELF 규범 … -->`, `<!-- ELF norms … -->`).
+fn norm_comment(lang: LogLang) -> String {
+    let t = session::template_text(lang);
+    let Some(a) = NORM_MARKS.iter().find_map(|m| t.find(m)) else { return String::new() };
     let Some(e) = t[a..].find("-->") else { return String::new() };
     t[a..a + e + 3].to_string()
 }
@@ -396,7 +417,7 @@ fn refresh_norm(body: &str, current: &str) -> (String, bool) {
         return (body.to_string(), false);
     }
     let lines: Vec<&str> = body.split('\n').collect();
-    let Some(a) = lines.iter().take(30).position(|l| l.trim_start().starts_with("<!-- ELF 규범")) else {
+    let Some(a) = lines.iter().take(30).position(|l| NORM_MARKS.iter().any(|m| l.trim_start().starts_with(m))) else {
         return (body.to_string(), false);
     };
     let Some(b) = (a..lines.len()).find(|&i| lines[i].contains("-->")) else {
@@ -771,6 +792,7 @@ fn convert_origins(
     if !text.contains(OLD_ORIGIN) {
         return (text.to_string(), 0);
     }
+    let lang = LogLang::of(root);
     let mut n = 0;
     let mut out: Vec<String> = Vec::new();
     for l in text.split('\n') {
@@ -778,9 +800,10 @@ fn convert_origins(
             out.push(l.to_string());
             continue;
         };
-        let heading = if is_trial_unit(&unit) { Some(format!("## {unit}: (폐기 {id})")) } else { None };
+        let w = deprecate::words(lang);
+        let heading = if is_trial_unit(&unit) { Some(format!("## {unit}: ({} {id})", w.deprecated)) } else { None };
         let mark = if let Some(d) = purged {
-            format!("{} · 복원 불가(purged {d})", deprecate::marker_line(&id, &date, &unit, None, Some(&rb)))
+            format!("{}{}", deprecate::marker_line(&id, &date, &unit, None, Some(&rb), lang), purged_tail(lang, &format!("purged {d}")))
         } else if let Some(b) = blocks.remove(&id) {
             let content = rewrite_links(root, &b.content, dirname(&b.container), dirname(doc_rel_new), moves).text;
             let meta: Vec<(&str, String)> = vec![
@@ -793,7 +816,7 @@ fn convert_origins(
             ];
             stores.used.insert(id.clone());
             stores.out.push((id.clone(), deprecate::store_text(&meta, &content)));
-            deprecate::marker_line(&id, &date, &unit, Some(&b.reason), Some(&rb))
+            deprecate::marker_line(&id, &date, &unit, Some(&b.reason), Some(&rb), lang)
         } else {
             warnings.push(Warning::fix(
                 doc_rel_old,
@@ -973,7 +996,8 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
         }
     }
 
-    let norm = norm_comment();
+    let lang = LogLang::of(root);
+    let norm = norm_comment(lang);
     let mut dropped: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut moved = Vec::new();
     let mut renumbered = Vec::new();
@@ -1074,10 +1098,10 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
             }
         }
         if status == Status::Ongoing && !conclusion.is_empty() {
-            kept.push(format!("결론 = {conclusion}"));
+            kept.push(format!("{} = {conclusion}", if lang == LogLang::Ko { "결론" } else { "conclusion" }));
             dropped.entry("결론(status ongoing)".into()).or_default().push(logs::id_of(s.series, s.num));
         }
-        let pre = if kept.is_empty() { lg.body.clone() } else { format!("{KEPT_PREFIX}{}\n\n{}", kept.join("; "), lg.body) };
+        let pre = if kept.is_empty() { lg.body.clone() } else { format!("{}{}\n\n{}", kept_prefix(lang), kept.join("; "), lg.body) };
         hrow.kept = kept.join("; ");
 
         // 본문: 흔적 변환 → 링크 → 규범 주석
@@ -1116,9 +1140,10 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
                 Some(Sig::Canon(st, _)) if st != Status::Deprecated => st,
                 _ => Status::Complete,
             };
-            let mut mark = deprecate::marker_line(&id, &date, "세션 전체", Some(&reason), Some(&rb));
+            let w = deprecate::words(lang);
+            let mut mark = deprecate::marker_line(&id, &date, w.whole_session, Some(&reason), Some(&rb), lang);
             if purged {
-                mark.push_str(" · 복원 불가(이관 전 purged)");
+                mark.push_str(&purged_tail(lang, if lang == LogLang::Ko { "이관 전 purged" } else { "purged before migration" }));
             } else {
                 let meta: Vec<(&str, String)> = vec![
                     ("id", id.clone()),
@@ -1134,12 +1159,12 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
                 ];
                 stores.out.push((id.clone(), deprecate::store_text(&meta, &stored_body)));
             }
-            let mut ho = format!("폐기 {id}");
+            let mut ho = format!("{} {id}", w.deprecated);
             if !reason.is_empty() {
                 ho.push_str(&format!(": {}", header::one_line(&reason)));
             }
             if !rb.is_empty() {
-                ho.push_str(&format!(", 대체 = {}", header::one_line(&rb)));
+                ho.push_str(&format!(", {} {}", w.replaced_eq, header::one_line(&rb)));
             }
             h.handoff = ho;
             h.conclusion.clear();
@@ -1196,11 +1221,18 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
                     modified: date.clone(),
                     status: Status::Deprecated,
                     goal: String::new(),
-                    handoff: format!("폐기 {sid}: 이관 전 purged, 원문 없음"),
+                    handoff: match lang {
+                        LogLang::Ko => format!("폐기 {sid}: 이관 전 purged, 원문 없음"),
+                        LogLang::En => format!("deprecated {sid}: purged before migration, no original"),
+                    },
                     conclusion: String::new(),
                     user_note: String::new(),
                 };
-                let mark = format!("{} · 복원 불가(이관 전 purged)", deprecate::marker_line(&sid, &date, "세션 전체", None, None));
+                let mark = format!(
+                    "{}{}",
+                    deprecate::marker_line(&sid, &date, deprecate::words(lang).whole_session, None, None, lang),
+                    purged_tail(lang, if lang == LogLang::Ko { "이관 전 purged" } else { "purged before migration" })
+                );
                 let text = format!("{}# {id}: {}\n\n{mark}\n", header::render(&h), r.title.trim());
                 p.writes.push((logs::log_rel(series, n), text.into_bytes()));
                 p.lines.push(format!("{id}: purged before the migration — wrote a header-only log (number kept, no store)"));
@@ -1231,7 +1263,7 @@ pub fn plan(root: &Path, decisions: &BTreeMap<String, String>, today: &str) -> i
         ];
         stores.out.push((id.clone(), deprecate::store_text(&m, &content)));
         let title = content.lines().find(|l| l.starts_with("# ")).unwrap_or("").to_string();
-        let mark = deprecate::marker_line(&id, &date, "문서 전체", Some(&reason), Some(&rb));
+        let mark = deprecate::marker_line(&id, &date, deprecate::words(lang).whole_doc, Some(&reason), Some(&rb), lang);
         p.writes.push((target.clone(), format!("{title}\n\n{mark}\n").into_bytes()));
         p.deletes.push(old.clone());
         deprecations += 1;
@@ -1514,15 +1546,15 @@ fn write_tsv(path: &Path, head: &[&str], rows: impl Iterator<Item = Vec<String>>
 fn write_preview(dir: &Path, p: &Plan, report: &[String]) -> io::Result<()> {
     fs::write(
         dir.join(PREVIEW_MARK),
-        "elf update --dry-run --out — 이관 미리보기(프로젝트에는 아무것도 쓰지 않음, LogConvention §7)\n\
-         files/        이관이 쓸 파일의 결과 내용(루트 기준 경로, 폐기 보관 파일은 압축을 푼 .md)\n\
-         deletes.txt   지울 파일과 비면 지울 폴더\n\
-         headers.tsv   로그별 이관 뒤 YAML 7키 값, goal과 conclusion의 원천, 보존 줄, 확인할 점\n\
-         changes.tsv   다시 계산한 링크와 코드 span(이관 뒤 파일 기준 줄, 전, 후)\n\
-         mentions.tsv  링크가 아닌 옛 경로, 지운 파일 이름 언급(스크립트 포함, 이관이 고치지 않음)\n\
-         warnings.tsv  적용을 막는 경고(결정 파일 항목)\n\
-         report.txt    출력 전체\n\
-         원본과 비교: git diff --no-index <원본 파일> files/<같은 경로>\n",
+        "elf update --dry-run --out — migration preview (nothing is written to the project, LogConvention §7)\n\
+         files/        the content of the files the migration would write (paths from the root; deprecation stores as unpacked .md)\n\
+         deletes.txt   files to delete, and folders to delete when they become empty\n\
+         headers.tsv   per log: the 7 YAML key values after the migration, the source of goal and conclusion, kept lines, points to check\n\
+         changes.tsv   recomputed links and code spans (line in the migrated file, before, after)\n\
+         mentions.tsv  old paths that are not links, mentions of deleted file names (scripts included; the migration does not change them)\n\
+         warnings.tsv  warnings that block applying (decision file items)\n\
+         report.txt    the whole output\n\
+         compare with the original: git diff --no-index <original file> files/<same path>\n",
     )?;
     let files = dir.join("files");
     for (rel, bytes) in &p.writes {
@@ -1711,6 +1743,19 @@ fn run_core(root: &Path, dry_run: bool, today: &str, preview: Option<&Path>, app
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn norm_comment_follows_project_language() {
+        // P017: 영어 프로젝트는 영어 규범 주석, 두 표지 모두 갱신 대상
+        let ko = norm_comment(LogLang::Ko);
+        let en = norm_comment(LogLang::En);
+        assert!(ko.starts_with("<!-- ELF 규범") && ko.ends_with("-->"), "{ko}");
+        assert!(en.starts_with("<!-- ELF norms") && en.ends_with("-->"), "{en}");
+        let (out, changed) = refresh_norm("<!-- ELF 규범: old -->\n\n## t01: a", &en);
+        assert!(changed && out.starts_with(&en) && out.ends_with("## t01: a"), "{out}");
+        let (out, changed) = refresh_norm(&format!("{en}\n\n## t01: a"), &en);
+        assert!(!changed && out.starts_with(&en));
+    }
 
     #[test]
     fn legacy_header_parses_fields_and_body() {

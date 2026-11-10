@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 
 use crate::header::{self, Status};
 use crate::logs;
+use crate::sections::{self, LogLang};
 use crate::validate;
 
 pub const PLAN_BASE: &str = "1_Concept/12_Planning";
@@ -21,8 +22,48 @@ const MARK_BEGIN: &str = "<!-- deprecate:begin -->";
 const MARK_END: &str = "<!-- deprecate:end -->";
 /// 흔적 표기 줄: `> **Deprecated**: ID · 날짜 · 단위 · 사유: … · 대체: …`
 pub const MARKER_PREFIX: &str = "> **Deprecated**: ";
-/// 보관 파일이 없는 흔적(이관 전 purge) — 표기 줄 끝에 붙음, 짝 검사에서 제외
+/// 보관 파일이 없는 흔적(이관 전 purge) — 표기 줄 끝에 붙음, 짝 검사에서 제외. 한국어, 영어(v3.4).
 pub const PURGED_TAG: &str = " · 복원 불가";
+pub const PURGED_TAG_EN: &str = " · not restorable";
+
+/// 폐기 표기 낱말(프로젝트 언어, v3.4 S050 t02 — 영어 프로젝트는 한국어 없이). 읽을 때는 두 언어 모두 인정.
+pub(crate) struct Words {
+    /// 표기 줄 `· 사유: …`
+    pub reason: &'static str,
+    /// 표기 줄 `· 대체: …`
+    pub replaced: &'static str,
+    /// 단위: 세션 로그 전체
+    pub whole_session: &'static str,
+    /// 단위: 문서 전체
+    pub whole_doc: &'static str,
+    /// trial 흔적 제목 `## tNN: (폐기 ID)`, handoff `폐기 ID`
+    pub deprecated: &'static str,
+    /// handoff `, 대체 = …`
+    pub replaced_eq: &'static str,
+}
+
+pub(crate) fn words(lang: LogLang) -> &'static Words {
+    const KO: Words = Words {
+        reason: "사유",
+        replaced: "대체",
+        whole_session: "세션 전체",
+        whole_doc: "문서 전체",
+        deprecated: "폐기",
+        replaced_eq: "대체 =",
+    };
+    const EN: Words = Words {
+        reason: "reason",
+        replaced: "replaced by",
+        whole_session: "whole session",
+        whole_doc: "whole document",
+        deprecated: "deprecated",
+        replaced_eq: "replaced by =",
+    };
+    match lang {
+        LogLang::Ko => &KO,
+        LogLang::En => &EN,
+    }
+}
 
 #[derive(Debug)]
 pub enum DeprecateError {
@@ -268,8 +309,13 @@ fn trial_bounds(lines: &[&str], tid: &str) -> Res<(usize, usize)> {
 fn section_bounds(lines: &[&str], tid: &str, key: &str) -> Res<(usize, usize)> {
     let (h, e) = trial_bounds(lines, tid)?;
     let mask = fence_mask(lines);
+    // 절 이름은 한국어 키나 영어 이름(P017) — 헤딩도 두 표기를 같은 키로 읽음
+    let want = match sections::key_of(key) {
+        Some(k) => k,
+        None => key,
+    };
     let a = (h + 1..e)
-        .find(|&i| !mask[i] && validate::section_key(lines[i]) == Some(key))
+        .find(|&i| !mask[i] && validate::section_key(lines[i]) == Some(want))
         .ok_or_else(|| DeprecateError::NotFound(format!("section {tid} {key}")))?;
     let mut b = (a + 1..e).find(|&i| !mask[i] && clean(lines[i]).starts_with("### ")).unwrap_or(e);
     while b > a + 1 && clean(lines[b - 1]).trim().is_empty() {
@@ -312,9 +358,9 @@ fn enclosing_section(lines: &[&str], idx: usize) -> Option<String> {
     None
 }
 
-fn block_unit(lines: &[&str], a: usize) -> String {
+fn block_unit(lines: &[&str], a: usize, lang: LogLang) -> String {
     match (enclosing_trial(lines, a), enclosing_section(lines, a)) {
-        (Some(t), Some(s)) => format!("{t} {s} part"),
+        (Some(t), Some(s)) => format!("{t} {} part", sections::name(&s, lang)),
         (Some(t), None) => format!("{t} part"),
         _ => "part".into(),
     }
@@ -368,10 +414,10 @@ fn strip_marks(text: &str) -> String {
 }
 
 /// 조작 전후 trial 구조 검사 — 조작 후에만 나타나는 항목(거부 근거).
-fn new_structure_findings(before: &str, after: &str) -> Vec<String> {
-    let mut old = validate::trial_structure_findings(before);
+fn new_structure_findings(before: &str, after: &str, lang: LogLang) -> Vec<String> {
+    let mut old = validate::trial_structure_findings(before, lang);
     let mut out = Vec::new();
-    for f in validate::trial_structure_findings(after) {
+    for f in validate::trial_structure_findings(after, lang) {
         if let Some(pos) = old.iter().position(|o| *o == f) {
             old.remove(pos);
         } else {
@@ -408,20 +454,21 @@ fn is_block_id(s: &str) -> bool {
     s.rsplit_once("-D").is_some_and(|(doc, n)| !doc.is_empty() && !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
-fn marker(id: &str, date: &str, unit: &str, reason: Option<&str>, replaced_by: Option<&str>) -> String {
+fn marker(id: &str, date: &str, unit: &str, reason: Option<&str>, replaced_by: Option<&str>, lang: LogLang) -> String {
+    let w = words(lang);
     let mut m = format!("{MARKER_PREFIX}{id} · {date} · {unit}");
     if let Some(r) = reason.filter(|r| !r.trim().is_empty()) {
-        m.push_str(&format!(" · 사유: {}", header::one_line(r)));
+        m.push_str(&format!(" · {}: {}", w.reason, header::one_line(r)));
     }
     if let Some(r) = replaced_by.filter(|r| !r.trim().is_empty()) {
-        m.push_str(&format!(" · 대체: {}", header::one_line(r)));
+        m.push_str(&format!(" · {}: {}", w.replaced, header::one_line(r)));
     }
     m
 }
 
 /// 표기 줄 내용(이관도 같은 형식을 씀).
-pub(crate) fn marker_line(id: &str, date: &str, unit: &str, reason: Option<&str>, replaced_by: Option<&str>) -> String {
-    marker(id, date, unit, reason, replaced_by)
+pub(crate) fn marker_line(id: &str, date: &str, unit: &str, reason: Option<&str>, replaced_by: Option<&str>, lang: LogLang) -> String {
+    marker(id, date, unit, reason, replaced_by, lang)
 }
 
 /// 표기 줄 → ID.
@@ -563,8 +610,10 @@ pub fn run_deprecate(root: &Path, o: &DeprecateOptions) -> Res<Report> {
 fn deprecate_whole(root: &Path, rel: &str, text: &str, o: &DeprecateOptions) -> Res<Report> {
     let doc = doc_id(rel);
     let id = next_id(root, &doc, text);
-    let unit_label = if is_session_log(rel) { "세션 전체" } else { "문서 전체" };
-    let mark = marker(&id, &o.date, unit_label, o.reason.as_deref(), o.replaced_by.as_deref());
+    let lang = LogLang::of(root);
+    let w = words(lang);
+    let unit_label = if is_session_log(rel) { w.whole_session } else { w.whole_doc };
+    let mark = marker(&id, &o.date, unit_label, o.reason.as_deref(), o.replaced_by.as_deref(), lang);
     let mut meta: Vec<(&str, String)> = vec![
         ("id", id.clone()),
         ("source", rel.to_string()),
@@ -585,12 +634,12 @@ fn deprecate_whole(root: &Path, rel: &str, text: &str, o: &DeprecateOptions) -> 
         let body = &text[at..];
         let title = body.lines().find(|l| l.starts_with("# ")).unwrap_or("").to_string();
         h.status = Status::Deprecated;
-        let mut ho = format!("폐기 {id}");
+        let mut ho = format!("{} {id}", w.deprecated);
         if let Some(r) = o.reason.as_deref().filter(|r| !r.trim().is_empty()) {
             ho.push_str(&format!(": {}", header::one_line(r)));
         }
         if let Some(r) = o.replaced_by.as_deref().filter(|r| !r.trim().is_empty()) {
-            ho.push_str(&format!(", 대체 = {}", header::one_line(r)));
+            ho.push_str(&format!(", {} {}", w.replaced_eq, header::one_line(r)));
         }
         h.handoff = ho;
         h.conclusion.clear();
@@ -648,15 +697,18 @@ fn deprecate_block(root: &Path, rel: &str, text: &str, o: &DeprecateOptions) -> 
     let lines: Vec<&str> = text.split('\n').collect();
     let doc = doc_id(rel);
     let id = next_id(root, &doc, text);
+    let lang = LogLang::of(root);
     // (교체 범위 a..b, 저장 원문, 단위, trial id, 남길 줄들)
     let (a, b, stored, unit, tid, keep): (usize, usize, String, String, Option<String>, Vec<String>) = if let Some(t) = &o.trial {
         if let Some(key) = &o.section {
             let (a, b) = section_bounds(&lines, t, key)?;
-            (a, b, lines[a..b].join("\n"), format!("{t} {key}"), Some(t.clone()), Vec::new())
+            let shown = sections::name(sections::key_of(key).unwrap_or(""), lang);
+            let shown = if shown.is_empty() { key.as_str() } else { shown };
+            (a, b, lines[a..b].join("\n"), format!("{t} {shown}"), Some(t.clone()), Vec::new())
         } else {
             let (h, e) = trial_bounds(&lines, t)?;
             let num = t.trim_start_matches('t');
-            (h, e, lines[h..e].join("\n"), t.clone(), Some(t.clone()), vec![format!("## t{num}: (폐기 {id})")])
+            (h, e, lines[h..e].join("\n"), t.clone(), Some(t.clone()), vec![format!("## t{num}: ({} {id})", words(lang).deprecated)])
         }
     } else if o.marked {
         let Some((a, b)) = first_marked_block(&lines)? else {
@@ -666,7 +718,7 @@ fn deprecate_block(root: &Path, rel: &str, text: &str, o: &DeprecateOptions) -> 
         if a + 1 >= b - 1 {
             return refuse("empty marked block");
         }
-        (a, b, lines[a + 1..b - 1].join("\n"), block_unit(&lines, a), enclosing_trial(&lines, a), Vec::new())
+        (a, b, lines[a + 1..b - 1].join("\n"), block_unit(&lines, a, lang), enclosing_trial(&lines, a), Vec::new())
     } else {
         let (a1, b1) = o.lines.unwrap();
         if a1 == 0 || b1 < a1 || b1 > lines.len() {
@@ -677,16 +729,16 @@ fn deprecate_block(root: &Path, rel: &str, text: &str, o: &DeprecateOptions) -> 
             return refuse(format!("--expect mismatch at line {a1}: found \"{}\"", clean(lines[a1 - 1])));
         }
         guard_block(&lines, a1 - 1, b1)?;
-        (a1 - 1, b1, lines[a1 - 1..b1].join("\n"), block_unit(&lines, a1 - 1), enclosing_trial(&lines, a1 - 1), Vec::new())
+        (a1 - 1, b1, lines[a1 - 1..b1].join("\n"), block_unit(&lines, a1 - 1, lang), enclosing_trial(&lines, a1 - 1), Vec::new())
     };
-    let mark = marker(&id, &o.date, &unit, o.reason.as_deref(), o.replaced_by.as_deref());
+    let mark = marker(&id, &o.date, &unit, o.reason.as_deref(), o.replaced_by.as_deref(), lang);
     let mut out: Vec<String> = lines[..a].iter().map(|s| s.to_string()).collect();
     out.extend(keep);
     out.push(mark);
     out.extend(lines[b..].iter().map(|s| s.to_string()));
     let mut new_text = out.join("\n");
     if is_session_log(rel) {
-        let found = new_structure_findings(&strip_marks(text), &new_text);
+        let found = new_structure_findings(&strip_marks(text), &new_text, LogLang::of(root));
         if !found.is_empty() {
             return refuse(format!(
                 "the change would introduce structure findings in {rel} — choose another unit (e.g. the whole trial): {}",
@@ -723,14 +775,15 @@ fn deprecate_block(root: &Path, rel: &str, text: &str, o: &DeprecateOptions) -> 
 /// `elf deprecate show <ID>` — 보관 원문을 풀어 출력(사용자 요청 때만, LogConvention §6).
 pub fn run_show(root: &Path, id: &str) -> Res<Report> {
     let (kv, body) = read_store(root, id)?;
+    let w = words(LogLang::of(root));
     let mut rep = Report::default();
     rep.lines.push(format!(
         "{id}: source {} · unit {} · date {}{}{}",
         get(&kv, "source").unwrap_or("?"),
         get(&kv, "unit").unwrap_or("?"),
         get(&kv, "date").unwrap_or("?"),
-        get(&kv, "reason").filter(|r| !r.is_empty()).map(|r| format!(" · 사유: {r}")).unwrap_or_default(),
-        get(&kv, "replaced_by").filter(|r| !r.is_empty()).map(|r| format!(" · 대체: {r}")).unwrap_or_default(),
+        get(&kv, "reason").filter(|r| !r.is_empty()).map(|r| format!(" · {}: {r}", w.reason)).unwrap_or_default(),
+        get(&kv, "replaced_by").filter(|r| !r.is_empty()).map(|r| format!(" · {}: {r}", w.replaced)).unwrap_or_default(),
     ));
     rep.lines.push("--- deprecated content (not a basis for current decisions) ---".into());
     rep.lines.extend(body.lines().map(str::to_string));
@@ -763,7 +816,9 @@ pub fn run_restore(root: &Path, id: &str) -> Res<Report> {
         }
     } else {
         // trial 단위는 흔적 제목 줄(`## tNN: (폐기 ID)`)도 함께 바꿈
-        let start = if mi > 0 && clean(lines[mi - 1]).ends_with(&format!("(폐기 {id})")) { mi - 1 } else { mi };
+        let prev = if mi > 0 { clean(lines[mi - 1]) } else { "" };
+        let traced = [LogLang::Ko, LogLang::En].iter().any(|l| prev.ends_with(&format!("({} {id})", words(*l).deprecated)));
+        let start = if traced { mi - 1 } else { mi };
         let mut out: Vec<String> = lines[..start].iter().map(|s| s.to_string()).collect();
         out.push(body);
         out.extend(lines[mi + 1..].iter().map(|s| s.to_string()));
@@ -795,6 +850,7 @@ fn markers_in_docs(root: &Path) -> Vec<(String, String)> {
         for l in text.lines() {
             if let Some(id) = marker_id(l)
                 && !l.contains(PURGED_TAG)
+                && !l.contains(PURGED_TAG_EN)
             {
                 out.push((id, rel.clone()));
             }
@@ -846,6 +902,7 @@ pub fn pairing_findings(root: &Path) -> Vec<(char, String)> {
 /// 목록 — 보관 파일마다 1줄, 짝 경고.
 pub fn run_list(root: &Path) -> Res<Report> {
     let mut rep = Report::default();
+    let w = words(LogLang::of(root));
     let ids = store_ids(root);
     for id in &ids {
         match read_store(root, id) {
@@ -854,8 +911,8 @@ pub fn run_list(root: &Path) -> Res<Report> {
                 get(&kv, "date").unwrap_or("?"),
                 get(&kv, "unit").unwrap_or("?"),
                 get(&kv, "source").unwrap_or("?"),
-                get(&kv, "reason").filter(|r| !r.is_empty()).map(|r| format!(" · 사유: {r}")).unwrap_or_default(),
-                get(&kv, "replaced_by").filter(|r| !r.is_empty()).map(|r| format!(" · 대체: {r}")).unwrap_or_default(),
+                get(&kv, "reason").filter(|r| !r.is_empty()).map(|r| format!(" · {}: {r}", w.reason)).unwrap_or_default(),
+                get(&kv, "replaced_by").filter(|r| !r.is_empty()).map(|r| format!(" · {}: {r}", w.replaced)).unwrap_or_default(),
             )),
             Err(e) => rep.lines.push(format!("warn: {id}: {e}")),
         }
@@ -885,6 +942,18 @@ pub fn experimental_features(root: &Path) -> Vec<String> {
 mod tests {
     use super::*;
     use crate::session::{SessionNewOptions, run_session_new};
+
+    #[test]
+    fn section_names_in_either_language() {
+        // P017: --section 가설 / Hypothesis, 헤딩 `### 가설 (Hypothesis)` / `### Hypothesis` 모두 같은 절
+        for log in ["## t01: a\n\n### 가설 (Hypothesis)\n- h\n\n### 예상 (Prediction)\n- p\n", "## t01: a\n\n### Hypothesis\n- h\n\n### Prediction\n- p\n"] {
+            let lines: Vec<&str> = log.split('\n').collect();
+            for key in ["가설", "Hypothesis", "hypothesis"] {
+                let (a, b) = section_bounds(&lines, "t01", key).unwrap();
+                assert_eq!((a, b), (2, 4), "{key} in {log:?}");
+            }
+        }
+    }
 
     fn project() -> tempfile::TempDir {
         let tmp = tempfile::tempdir().unwrap();

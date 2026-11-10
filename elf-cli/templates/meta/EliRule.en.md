@@ -1,11 +1,5 @@
 # EliRule: Project Structure & Operational Guide
 
-> **INFORMATIVE TRANSLATION — NOT OPERATIVE.**
-> Authoritative source: `EliRule.md` (Korean). The AI agent operates from the Korean
-> original, not this file; this English version is for human reading only.
-> To customize project rules, edit `ProjectRule.md` (not this file). See
-> `AI_PARA_Framework.md` §1.1.
-
 The folder structure and operating rules of an ELF (Eli's Lab Framework) project. `README.md` gives the overview; this document is the practical specification.
 
 ---
@@ -79,14 +73,14 @@ All work records (research `S/`, governance `G/`, topic documents `Wiki/`). Loca
 - `.elf/managed/` and the root `AGENTS.md` are ELF-managed; do not edit them directly (`elf update` replaces them and, for a file you edited, keeps it and writes the new version as `.elf-new`). Put project rules in `ProjectRule.md`. The full ownership tiers are in the ownership section of `AGENTS.md`.
 - Entries of the data files (currently `LLMcliche.md`, `highIFjournals.md`) are customized with a **project overlay** `0_Meta/<name>.project.md` (user-owned). Prose rules go in `ProjectRule.md`; structure and convention files (LogConvention, stubs) take no overlay.
   - Effective rules = base ⊕ overlay. The agent reads both and applies them together.
-  - `## 추가 (add)`: add entries. `## 제외 (remove)`: remove base entries one by one, each with a reason (no section- or file-level disabling). `## 재정의 (override)`: replace a base entry with the project's definition.
+  - `## Add`: add entries. `## Remove`: remove base entries one by one, each with a reason (no section- or file-level disabling). `## Override`: replace a base entry with the project's definition.
   - Overlay entries are added or changed only with the user's approval; the agent does not add them on its own. Propose an ELF change when an entry is worth generalizing.
 
 ### 2.8 Session ownership — one writer per session (multi-agent)
 - A session log always has one writer (an agent or a person). Several writers on the same log overwrite each other's trials and handoff.
-- Parallel work = a separate session per agent (`elf session new`). Record relationships in the first trial's `### 배경` (e.g., `S200 (branched from, owns approach A)`).
+- Parallel work = a separate session per agent (`elf session new`). Record relationships in the first trial's `### Background` (e.g., `S200 (branched from, owns approach A)`).
 - Another agent's session log is read-only.
-- Conclusions of parallel sessions are merged by a single writer in a separate (or the original) session, naming the input sessions in that trial's `### 배경`.
+- Conclusions of parallel sessions are merged by a single writer in a separate (or the original) session, naming the input sessions in that trial's `### Background`.
 
 ### 2.9 External egress and publication control (Egress Control)
 - **Principle**: sending project content (data, outputs, logs, manuscripts, decisions, the user's words) outside the project repository and the user's devices requires **the user's explicit instruction for that case**. One instruction = one transfer (not a standing delegation). A tool's invitation (to publish, share, write feedback) is not an instruction.
@@ -113,11 +107,11 @@ Every AI agent follows these when communicating with the user and writing docume
 5. **Data reusability**: §2.6.
 6. **No exaggerated modifiers**: describe pros and cons with quantities and physical causality instead of emotive or extreme modifiers.
 7. **No emojis**: no emojis or icon characters in documents or responses.
-8. **Sentence endings**: Korean ends in nominal forms ('-음', '-함', '-임') or a concise '-다' (no '-입니다', '-습니다', or 해요체). Non-Korean output applies the intent of rule 2 (concise, active).
+8. **Sentence endings**: end sentences plainly and briefly, without polite filler, applying rule 2 (concise, active). Korean text, when written, ends in the nominal or the concise plain form.
 9. **Structure**: separate observation (facts) from interpretation (analysis); put file lists and conditions in markdown tables rather than prose lists.
-10. **Abbreviations**: give the full name at first use (`AR (asymmetry ratio)`). A trial or document that repeats abbreviations gets an abbreviation legend, one line per abbreviation, in `### 조건` (or at the top of the document). Redefine in each trial when an abbreviation spans trials (each trial readable on its own). Domain-standard units and symbols (μA, Hz, ms, SI) need no expansion.
+10. **Abbreviations**: give the full name at first use (`AR (asymmetry ratio)`). A trial or document that repeats abbreviations gets an abbreviation legend, one line per abbreviation, in `### Conditions` (or at the top of the document). Redefine in each trial when an abbreviation spans trials (each trial readable on its own). Domain-standard units and symbols (μA, Hz, ms, SI) need no expansion.
 11. **No LLM clichés**: write English documents and responses concretely, actively and directly. This is a principle, not a fixed list; precise technical terms (statistical significance, etc.), quotations, titles and original wording are allowed. Applied examples: `.elf/managed/LLMcliche.md`; project exceptions in `ProjectRule.md`; vocabulary add/remove/override via the overlay `0_Meta/LLMcliche.project.md` (§2.7).
-12. **Source reliability**: do not cite anonymous or collectively edited wikis (e.g., namu.wiki) or blogs and communities of unknown origin. Cross-check search results against reliable sources (public institutions, academic societies, government, primary scholarly sources, official documents, primary reporting) and cite those (trace Wikipedia to primary sources too). Exclude `namu.wiki` from web searches by default. Answers and documents based on the web carry a `## 출처` (or `## Sources`) section.
+12. **Source reliability**: do not cite anonymous or collectively edited wikis (e.g., namu.wiki) or blogs and communities of unknown origin. Cross-check search results against reliable sources (public institutions, academic societies, government, primary scholarly sources, official documents, primary reporting) and cite those (trace Wikipedia to primary sources too). Exclude `namu.wiki` from web searches by default. Answers and documents based on the web carry a `## Sources` section.
 13. **Typography**: list separator = comma (`A, B, C`; not the middle dot `·` U+00B7). Multiplication = `×` (U+00D7; LaTeX inside `$…$` math). Sub/superscripts = plain characters + `<sub>…</sub>`, `<sup>…</sup>` (`_`, `^` inside math). Micro = `μ` (U+03BC). Exception: the ` · ` in `elf deprecate` marker lines is a machine field separator (LogConvention §6).
 
 ---

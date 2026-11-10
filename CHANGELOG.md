@@ -4,6 +4,38 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.4.0] - 2026-11-10
+
+### Changed
+- **English projects are fully English** ([#9](https://github.com/ProjectEli/ELF/issues/9)). A project created with
+  `--lang en-*` now contains no Korean text:
+  - The rule documents (`EliRule.md`, `LogConvention.md`, `AI_PARA_Framework.md`, `LLMcliche.md`,
+    `highIFjournals.md` in `.elf/managed/`, and the root `AGENTS.md`) are the English versions at the same paths, and
+    they are the canonical rules the AI agent follows in that project. The separate English reading copies
+    (`*.en.md`) are gone.
+  - `elf session new`, `elf trial new` and `elf trial write` use English templates: `### Goal`, `### Conditions`,
+    `### Hypothesis`, `### Prediction`, `### Observation`, `### Interpretation`, `### Lessons`, `### Files`, and the
+    first interpretation line `Prediction match: match / partial / mismatch`. Both heading forms are read as the
+    same section in every project, so existing logs stay valid; a section written in the other form is corrected to
+    the project's form, and messages name sections in the project's language. `elf deprecate --section` accepts
+    either name.
+  - The `.gitignore` block, `.editorconfig`, `CLAUDE.md`, deprecation markers (`(deprecated S001-D01)`, `reason:`,
+    `replaced by:`), the `elf session close` file example and the `qa` preset files are in English.
+  - Korean projects are unchanged. Languages other than English keep the Korean set.
+- **`AGENTS.md` names the current rule location.** The duty to re-read the canonical rules after a context rebuild
+  pointed to `0_Meta/`, where the rules lived before 2.15; it now points to `.elf/managed/` and
+  `0_Meta/ProjectRule.md`, and so does the closing line of `elf autoread`. The `CLAUDE.md` pointer for new projects
+  says the same (an existing `CLAUDE.md` is never changed).
+- `elf self update` messages are in English.
+
+### Upgrading
+- 3.4 is a new line. A project on an earlier line keeps running with that line until you run `elf update` there: it
+  prints a summary and an approval code and moves the project after the user approves.
+- In an English project `elf update` replaces the Korean rule documents and templates with the English ones (an
+  edited file keeps your version and gets the new one beside it as `.elf-new`) and removes the old `*.en.md` copies
+  you did not edit. Logs are not rewritten; deprecation markers written before 3.4 keep working. An existing
+  `CLAUDE.md` is never changed.
+
 ## [3.3.0] - 2026-11-10
 
 ### Changed

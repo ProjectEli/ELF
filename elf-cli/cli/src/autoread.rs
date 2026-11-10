@@ -625,7 +625,7 @@ pub fn build_digest_for(root: &Path, source: &str, claude_code: bool) -> String 
         );
     } else {
         out.push_str(
-            "\nnext: before your first substantive action (1) read the full header (Handoff) of the session log you are working in, and (2) Read in full the task-relevant canonical rule documents under `0_Meta/` (follow the project's rule on which documents to read, if it defines one); keep Phase discipline (LogConvention §5.1) and embed figures immediately (§2).\n",
+            "\nnext: before your first substantive action (1) read the full header (Handoff) of the session log you are working in, and (2) Read in full the task-relevant canonical rule documents under `.elf/managed/` and `0_Meta/ProjectRule.md` (follow the project's rule on which documents to read, if it defines one); keep Phase discipline (LogConvention §5.1) and embed figures immediately (§2).\n",
         );
     }
     out
