@@ -82,7 +82,7 @@ user_note: ''
 - **status**: `ongoing`(진행 중), `complete`(종료), `deprecated`(폐기) 셋만 씀. 상태 변경은 elf 명령(`session close`, `deprecate`, `deprecate --restore`)이 함.
 - **modified**: 로그를 바꾸는 elf 명령이 갱신함.
 - **검사**: `ongoing`인데 goal이 비어 있으면, `complete`인데 conclusion이 비어 있으면 `elf check logs`가 경고.
-- **status별 값**: `ongoing` = conclusion, user_note `''` / `complete` = conclusion 필수, handoff의 미완료가 남으면 경고 / `deprecated` = handoff에 폐기 사유와 대체, conclusion과 user_note `''`(§6).
+- **status별 값**: `ongoing` = conclusion, user_note `''` / `complete` = conclusion 필수, handoff의 미완료가 남으면 닫을 때 경고 / `deprecated` = handoff에 폐기 사유와 대체, conclusion과 user_note `''`(§6).
 
 ### 본문 규칙
 - **작성 언어**: 로그는 `.elf/managed/EliRule.md`의 `PROJECT_LANG` 설정에 따른 언어로 작성하되, 반드시 명사형 종결어미('-음/함/임')를 사용한다(EliRule §3 문장 종결 방식). 기술 용어인 경우 영어 병기 가능.
@@ -178,7 +178,7 @@ Planning으로 분리된 내용은 원본 Log에 blockquote stub으로 표시:
 
 AI 에이전트가 새 세션을 시작할 때:
 
-- [ ] 연구 = `elf session new "<제목>" --goal '<목표>'`(`2_Log/S/`), 거버넌스(규칙, 구조, 템플릿, 도구 설정 변경) = `elf session new --gov "<제목>" --goal '<목표>'`(`2_Log/G/`). 계열마다 진행 중 세션은 1개(S 1개와 G 1개는 동시에 둘 수 있음). goal은 세션의 핵심 목표 1-2문장(§2)
+- [ ] 연구 = `elf session new "<제목>" --goal '<목표>'`(`2_Log/S/`), 거버넌스(규칙, 구조, 템플릿, 도구 설정 변경) = `elf session new --gov "<제목>" --goal '<목표>'`(`2_Log/G/`). 진행 중 세션은 여러 개 둘 수 있음(병렬 작업은 작업마다 세션 하나, 여럿이면 trial 명령에 `--session`). goal은 세션의 핵심 목표 1-2문장(§2)
 - [ ] 이어받을 선행 세션이 있으면 그 handoff, conclusion 확인 → 신규 trial t01 `### 배경`/`### 가설`에 반영(세션 ID는 배경에 씀)
 - [ ] `6_Exp/61_Sim/Data/S{NNN}/` 디렉토리 생성
 - [ ] 시뮬/실험 스크립트 `6_Exp/61_Sim/Scripts/S{NNN}_*.m` 작성

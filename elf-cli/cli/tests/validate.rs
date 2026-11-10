@@ -59,7 +59,7 @@ fn header_format_error_is_issue() {
 }
 
 #[test]
-fn malformed_name_issue_and_gap_and_multiple_active_warnings() {
+fn malformed_name_issue_and_gap_warnings_and_ongoing_count_info() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
     fs::write(root.join("2_Log/S/S201-a_log.md"), "x").unwrap();
@@ -68,7 +68,8 @@ fn malformed_name_issue_and_gap_and_multiple_active_warnings() {
     let (_, _, l) = lines(&root);
     assert!(l.contains("issue: malformed session log name: 2_Log/S/S201-a_log.md"), "{l}");
     assert!(l.contains("warn: gap in session numbering: S002 missing"), "{l}");
-    assert!(l.contains("warn: multiple active sessions (S001, S003)"), "{l}");
+    // 병렬 세션 허용(v3.2) — 경고가 아니라 정보
+    assert!(l.contains("info: 2 ongoing sessions (S001, S003)") && !l.contains("multiple active"), "{l}");
     assert!(l.contains("Registry.md differs from the log headers"), "S003 placed by hand: {l}");
 }
 
@@ -120,14 +121,15 @@ fn earlier_layout_is_one_issue_pointing_to_update() {
     assert!(r.lines[0].contains("earlier log layout") && r.lines[0].contains("elf update"));
 }
 
+/// 완료 로그의 헤더 값은 닫는 때만 검사(v3.2, SOMG 제안 E2) — check logs는 conclusion 빔, handoff 미완료를 경고하지 않음.
 #[test]
-fn complete_without_conclusion_warns() {
+fn complete_log_header_values_are_not_rechecked() {
     let tmp = tempdir().unwrap();
     let root = new_project(tmp.path());
-    let c = fs::read_to_string(log(&root)).unwrap().replace("status: ongoing", "status: complete");
+    let c = fs::read_to_string(log(&root)).unwrap().replace("status: ongoing", "status: complete").replace("handoff: ''", "handoff: '정리; 미완료 = 표 수정; 참조 t01'");
     fs::write(log(&root), c).unwrap();
     let (_, _, l) = lines(&root);
-    assert!(l.contains("conclusion is empty while complete"), "{l}");
+    assert!(!l.contains("conclusion is empty while complete") && !l.contains("pending items"), "{l}");
 }
 
 #[test]

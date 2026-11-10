@@ -4,6 +4,22 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.2.0] - 2026-11-10
+
+### Changed
+- **Several sessions may be in progress at once.** The rule of one in-progress session per series is lifted
+  (LogConvention), so parallel work can keep one session per task. `elf check logs` now reports the number of ongoing
+  sessions as information instead of a warning. With several ongoing sessions, trial commands still ask you to pick
+  one with `--session`.
+- **`elf check logs` no longer re-checks the header of a completed log.** An empty `conclusion` or pending items left in
+  the `handoff` are checked when the session is closed (`elf session close` requires a conclusion and warns about
+  pending items), not every time afterwards: a closed log is a past record with no command to change its header, so
+  repeating those warnings only added noise, for example on logs migrated from 2.27.
+
+### Upgrading
+- 3.2 is a new line. A project on an earlier line keeps running with that line until you run `elf update` there: it
+  prints a summary and an approval code and moves the project after the user approves.
+
 ## [3.1.0] - 2026-11-10
 
 ### Changed

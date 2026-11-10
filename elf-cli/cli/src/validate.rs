@@ -11,7 +11,6 @@ use std::path::Path;
 
 use crate::header::{self, Status};
 use crate::logs::{self, Series};
-use crate::session::handoff_pending;
 
 #[derive(Debug, Default)]
 pub struct ValidateReport {
@@ -420,14 +419,10 @@ pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
                             report.warn(format!("{fname}: goal is empty while ongoing"));
                         }
                     }
-                    Status::Complete => {
-                        if h.conclusion.trim().is_empty() {
-                            report.warn(format!("{fname}: conclusion is empty while complete"));
-                        }
-                        if let Some(p) = handoff_pending(&h.handoff) {
-                            report.warn(format!("{fname}: handoff still lists pending items while complete: \"{p}\""));
-                        }
-                    }
+                    // 완료 로그의 헤더 값(conclusion 빔, handoff 미완료)은 닫는 때만 검사(`session close` — conclusion 필수,
+                    // handoff 미완료 경고). 닫힌 뒤에는 고칠 명령이 없는 지난 기록이고, 이관 전 기록인지는 결정론적으로
+                    // 가릴 수 없음(v3.2 S048, SOMG 제안 E2)
+                    Status::Complete => {}
                     Status::Deprecated => {
                         if !h.conclusion.is_empty() || !h.user_note.is_empty() {
                             report.warn(format!(
@@ -469,7 +464,8 @@ pub fn run_validate(root: &Path) -> Result<ValidateReport, ValidateError> {
             }
         }
         if ongoing.len() > 1 {
-            report.warn(format!("multiple active sessions ({}) — close all but the current one", ongoing.join(", ")));
+            // 병렬 세션 허용(v3.2 S048, SOMG 제안 E1) — 개수는 운영 정보일 뿐 결함이 아님
+            report.lines.push(format!("info: {} ongoing sessions ({})", ongoing.len(), ongoing.join(", ")));
         }
         if let Some(expected) = logs::expected_registry(root, s) {
             let rel = logs::registry_rel(s);

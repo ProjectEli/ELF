@@ -138,7 +138,7 @@ Translation of the trial body in `trialTemplate.md` (the Korean template is the 
 - **status**: only `ongoing` (in progress), `complete` (closed), `deprecated` (withdrawn). State changes are made by elf commands (`session close`, `deprecate`, `deprecate --restore`).
 - **modified**: updated by every elf command that changes the log.
 - **Checks**: an empty goal while `ongoing` or an empty conclusion while `complete` → `elf check logs` warns.
-- **Values by status**: `ongoing` = conclusion and user_note `''` / `complete` = conclusion required, a warning if handoff still has pending items / `deprecated` = handoff holds the deprecation reason and replacement, conclusion and user_note `''` (§6).
+- **Values by status**: `ongoing` = conclusion and user_note `''` / `complete` = conclusion required, a warning at close if handoff still has pending items / `deprecated` = handoff holds the deprecation reason and replacement, conclusion and user_note `''` (§6).
 
 ### Body rules
 - **Writing language**: write logs in the language set by `PROJECT_LANG` in `.elf/managed/EliRule.md`, and always use nominal endings ('-음/함/임') (EliRule §3, sentence-ending form). English may be added for technical terms.
@@ -234,7 +234,7 @@ Content separated into Planning is marked in the original log with a blockquote 
 
 When an AI agent starts a new session:
 
-- [ ] Research = `elf session new "<title>" --goal '<goal>'` (`2_Log/S/`); governance (changes to rules, structure, templates, tool settings) = `elf session new --gov "<title>" --goal '<goal>'` (`2_Log/G/`). One in-progress session per series (one S and one G may run at the same time). The goal is the session's core goal in 1-2 sentences (§2)
+- [ ] Research = `elf session new "<title>" --goal '<goal>'` (`2_Log/S/`); governance (changes to rules, structure, templates, tool settings) = `elf session new --gov "<title>" --goal '<goal>'` (`2_Log/G/`). Several sessions may be in progress (parallel work = one session per task; with several, pick one with `--session` in trial commands). The goal is the session's core goal in 1-2 sentences (§2)
 - [ ] If a preceding session is being continued, read its handoff and conclusion → reflect them in the new trial t01's `### 배경 (Background)` / `### 가설 (Hypothesis)` (write the session id in the background)
 - [ ] Create the `6_Exp/61_Sim/Data/S{NNN}/` directory
 - [ ] Write the simulation/experiment script `6_Exp/61_Sim/Scripts/S{NNN}_*.m`
