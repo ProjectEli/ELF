@@ -123,9 +123,21 @@ fn run_version(cwd: &Path, env: &doctor::DoctorEnv) -> ScopeReport {
     let cli_line = pin::parse(&env.version).map(|v| format!(" (line {}, structure generation {})", v.line(), v.line().generation())).unwrap_or_default();
     r.items.push(Item::new(Level::Info, format!("CLI: elf {}{cli_line}", env.version)));
     if env.receipt_present {
-        r.items.push(Item::new(Level::Ok, "install receipt: found — `elf self update` works"));
+        r.items.push(Item::new(Level::Ok, "install receipt: found (installed by the installer)"));
     } else {
-        r.items.push(Item::new(Level::Info, "install receipt: absent — `elf self update` unavailable (dev/manual build)"));
+        r.items.push(Item::new(Level::Info, "install receipt: absent (dev or manual build) — `elf self update` still works through the version store"));
+    }
+    // 판별 폴더(v3.9 S059): 기본 판, 실행기, 보관된 판 수
+    if let Some(me) = pin::parse(&env.version) {
+        let cur = crate::launcher::current_or(&me);
+        let launcher = crate::launcher::launcher_path()
+            .filter(|p| p.is_file())
+            .map(|p| store::shown(&p))
+            .unwrap_or_else(|| "none at ~/.elf/bin (running a build directly)".into());
+        r.items.push(Item::new(
+            Level::Info,
+            format!("versions: default {cur}, launcher {launcher}, {} stored — each project runs its own line's version", store::installed().len()),
+        ));
     }
     let root = update::find_project_root(cwd);
     let earlier_root = if root.is_none() { crate::earlier::find_root(cwd) } else { None };

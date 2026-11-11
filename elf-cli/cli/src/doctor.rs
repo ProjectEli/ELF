@@ -58,9 +58,9 @@ pub fn run_doctor(cwd: &Path, env: &DoctorEnv) -> DoctorReport {
     // ── 환경 ──
     r.add(Health::Info, "elf version", env.version.clone());
     if env.receipt_present {
-        r.add(Health::Ok, "install receipt", "found — `elf self update` works");
+        r.add(Health::Ok, "install receipt", "found (installed by the installer)");
     } else {
-        r.add(Health::Info, "install receipt", "absent — `elf self update` unavailable (dev/manual build)");
+        r.add(Health::Info, "install receipt", "absent (dev or manual build) — `elf self update` still works through the version store");
     }
 
     // ── 프로젝트(.elf/) ──

@@ -14,6 +14,7 @@ pub mod gallery;
 pub mod hash;
 pub mod header;
 pub mod init;
+pub mod launcher;
 pub mod legacy;
 pub mod links;
 pub mod logcmd;

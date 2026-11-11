@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use elf_cli::{autoread, check, consent, deprecate, dispatch, doctor, earlier, embed, gallery, init, legacy, logcmd, manifest, migrate, pin, selfupdate, session, status, store, trial, tsa, update, validate, version};
+use elf_cli::{autoread, check, consent, deprecate, dispatch, doctor, earlier, embed, gallery, init, launcher, legacy, logcmd, manifest, migrate, pin, selfupdate, session, status, store, trial, tsa, update, validate, version};
 
 /// ELF (Eli's Lab Framework) 연구 프로젝트 스캐폴드, 갱신 CLI (research project scaffold & update CLI)
 #[derive(Parser)]
@@ -339,7 +339,12 @@ enum TrialCmd {
 
 // exit code 규약: 0=성공, 1=실행 오류, 2=usage(clap 기본), 3=refuse(이관 경고 포함), 4=check 발견. (5 escalation은 Registry TSV 폐지로 없어짐, P022)
 fn main() {
-    // 실행 위임(v3.0): 프로젝트 줄이 이 CLI와 다르면 보관소 버전으로 넘기고 그 종료 코드로 끝남
+    // 실행기 규약 번호(숨김, v3.9 S059): 갱신이 실행기를 바꿀지 정할 때 새 판에 물음
+    if std::env::args_os().nth(1).is_some_and(|a| a == launcher::PROTOCOL_ARG) {
+        println!("{}", launcher::PROTOCOL);
+        return;
+    }
+    // 실행 위임(v3.0, v3.9 판별 폴더): 실행기는 프로젝트 줄의 판(프로젝트 밖은 기본 판)을 보관소에서 실행
     dispatch::maybe_dispatch();
     let cli = Cli::parse();
     // autoread 배너 — 재구성 마커 대기 중이면 모든 명령 출력 선두 1행(보조 주입 채널: auto-compact
@@ -1161,7 +1166,14 @@ fn do_store(cmd: SelfCmd) {
         SelfCmd::Update => unreachable!("handled by do_self_update"),
         SelfCmd::List { available } => store::list_lines(available),
         SelfCmd::Install { version } => store::install_spec(&version).map(|i| {
-            vec![format!("{} {} → {}", if i.fresh { "installed" } else { "already in the version store:" }, i.version, store::shown(&i.exe))]
+            let mut out = vec![format!("{} {} → {}", if i.fresh { "installed" } else { "already in the version store:" }, i.version, store::shown(&i.exe))];
+            // 정리(v3.9 S059): self update, self install 때만 — 줄마다 최신 patch, 다른 줄은 기본 줄과 최근 30일 사용
+            if let Some(me) = pin::parse(embed::version()) {
+                let (removed, skipped) = launcher::cleanup(&launcher::current_or(&me), Some(&i.version));
+                out.extend(removed);
+                out.extend(skipped);
+            }
+            out
         }),
         SelfCmd::Uninstall { version } => match pin::parse(&version) {
             Some(v) => store::uninstall(&v).map(|_| vec![format!("removed {v} from the version store")]),
@@ -1190,7 +1202,11 @@ fn do_store(cmd: SelfCmd) {
 
 fn do_self_update() {
     match selfupdate::run_self_update() {
-        Ok(msg) => println!("[elf] {msg}"),
+        Ok(lines) => {
+            for l in lines {
+                println!("[elf] {l}");
+            }
+        }
         Err(e) => {
             eprintln!("[elf] {e}");
             std::process::exit(1);

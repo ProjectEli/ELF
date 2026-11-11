@@ -4,6 +4,29 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.9.0] - 2026-11-11
+
+### Changed
+- **Every version runs from its own folder.** Installed versions live in `~/.elf/versions/vX.Y.Z/`; the `elf` on
+  PATH is a launcher that picks a version and hands the command to it. `elf self update` downloads the new release
+  into its own folder, checks its sha256 and that it runs, and then switches the default version
+  (`~/.elf/current`). It no longer replaces the running `elf` while downloading, so a project open in another
+  window is not interrupted by an update.
+- **Each project runs its own version.** A project on an older line of the same structure generation now runs that
+  line's version (downloaded when missing) instead of the newest `elf`, so an update does not change how it behaves
+  until `elf update` moves it. When that version cannot be obtained, the default version runs it, as before, with a
+  daily note.
+
+### Added
+- **The version store cleans itself.** During `elf self update` and `elf self install`, each line keeps only its
+  newest patch, and other lines are kept when they are the default line or were used in the last 30 days. A file in
+  use is skipped; a removed line is downloaded again when a project needs it.
+- `elf check version` shows the default version, the launcher and how many versions are stored.
+
+### Upgrading
+- Update to 3.9 once with `elf self update` (this last update still uses the old installer path). The first run of
+  3.9 moves itself into the version store; after that, updates never replace the running `elf`.
+
 ## [3.8.1] - 2026-11-11
 
 ### Changed

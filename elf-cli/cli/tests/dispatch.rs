@@ -268,29 +268,127 @@ fn recheck_waits_an_hour_and_messages_name_the_real_cause() {
     assert!(err.contains("v9.2.0 could not be downloaded"), "{err}");
 }
 
-#[test]
-fn an_older_line_of_the_same_generation_runs_here_with_a_daily_note() {
+// ── 판별 폴더와 실행기(v3.9 S059): 이전 줄도 자기 판, 실행기의 첫 실행 이관, self update, 정리 ──────────
+
+/// 이 CLI보다 한 줄 낮은 같은 세대 줄(없으면 None — x.0 판).
+fn older_line() -> Option<String> {
     let me = elf_cli::pin::parse(elf_cli::embed::version()).unwrap();
     if me.minor == 0 {
-        return; // 같은 세대의 이전 줄이 없는 판
+        return None;
     }
     let older = format!("v{}.{}.0", me.major, me.minor - 1);
-    if elf_cli::pin::parse(&older).unwrap().line().generation() != me.line().generation() {
-        return;
-    }
+    (elf_cli::pin::parse(&older).unwrap().line().generation() == me.line().generation()).then_some(older)
+}
+
+#[test]
+fn an_older_line_runs_its_own_stored_version_with_a_daily_note() {
+    let Some(older) = older_line() else { return };
     let tmp = tempdir().unwrap();
     let e = env(tmp.path());
-    // 그 줄 판이 보관소에 있어도 넘기지 않음(실행할 수 없는 가짜 파일 — 넘기면 실패함)
-    store_put(&e, &older, b"not an executable");
+    store_put(&e, &older, &this_binary());
     let root = project(tmp.path(), &older);
     let (code, out, err) = run(&root, &e, &[TRACE], &["session", "new", "다음", "--goal", "g"]);
     assert_eq!(code, 0, "{out}{err}");
-    assert!(err.contains("is older than") && err.contains("running here") && !err.contains(" → v"), "not handed over: {err}");
-    assert!(err.contains("elf update` moves it to") && err.contains("after the user approves"), "{err}");
+    assert!(err.contains(&format!("→ {older}")), "handed to its own version: {err}");
+    assert!(err.contains("(its own version)") && err.contains("after the user approves"), "{err}");
     assert!(root.join("2_Log/S/S001_log.md").is_file());
     let m = fs::read_to_string(root.join(".elf/manifest.json")).unwrap();
     assert!(m.contains(&format!("\"elf_version\": \"{older}\"")), "the project line is not moved: {m}");
+    assert!(e.home.join("versions").join(&older).join("last_used").is_file(), "last use is recorded");
     // 안내는 프로젝트마다 하루 한 번
     let (code, _, err) = run(&root, &e, &[], &["log"]);
-    assert!(code == 0 && !err.contains("moves it to"), "{err}");
+    assert!(code == 0 && !err.contains("after the user approves"), "{err}");
+}
+
+#[test]
+fn an_older_line_that_cannot_be_obtained_runs_with_the_default_and_a_note() {
+    let Some(older) = older_line() else { return };
+    let tmp = tempdir().unwrap();
+    let e = env(tmp.path());
+    // 보관소에 없고 발행 목록도 읽을 수 없음 = 기본 판(이 CLI)으로 실행, 막지 않음
+    let root = project(tmp.path(), &older);
+    let (code, out, err) = run(&root, &e, &[TRACE], &["session", "new", "다음", "--goal", "g"]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(err.contains("is not available") && err.contains("runs it as is"), "{err}");
+    assert!(root.join("2_Log/S/S001_log.md").is_file());
+}
+
+/// 실행기 자리(`<ELF_HOME>/bin/`)에 이 시험 빌드의 사본을 둠.
+fn put_launcher(e: &Env) -> PathBuf {
+    let bin = e.home.join("bin");
+    fs::create_dir_all(&bin).unwrap();
+    let l = bin.join(exe());
+    fs::write(&l, this_binary()).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&l, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    l
+}
+
+fn run_exe(exe: &Path, dir: &Path, env: &Env, extra: &[(&str, &str)], args: &[&str]) -> (i32, String, String) {
+    let mut c = std::process::Command::new(exe);
+    c.args(args).current_dir(dir).env("ELF_HOME", &env.home).env("ELF_RELEASES", &env.rel).env_remove("ELF_DISPATCHED").env_remove("ELF_DISPATCH");
+    for (k, v) in extra {
+        c.env(k, v);
+    }
+    let o = c.output().unwrap();
+    (o.status.code().unwrap_or(-1), String::from_utf8_lossy(&o.stdout).into_owned(), String::from_utf8_lossy(&o.stderr).into_owned())
+}
+
+#[test]
+fn the_launcher_moves_itself_into_the_store_and_hands_every_command_to_a_version() {
+    let tmp = tempdir().unwrap();
+    let e = env(tmp.path());
+    let launcher = put_launcher(&e);
+    let me = elf_cli::embed::version();
+    // 첫 실행: 자기 사본을 보관소에 넣고 current를 씀, 그 뒤 프로젝트 밖 명령도 보관소 판이 실행
+    let (code, out, err) = run_exe(&launcher, tmp.path(), &e, &[TRACE], &["--version"]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(e.home.join("versions").join(me).join(exe()).is_file(), "copied into the store");
+    assert_eq!(fs::read_to_string(e.home.join("current")).unwrap().trim(), me);
+    assert!(err.contains(&format!("→ {me}")), "handed to the stored copy: {err}");
+    // 같은 줄 프로젝트도 보관소 판으로
+    let root = project(tmp.path(), me);
+    let (code, _, err) = run_exe(&launcher, &root, &e, &[TRACE], &["log"]);
+    assert!(code == 0 && err.contains(&format!("→ {me}")), "{err}");
+    assert!(e.home.join("versions").join(me).join("last_used").is_file());
+}
+
+#[test]
+fn self_update_adds_a_version_switches_current_and_cleans_the_store() {
+    let tmp = tempdir().unwrap();
+    let e = env(tmp.path());
+    let launcher = put_launcher(&e);
+    let me = elf_cli::embed::version();
+    run_exe(&launcher, tmp.path(), &e, &[], &["--version"]); // 첫 실행(이관)
+    // 보관소: 같은 줄 옛 patch(98.1.0), 오래 안 쓴 줄(97.0.0), 최근 쓴 줄(96.0.0)
+    for t in ["v98.1.0", "v98.1.2", "v97.0.0", "v96.0.0"] {
+        store_put(&e, t, b"stored");
+    }
+    fs::write(e.home.join("versions/v97.0.0/last_used"), "2000-01-01\n").unwrap();
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    fs::write(e.home.join("versions/v96.0.0/last_used"), format!("{today}\n")).unwrap();
+    fs::write(e.home.join("versions/v98.1.2/last_used"), format!("{today}\n")).unwrap();
+    publish(&e, "v99.0.0", &this_binary());
+    list(&e, &["v99.0.0", "v98.1.2"]);
+    let launcher_before = fs::read(&launcher).unwrap();
+
+    let (code, out, err) = run_exe(&launcher, tmp.path(), &e, &[], &["self", "update"]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(out.contains(&format!("updated to v99.0.0 — was {me}")), "{out}");
+    assert_eq!(fs::read_to_string(e.home.join("current")).unwrap().trim(), "v99.0.0");
+    assert!(e.home.join("versions/v99.0.0").join(exe()).is_file());
+    assert!(out.contains("removed v98.1.0 (a newer patch of the line is kept)") && out.contains("removed v97.0.0 (not used for more than 30 days)"), "{out}");
+    for kept in ["v98.1.2", "v96.0.0", me] {
+        assert!(e.home.join("versions").join(kept).is_dir(), "{kept} kept: {out}");
+    }
+    assert_eq!(fs::read(&launcher).unwrap(), launcher_before, "same launcher protocol = the launcher file is not touched");
+    // 이제 프로젝트 밖 명령은 새 기본 판이 실행
+    let (_, _, err) = run_exe(&launcher, tmp.path(), &e, &[TRACE], &["--version"]);
+    assert!(err.contains("→ v99.0.0"), "{err}");
+    // 다시 실행 = 이미 최신
+    let (code, out, _) = run_exe(&launcher, tmp.path(), &e, &[], &["self", "update"]);
+    assert!(code == 0 && out.contains("already up to date (v99.0.0)"), "{out}");
 }

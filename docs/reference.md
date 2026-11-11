@@ -8,9 +8,9 @@
 |---------|---------|
 | `elf init [name]` | Scaffold an ELF project (in place, or in `./<name>`) |
 | `elf update` | Update managed files in the current project; migrate a project made before 2.28 to the new log layout |
-| `elf self update` | Update the `elf` binary itself |
+| `elf self update` | Add the newest release to the version store and make it the default (projects keep their own versions); then clean the store |
 | `elf self list [--available]` | List the versions kept in the version store `~/.elf/versions` (`--available`: the newest release of each line, from GitHub) |
-| `elf self install <version>` | Download a release into the version store after checking its sha256: `2.27` = the newest patch of that line, `2.27.4` = that release |
+| `elf self install <version>` | Download a release into the version store after checking its sha256: `2.27` = the newest patch of that line, `2.27.4` = that release; then clean the store (the version just installed is kept) |
 | `elf self uninstall <version>`, `elf self prune` | Remove one stored version, or keep only the newest version of each line |
 | `elf session new "<title>" --goal "<goal>" [--gov]` | Create the next session log in `2_Log/S/` (or `2_Log/G/`) |
 | `elf session close [S###\|G###] --from <file>` | Close a session with its conclusion (status complete; the file is not moved) |
@@ -29,12 +29,19 @@ Global flags: `elf --version`, `elf --help`, `elf <command> --help`.
 
 ## Versions per project
 
-The project manifest records the ELF version the project uses (`elf_version`, written only by `elf init` and `elf update`). The `elf` on PATH reads it and, when the project's line (MAJOR.MINOR; 2.28.x counts as 3.0) is higher than its own or in another structure generation, runs the newest stored patch of that line from the version store `~/.elf/versions` with the same arguments, output, and exit code. The first command in such a project downloads that release after checking its sha256, and once a day `elf` looks for a newer patch of the line. When the project's recorded version or line is missing from the release list fetched earlier that day, the list is fetched again (at most once an hour), and if the list still cannot settle it, the recorded version is downloaded directly. `elf self …`, `elf init`, `elf update`, and `elf check version` always run with the `elf` on PATH. A project in the 2.27 layout without a recorded version runs with the newest 2.27 release; if that cannot be downloaded, the built-in 2.27 compatibility mode runs instead. A project on a lower line of the same structure generation runs with the `elf` on PATH as is: nothing is downloaded or refused, its ELF files stay on their line, and once a day a note says that `elf update` can move it (after the user approves). When a higher line cannot be obtained, commands that write refuse (exit 3) and read-only commands run with a warning; `elf self update` resolves it. `elf check version` shows which `elf` runs the project.
+Every installed version has its own folder, `~/.elf/versions/vX.Y.Z/`. The `elf` on PATH (`~/.elf/bin/elf`) is a launcher: it picks a version and runs that version's executable with the same arguments, output, and exit code, and does no work itself. So updating `elf` adds a folder and changes the default version, and never touches the files a project in another window is running.
+
+- **Inside a project**, the version comes from the project manifest (`elf_version`, written only by `elf init` and `elf update`): the newest stored patch of the project's line (MAJOR.MINOR; 2.28.x counts as 3.0), whether that line is older, the same, or newer than the default. The first command in such a project downloads that release after checking its sha256, and once a day `elf` looks for a newer patch of the line. When the project's recorded version or line is missing from the release list fetched earlier that day, the list is fetched again (at most once an hour), and if the list still cannot settle it, the recorded version is downloaded directly.
+- **Outside a project**, and for `elf self …`, `elf init`, `elf update`, `elf check version`, `--help` and `--version`, the default version runs (`~/.elf/current`).
+- A project on an older line of the same structure generation gets a note once a day that `elf update` can move it to the default line after the user approves. When its version cannot be obtained, the default version runs it as is (nothing is refused) and the note says so.
+- A project in the 2.27 layout without a recorded version runs with the newest 2.27 release; if that cannot be downloaded, the built-in 2.27 compatibility mode runs instead. When a newer line than the default cannot be obtained, commands that write refuse (exit 3) and read-only commands run with a warning; `elf self update` resolves it.
+- The first time the launcher runs (for example right after updating from 3.8), it copies itself into the version store and writes `~/.elf/current`.
+- `elf check version` shows the default version, the launcher, and which version runs the project.
 
 | Variable | Meaning |
 |----------|---------|
 | `ELF_DISPATCH` | `off`: never hand over to another version (tests, CI, diagnosis). `trace`: print each decision to standard error |
-| `ELF_HOME` | Folder that holds `versions/` (default `~/.elf`) |
+| `ELF_HOME` | Folder that holds `bin/`, `versions/` and `current` (default `~/.elf`) |
 | `ELF_RELEASES` | Base address or local folder of the release assets (testing) |
 
 ## Exit codes

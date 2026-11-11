@@ -1,24 +1,25 @@
-//! 실행 위임(v3.0, S044 t51, t59) — PATH의 `elf`(런처)가 프로젝트 고정값의 줄을 보고, 자기보다 높은 줄이거나 다른
-//! 구조 세대면 버전 보관소의 그 줄 최신 버전으로 인수, 표준 입출력, 종료 코드를 그대로 넘겨 실행.
-//! 같은 구조 세대의 더 낮은 줄 = 넘기지 않고 이 CLI로 실행, 새 줄로 옮길 수 있다는 안내를 프로젝트마다 하루 한 번
-//! (S053 t02 — 이전 형식 읽기가 보장되고 관리 파일은 바꾸지 않으므로, 옛 판을 받거나 막지 않음).
+//! 실행 위임(v3.0, S044 t51, t59 · v3.9 S059 판별 폴더) — PATH의 `elf`(실행기, `~/.elf/bin/`)는 판을 골라
+//! 보관소(`~/.elf/versions/vX.Y.Z/`)의 그 판 실행 파일로 인수, 표준 입출력, 종료 코드를 그대로 넘김. 작업은 하지 않으므로
+//! CLI 갱신(새 판 받기와 `current` 교체)이 실행 중인 다른 프로젝트의 판 파일을 건드리지 않음.
 //!
-//! - 런처가 직접 처리: 인수 없음과 `--help`, `--version`, `self`(실행 파일과 보관소), `init`(새 프로젝트 = 런처 줄),
-//!   `update`(버전 이동은 대상 버전이 실행, R2), `check version`(버전 판정).
-//! - 줄의 실행 파일 = 보관소의 최신 정식 patch. 하루 한 번 발행 목록을 짧게 확인해 더 새 patch가 있으면 받음(R1).
-//!   없으면 받아서 설치(첫 사용).
+//! - 프로젝트 안 = 그 줄의 보관된 최신 patch(같은 줄, 이전 줄, 더 높은 줄 모두 — 프로젝트별 격리). 이 실행 파일과 같은
+//!   줄이면 네트워크 없이 보관된 것 중 이 판 이상만 봄. 다른 줄은 하루 한 번 발행 목록으로 새 patch를 받음(R1), 없으면
+//!   받아서 설치(첫 사용).
+//! - 프로젝트 밖과 판에 묶이지 않는 명령(`--help`, `--version`, `self`, `init`, `update`, `check version`) = 기본 판
+//!   (`~/.elf/current`, 없으면 이 실행 파일).
+//! - 구할 수 없을 때: 같은 세대의 기본 판 이하 줄 = 기본 판으로 실행하고 안내(막지 않음, S053), 2.27 줄(1세대) = 내장
+//!   이전 형식 모드, 그 밖(프로젝트가 더 높음) = 읽기만(쓰기 명령 거부, `elf self update` 안내).
 //! - 목록이 오래됐을 때(고정 판이나 그 줄이 같은 날 받은 목록에 없음): 간격 제한으로 다시 받고, 그래도 정하지 못하면
 //!   목록 없이 고정 판을 바로 받음(S053).
-//! - 구할 수 없을 때: 2.27 줄(1세대) = 내장 이전 형식 모드로 이 프로세스에서 실행, 그 밖(프로젝트가 더 높음) = 읽기만
-//!   (쓰기 명령 거부, `elf self update` 안내).
-//! - 재귀 방지: 넘겨받은 프로세스에 `ELF_DISPATCHED`(런처 버전). `ELF_DISPATCH=off` = 위임 끔(시험, CI, 진단),
+//! - 이전 줄 프로젝트에는 새 줄로 옮길 수 있다는 안내를 프로젝트마다 하루 한 번.
+//! - 재귀 방지: 넘겨받은 프로세스에 `ELF_DISPATCHED`(실행기 판). `ELF_DISPATCH=off` = 위임 끔(시험, CI, 진단),
 //!   `trace` = 결정을 표준 오류에 한 줄.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use crate::pin::{self, Line, Ver};
-use crate::{session, store, update};
+use crate::{launcher, session, store, update};
 
 pub const ENV_DISPATCH: &str = "ELF_DISPATCH";
 pub const ENV_DISPATCHED: &str = "ELF_DISPATCHED";
@@ -28,10 +29,10 @@ pub const ENV_DISPATCHED: &str = "ELF_DISPATCHED";
 pub enum Decision {
     /// 이 프로세스에서 실행
     Here,
-    /// 같은 구조 세대의 더 낮은 줄 — 이 프로세스에서 실행하고 옮길 수 있다고 안내(`root` = 안내 표시 기록 위치)
-    Older { line: Line, root: PathBuf },
-    /// 보관소 실행 파일로 넘김(`installed` = 이번에 받음)
-    Run { line: Line, version: Ver, exe: PathBuf, installed: bool },
+    /// 보관소 실행 파일로 넘김(`installed` = 이번에 받음, `older` = 기본 판보다 이전 줄 프로젝트 — 안내 표시 기록 위치)
+    Run { line: Line, version: Ver, exe: PathBuf, installed: bool, older: Option<PathBuf> },
+    /// 줄의 판을 구할 수 없어 기본 판으로 실행(같은 세대의 기본 판 이하 줄 — 막지 않음). `exe` None = 이 프로세스
+    Fallback { line: Line, version: Ver, exe: Option<PathBuf>, why: String, root: PathBuf },
     /// 줄의 실행 파일을 구할 수 없음 — 이유
     Unavailable { line: Line, why: String },
 }
@@ -64,29 +65,53 @@ fn pin_root(cwd: &Path) -> Option<PathBuf> {
         .or_else(|| session::find_log_root(cwd).filter(|lr| !lr.join(".elf").join("manifest.json").exists()))
 }
 
+/// 판 `v`를 실행할 결정: 보관소에 있고 이 실행 파일이 아니면 넘김, 아니면 이 프로세스.
+fn to_version(v: &Ver, older: Option<PathBuf>) -> Decision {
+    match store::exe_path(v).filter(|e| e.is_file()) {
+        Some(exe) if !launcher::is_me(&exe) => Decision::Run { line: v.line(), version: v.clone(), exe, installed: false, older },
+        _ => Decision::Here,
+    }
+}
+
 /// 위임 결정(보관소 설치 포함 — 받는 동안 표준 오류에 안내 한 줄).
 pub fn decide(args: &[OsString], cwd: &Path, launcher: &str) -> Decision {
-    if std::env::var(ENV_DISPATCH).is_ok_and(|v| v == "off") || std::env::var_os(ENV_DISPATCHED).is_some() || launcher_only(args) {
+    if std::env::var(ENV_DISPATCH).is_ok_and(|v| v == "off") || std::env::var_os(ENV_DISPATCHED).is_some() {
         return Decision::Here;
     }
-    let Some(root) = pin_root(cwd) else { return Decision::Here };
-    // 읽을 수 없는 고정값, 더 높은 schema = 이 프로세스의 판정과 관문이 처리(R7)
-    let Ok(Some(p)) = pin::read(&root) else { return Decision::Here };
     let Some(me) = pin::parse(launcher) else { return Decision::Here };
-    if p.line == me.line() {
-        return Decision::Here;
-    }
-    if p.line < me.line() && p.line.generation() == me.line().generation() {
-        return Decision::Older { line: p.line, root };
-    }
+    launcher::bootstrap(&me);
+    let cur = launcher::current_or(&me);
+    let project = if launcher_only(args) { None } else { pin_root(cwd) };
+    let Some(root) = project else { return to_version(&cur, None) };
+    // 읽을 수 없는 고정값, 더 높은 schema = 기본 판의 판정과 관문이 처리(R7)
+    let Ok(Some(p)) = pin::read(&root) else { return to_version(&cur, None) };
     let line = p.line;
+    let older = (line < cur.line() && line.generation() == cur.line().generation()).then(|| root.clone());
+    // 실행기 위치가 아닌 실행 파일(개발 빌드, 시험, 보관소 판을 직접 실행)의 줄 = 네트워크 없이 보관된 것 중 이 판 이상,
+    // 없으면 이 프로세스. 실행기는 같은 줄도 아래 규칙(하루 한 번 새 patch 확인)으로 보관소 판에 넘김.
+    if line == me.line() && !launcher::running_as_launcher() {
+        return match store::newest_installed(line) {
+            Some((v, _)) if v >= me => to_version(&v, older),
+            _ => Decision::Here,
+        };
+    }
     // 고정 판(manifest `elf_version`) — 목록이 오래됐는지 판정하고, 목록 없이 바로 받을 때 씀
     let pinned = match &p.source {
         pin::Source::Manifest(raw) => pin::parse(raw),
         pin::Source::Inferred(_) => None,
     };
     match resolve_line(line, pinned.as_ref()) {
-        Ok((version, exe, installed)) => Decision::Run { line, version, exe, installed },
+        Ok((version, exe, installed)) => {
+            if launcher::is_me(&exe) {
+                Decision::Here
+            } else {
+                Decision::Run { line, version, exe, installed, older }
+            }
+        }
+        Err(why) if line.generation() == cur.line().generation() && line <= cur.line() => {
+            let exe = store::exe_path(&cur).filter(|e| e.is_file() && !launcher::is_me(e));
+            Decision::Fallback { line, version: cur, exe, why, root }
+        }
         Err(why) => Decision::Unavailable { line, why },
     }
 }
@@ -166,21 +191,17 @@ fn exec(mut c: std::process::Command, exe: &Path) -> i32 {
     }
 }
 
-/// 같은 세대 이전 줄 안내 표시 기록(프로젝트마다 하루 한 번).
+/// 이전 줄 안내 표시 기록(프로젝트마다 하루 한 번).
 pub const OLDER_NOTE: &str = ".elf/runtime/older_line_note";
 
-/// 같은 세대 이전 줄 프로젝트를 이 CLI로 실행한다는 안내 — 프로젝트마다 하루 한 번(표준 오류). 표시 기록을 쓰지
-/// 못해도 안내는 함(실행을 막지 않음).
-fn older_note(root: &Path, line: Line, launcher: &str) {
+/// 이전 줄 프로젝트 안내 — 프로젝트마다 하루 한 번(표준 오류). 표시 기록을 쓰지 못해도 안내는 함(실행을 막지 않음).
+fn older_note(root: &Path, msg: &str) {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let mark = root.join(OLDER_NOTE);
     if std::fs::read_to_string(&mark).is_ok_and(|t| t.trim() == today) {
         return;
     }
-    let to = pin::parse(launcher).map(|v| v.line().to_string()).unwrap_or_else(|| launcher.to_string());
-    eprintln!(
-        "[elf] note: this project is on line {line}; elf {launcher} runs it as is (its ELF files stay on {line}). `elf update` moves it to {to} after the user approves"
-    );
+    eprintln!("[elf] note: {msg}");
     if let Some(d) = mark.parent() {
         let _ = std::fs::create_dir_all(d);
     }
@@ -193,19 +214,39 @@ pub fn maybe_dispatch() {
     let Ok(cwd) = std::env::current_dir() else { return };
     let launcher = crate::embed::version();
     let trace = std::env::var(ENV_DISPATCH).is_ok_and(|v| v == "trace");
+    let cur = pin::parse(launcher).map(|me| launcher::current_or(&me));
+    let to = cur.as_ref().map(|c| c.line().to_string()).unwrap_or_default();
     match decide(&args, &cwd, launcher) {
-        Decision::Here => {}
-        Decision::Older { line, root } => {
-            if trace {
-                eprintln!("[elf] dispatch: project line {line} is older than {launcher} (same structure generation) — running here");
+        Decision::Here => {
+            if let Some(me) = pin::parse(launcher)
+                && store::exe_path(&me).is_some_and(|e| launcher::is_me(&e))
+            {
+                launcher::touch(&me);
             }
-            older_note(&root, line, launcher);
         }
-        Decision::Run { line, version, exe, .. } => {
+        Decision::Run { line, version, exe, older, .. } => {
             if trace {
                 eprintln!("[elf] dispatch: project line {line} → {version} ({})", store::shown(&exe));
             }
+            if let Some(root) = older {
+                older_note(&root, &format!(
+                    "this project is on line {line} and runs elf {version} (its own version). `elf update` moves it to {to} after the user approves"
+                ));
+            }
+            launcher::touch(&version);
             std::process::exit(run(&exe, &args, launcher));
+        }
+        Decision::Fallback { line, version, exe, why, root } => {
+            if trace {
+                eprintln!("[elf] dispatch: project line {line} is not available ({why}) — running the default {version}");
+            }
+            older_note(&root, &format!(
+                "this project is on line {line}, which is not available ({why}); elf {version} runs it as is (its ELF files stay on {line}). `elf update` moves it to {to} after the user approves"
+            ));
+            if let Some(exe) = exe {
+                launcher::touch(&version);
+                std::process::exit(run(&exe, &args, launcher));
+            }
         }
         Decision::Unavailable { line, why } => {
             if line == pin::earlier_line() {
