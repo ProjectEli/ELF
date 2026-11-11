@@ -116,8 +116,119 @@ fn is_remote(s: &str) -> bool {
     s.starts_with("https://") || s.starts_with("http://")
 }
 
+/// 자산 받기의 시도마다 상한(초)과 시도 수 상한(S059 t03).
+const ATTEMPT_SECS: u64 = 120;
+const MAX_ATTEMPTS: u32 = 20;
+
+/// 자산과 `.sha256` 받기 — 원격은 이어받기(`fetch_resumable`), 로컬 경로는 그대로 읽음.
 fn fetch(url: &str) -> Result<Vec<u8>, String> {
-    fetch_with(url, 120)
+    if !is_remote(url) {
+        return fs::read(url).map_err(|e| format!("{url}: {e}"));
+    }
+    fetch_resumable(url, ATTEMPT_SECS, MAX_ATTEMPTS)
+}
+
+/// 이어받기(S059 t03): GitHub 자산 CDN 속도가 시간대에 따라 20 KB/s까지 떨어져 전체 상한 하나로는 느리지만 진행 중인
+/// 받기가 끊김. 시도마다 `secs` 상한, 끊기면 받은 바이트는 두고 `Range: bytes=<받은 수>-`로 이어받음. 206 = 이어 붙임,
+/// 200 = 처음부터 새로(Range 무시), 416이고 받은 수 = 전체 = 끝. 한 시도에서 1바이트도 못 받은 일이 연속 2번이면 멈춤으로
+/// 보고 실패, 4xx는 바로 실패. 전체 길이(`Content-Length`나 `Content-Range`의 전체)와 같아야 끝(모르면 EOF로).
+pub(crate) fn fetch_resumable(url: &str, secs: u64, max_attempts: u32) -> Result<Vec<u8>, String> {
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(std::time::Duration::from_secs(secs)))
+        .http_status_as_error(false)
+        .build()
+        .into();
+    let mut data: Vec<u8> = Vec::new();
+    let mut total: Option<usize> = None;
+    let mut idle = 0u32;
+    let mut last = String::from("no attempt");
+    for attempt in 1..=max_attempts {
+        let have = data.len();
+        if attempt > 1 {
+            let of = total.map(|t| format!(" of {t}")).unwrap_or_default();
+            eprintln!("[elf] download interrupted at {have}{of} bytes ({last}) — resuming, attempt {attempt}");
+        }
+        let mut req = agent
+            .get(url)
+            .header("User-Agent", &format!("elf-cli/{}", crate::embed::version()))
+            .header("Accept", "application/vnd.github+json, application/octet-stream");
+        if have > 0 {
+            req = req.header("Range", &format!("bytes={have}-"));
+        }
+        let (got, eof) = match req.call() {
+            Err(e) => {
+                last = e.to_string();
+                (0, false)
+            }
+            Ok(mut resp) => {
+                let status = resp.status().as_u16();
+                let header = |k: &str| resp.headers().get(k).and_then(|v| v.to_str().ok()).map(str::to_string);
+                match status {
+                    200 => {
+                        data.clear();
+                        total = header("content-length").and_then(|v| v.trim().parse().ok());
+                        read_into(&mut resp, &mut data, &mut last)
+                    }
+                    206 => {
+                        // `bytes a-b/T` — 이어 붙일 위치가 다르면 처음부터
+                        let cr = header("content-range").unwrap_or_default();
+                        let start = cr.trim_start_matches("bytes ").split('-').next().and_then(|a| a.trim().parse::<usize>().ok());
+                        if let Some(t) = cr.rsplit('/').next().and_then(|t| t.trim().parse().ok()) {
+                            total = Some(t);
+                        }
+                        if start != Some(have) {
+                            data.clear();
+                            total = None;
+                            last = format!("unexpected Content-Range `{cr}`");
+                            (0, false)
+                        } else {
+                            read_into(&mut resp, &mut data, &mut last)
+                        }
+                    }
+                    416 if have > 0 && total == Some(have) => return Ok(data),
+                    s if (400..500).contains(&s) => return Err(format!("{url}: HTTP {s}")),
+                    s => {
+                        last = format!("HTTP {s}");
+                        (0, false)
+                    }
+                }
+            }
+        };
+        match total {
+            Some(t) if data.len() == t => return Ok(data),
+            Some(t) if data.len() > t => return Err(format!("{url}: received {} bytes, more than {t}", data.len())),
+            None if eof => return Ok(data),
+            _ => {}
+        }
+        if data.len() as u64 > MAX_ASSET {
+            return Err(format!("{url}: larger than {MAX_ASSET} bytes"));
+        }
+        idle = if got == 0 { idle + 1 } else { 0 };
+        if idle >= 2 {
+            return Err(format!("{url}: no data in two attempts ({last}) — stopped at {} bytes", data.len()));
+        }
+    }
+    Err(format!("{url}: incomplete after {max_attempts} attempts ({last}) — {} bytes received", data.len()))
+}
+
+/// 응답 본문을 조각으로 읽어 `data`에 붙임 → (받은 바이트, 끝까지 읽었는가). 끊기면 그때까지 받은 것은 남김.
+fn read_into(resp: &mut ureq::http::Response<ureq::Body>, data: &mut Vec<u8>, last: &mut String) -> (usize, bool) {
+    let mut r = resp.body_mut().with_config().limit(MAX_ASSET).reader();
+    let mut buf = vec![0u8; 64 * 1024];
+    let mut got = 0usize;
+    loop {
+        match r.read(&mut buf) {
+            Ok(0) => return (got, true),
+            Ok(n) => {
+                data.extend_from_slice(&buf[..n]);
+                got += n;
+            }
+            Err(e) => {
+                *last = e.to_string();
+                return (got, false);
+            }
+        }
+    }
 }
 
 fn fetch_with(url: &str, secs: u64) -> Result<Vec<u8>, String> {
@@ -646,4 +757,106 @@ mod tests {
         let only28 = vec![pin::parse("v2.28.5").unwrap()];
         assert_eq!(newest_release(pin::line_of(3, 0), &only28), None);
     }
+
+    // ── 이어받기(S059 t03): 시험 안 로컬 HTTP 서버, 연결마다 정해 둔 응답 ───────────────
+
+    type Step = Box<dyn FnOnce(&str, &mut std::net::TcpStream) + Send>;
+
+    /// 연결을 차례로 받아 각 단계로 응답하는 서버 → 기준 주소. 요청 머리(헤더)를 단계에 넘김.
+    fn serve(steps: Vec<Step>) -> String {
+        use std::io::{BufRead, BufReader, Write};
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = l.local_addr().unwrap();
+        std::thread::spawn(move || {
+            for step in steps {
+                let Ok((mut s, _)) = l.accept() else { return };
+                let mut req = String::new();
+                let mut rd = BufReader::new(s.try_clone().unwrap());
+                loop {
+                    let mut line = String::new();
+                    if rd.read_line(&mut line).unwrap_or(0) == 0 || line == "\r\n" {
+                        break;
+                    }
+                    req.push_str(&line);
+                }
+                step(&req, &mut s);
+                let _ = s.flush();
+            }
+        });
+        format!("http://{addr}/asset.zip")
+    }
+
+    fn body(n: usize) -> Vec<u8> {
+        (0..n).map(|i| (i % 251) as u8).collect()
+    }
+
+    fn head(s: &mut std::net::TcpStream, status: &str, extra: &str) {
+        use std::io::Write;
+        let _ = write!(s, "HTTP/1.1 {status}\r\nConnection: close\r\n{extra}\r\n");
+    }
+
+    #[test]
+    fn resumes_after_a_cut_with_a_range_request() {
+        use std::io::Write;
+        let full = body(100_000);
+        let (a, b) = (full.clone(), full.clone());
+        let url = serve(vec![
+            Box::new(move |_, s| {
+                head(s, "200 OK", "Content-Length: 100000\r\n");
+                let _ = s.write_all(&a[..30_000]); // 끊김
+            }),
+            Box::new(move |req, s| {
+                assert!(req.to_ascii_lowercase().contains("range: bytes=30000-"), "{req}");
+                head(s, "206 Partial Content", "Content-Length: 70000\r\nContent-Range: bytes 30000-99999/100000\r\n");
+                let _ = s.write_all(&b[30_000..]);
+            }),
+        ]);
+        assert_eq!(fetch_resumable(&url, 10, 5).unwrap(), full);
+    }
+
+    #[test]
+    fn a_server_ignoring_range_starts_over_without_duplicates() {
+        use std::io::Write;
+        let full = body(50_000);
+        let (a, b) = (full.clone(), full.clone());
+        let url = serve(vec![
+            Box::new(move |_, s| {
+                head(s, "200 OK", "Content-Length: 50000\r\n");
+                let _ = s.write_all(&a[..10_000]);
+            }),
+            Box::new(move |_, s| {
+                head(s, "200 OK", "Content-Length: 50000\r\n");
+                let _ = s.write_all(&b);
+            }),
+        ]);
+        assert_eq!(fetch_resumable(&url, 10, 5).unwrap(), full);
+    }
+
+    #[test]
+    fn one_shot_and_client_errors() {
+        use std::io::Write;
+        let full = body(5_000);
+        let a = full.clone();
+        let url = serve(vec![Box::new(move |_, s| {
+            head(s, "200 OK", &format!("Content-Length: {}\r\n", a.len()));
+            let _ = s.write_all(&a);
+        })]);
+        assert_eq!(fetch_resumable(&url, 10, 5).unwrap(), full);
+        let url = serve(vec![Box::new(|_, s| head(s, "404 Not Found", "Content-Length: 0\r\n"))]);
+        let e = fetch_resumable(&url, 10, 5).unwrap_err();
+        assert!(e.contains("HTTP 404"), "{e}");
+    }
+
+    #[test]
+    fn two_attempts_without_data_stop() {
+        // 머리만 보내고 본문 없이 붙잡음 → 시도마다 1초 상한으로 끊김, 연속 2번 0바이트 = 멈춤
+        let hold = |_: &str, s: &mut std::net::TcpStream| {
+            head(s, "200 OK", "Content-Length: 1000\r\n");
+            std::thread::sleep(std::time::Duration::from_millis(2500));
+        };
+        let url = serve(vec![Box::new(hold), Box::new(hold), Box::new(hold)]);
+        let e = fetch_resumable(&url, 1, 5).unwrap_err();
+        assert!(e.contains("no data in two attempts"), "{e}");
+    }
+
 }

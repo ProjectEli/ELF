@@ -4,6 +4,15 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.9.1] - 2026-11-11
+
+### Fixed
+- **Downloads into the version store resume instead of failing on a slow network.** A release download (by
+  `elf self update`, `elf self install`, or the first command in a project whose version is missing) used to stop
+  after 2 minutes even while data was still arriving. It now resumes where it stopped with a range request, each
+  attempt up to 2 minutes and at most 20 attempts, and stops only when two attempts in a row receive nothing. The
+  sha256 check is unchanged.
+
 ## [3.9.0] - 2026-11-11
 
 ### Changed
