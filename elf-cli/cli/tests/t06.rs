@@ -29,7 +29,7 @@ fn self_update_without_receipt_errors_with_installer_hint() {
         .assert()
         .failure()
         .code(1)
-        .stderr(predicates::str::contains("cannot read the release list"))
+        .stderr(predicates::str::contains("cannot find the latest release"))
         .stderr(predicates::str::contains("elf-cli-installer.ps1"));
 }
 
@@ -41,7 +41,7 @@ fn legacy_self_update_name_routes_to_same_command() {
         .assert()
         .failure()
         .code(1)
-        .stderr(predicates::str::contains("cannot read the release list"))
+        .stderr(predicates::str::contains("cannot find the latest release"))
         .stderr(predicates::str::contains("elf-cli-installer.ps1"));
 }
 
@@ -53,7 +53,7 @@ fn selfupdate_alias_routes_to_same_command() {
         .assert()
         .failure()
         .code(1)
-        .stderr(predicates::str::contains("cannot read the release list"));
+        .stderr(predicates::str::contains("cannot find the latest release"));
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn update_self_flag_routes_to_self_update() {
         .assert()
         .failure()
         .code(1)
-        .stderr(predicates::str::contains("cannot read the release list"));
+        .stderr(predicates::str::contains("cannot find the latest release"));
 }
 
 /// `--self`는 프로젝트 갱신 플래그와 배타 (usage 오류 = exit 2)

@@ -564,6 +564,62 @@ pub fn install(v: &Ver) -> Result<Installed, String> {
     }
 }
 
+/// 최신 정식 판(S060): 원격 = `releases/latest` 리다이렉트의 `Location`(발행 목록 2 MB 대신 수백 바이트, GitHub의
+/// latest는 초안과 pre-release 제외), 로컬 폴더(`ELF_RELEASES`, 시험) = 그 폴더 `releases.json`의 최신 정식 판.
+/// 찾지 못하면 Err — 옛 목록으로 대신 판단하지 않음.
+pub fn latest_release() -> Result<Ver, String> {
+    let base = releases_base();
+    if !is_remote(&base) {
+        let list = fetch(&format!("{base}/{LIST_CACHE}")).and_then(|b| parse_release_list(&String::from_utf8_lossy(&b)))?;
+        return list.into_iter().filter(|v| v.pre.is_none()).max().ok_or_else(|| "the release list has no published release".into());
+    }
+    let url = latest_url(&base);
+    match latest_from(&url, 30) {
+        Ok(v) => Ok(v),
+        Err(_) => latest_from(&url, 30),
+    }
+}
+
+/// Release 기준 주소(`…/releases/download`) → `…/releases/latest`.
+fn latest_url(base: &str) -> String {
+    let b = base.trim_end_matches('/');
+    match b.strip_suffix("/download") {
+        Some(root) => format!("{root}/latest"),
+        None => format!("{b}/latest"),
+    }
+}
+
+/// 리다이렉트를 따르지 않고 `url`을 물어 `Location`의 판을 읽음.
+pub(crate) fn latest_from(url: &str, secs: u64) -> Result<Ver, String> {
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(std::time::Duration::from_secs(secs)))
+        .max_redirects(0)
+        .http_status_as_error(false)
+        .build()
+        .into();
+    let resp = agent
+        .get(url)
+        .header("User-Agent", &format!("elf-cli/{}", crate::embed::version()))
+        .call()
+        .map_err(|e| format!("{url}: {e}"))?;
+    let status = resp.status().as_u16();
+    let loc = resp.headers().get("location").and_then(|v| v.to_str().ok()).map(str::to_string);
+    match (status, loc) {
+        (300..=399, Some(l)) => tag_from_location(&l).ok_or_else(|| format!("{url}: unexpected redirect to `{l}`")),
+        (s, _) => Err(format!("{url}: HTTP {s} without a redirect to the latest release")),
+    }
+}
+
+/// `…/releases/tag/vX.Y.Z` → 정식 판(pre-release, 다른 경로 = None).
+pub fn tag_from_location(loc: &str) -> Option<Ver> {
+    let path = loc.split(['?', '#']).next()?.trim_end_matches('/');
+    let (head, tag) = path.rsplit_once('/')?;
+    if !head.ends_with("/releases/tag") {
+        return None;
+    }
+    pin::parse(tag).filter(|v| v.pre.is_none())
+}
+
 /// 줄의 최신 정식 patch를 설치(발행 목록 필요).
 pub fn install_line(line: Line, refresh: bool) -> Result<Installed, String> {
     let (mut list, _) = releases(refresh)?;
@@ -857,6 +913,33 @@ mod tests {
         let url = serve(vec![Box::new(hold), Box::new(hold), Box::new(hold)]);
         let e = fetch_resumable(&url, 1, 5).unwrap_err();
         assert!(e.contains("no data in two attempts"), "{e}");
+    }
+
+
+    // ── 최신 판(S060): releases/latest 리다이렉트 ─────────────────────────────
+
+    #[test]
+    fn latest_tag_comes_from_the_redirect_location() {
+        let v = |s: &str| pin::parse(s).unwrap();
+        assert_eq!(tag_from_location("https://github.com/ProjectEli/ELF/releases/tag/v3.9.1"), Some(v("v3.9.1")));
+        assert_eq!(tag_from_location("https://github.com/o/r/releases/tag/v3.9.1/?x=1"), Some(v("v3.9.1")));
+        assert_eq!(tag_from_location("https://github.com/o/r/releases/tag/v3.10.0-rc"), None, "pre-release");
+        assert_eq!(tag_from_location("https://github.com/o/r/releases"), None);
+        assert_eq!(latest_url("https://github.com/o/r/releases/download"), "https://github.com/o/r/releases/latest");
+        assert_eq!(latest_url("http://127.0.0.1:9/x/"), "http://127.0.0.1:9/x/latest");
+    }
+
+    #[test]
+    fn latest_from_reads_a_302_and_rejects_a_page_without_one() {
+        let url = serve(vec![Box::new(|req, s| {
+            assert!(req.starts_with("GET /asset.zip"), "{req}");
+            head(s, "302 Found", "Location: https://github.com/o/r/releases/tag/v9.9.9\r\nContent-Length: 0\r\n");
+        })]);
+        assert_eq!(latest_from(&url, 10).unwrap(), pin::parse("v9.9.9").unwrap());
+        let url = serve(vec![Box::new(|_, s| head(s, "200 OK", "Content-Length: 0\r\n"))]);
+        assert!(latest_from(&url, 10).unwrap_err().contains("HTTP 200 without a redirect"));
+        let url = serve(vec![Box::new(|_, s| head(s, "302 Found", "Location: https://github.com/o/r/releases\r\nContent-Length: 0\r\n"))]);
+        assert!(latest_from(&url, 10).unwrap_err().contains("unexpected redirect"));
     }
 
 }

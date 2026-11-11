@@ -170,7 +170,7 @@ pub fn cleanup(current: &Ver, keep: Option<&Ver>) -> (Vec<String>, Vec<String>) 
     for (v, why) in plan_cleanup(&installed, current, keep, today) {
         match store::uninstall(&v) {
             Ok(()) => removed.push(format!("removed {v} ({why})")),
-            Err(e) => skipped.push(format!("kept {v} for now — {e} (in use? retried at the next cleanup)")),
+            Err(e) => skipped.push(format!("kept {v} for now — {e}; retried at the next cleanup")),
         }
     }
     (removed, skipped)

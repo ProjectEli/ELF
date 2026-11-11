@@ -4,6 +4,15 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.9.2] - 2026-11-11
+
+### Fixed
+- **`elf self update` finds the latest release without the 2 MB release list.** It asks GitHub's `releases/latest`
+  redirect (a few kilobytes) instead of the full release list, which had grown to 2 MB and could not be read within
+  the time limit on a slow network. When the latest release cannot be found, nothing changes and the error says so;
+  it no longer reports "already up to date" from an old list.
+- The cleanup message for a version that is in use no longer repeats its reason.
+
 ## [3.9.1] - 2026-11-11
 
 ### Fixed

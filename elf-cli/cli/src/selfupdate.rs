@@ -14,13 +14,11 @@ pub const INSTALLER_HINT: &str = r#"powershell -ExecutionPolicy Bypass -c "irm h
 pub fn run_self_update() -> Result<Vec<String>, String> {
     let me = pin::parse(embed::version()).ok_or("this build has no version")?;
     let cur = launcher::current_or(&me);
-    let (list, stale) = store::releases(true)
-        .map_err(|e| format!("self update failed: {e}.\n  To reinstall manually:\n  {INSTALLER_HINT}"))?;
+    // 최신 정식 판 = `releases/latest` 리다이렉트(S060 — 2 MB 발행 목록 대신). 찾지 못하면 바뀌는 것 없이 오류
+    let newest = store::latest_release().map_err(|e| {
+        format!("self update failed: cannot find the latest release ({e}). Nothing changed.\n  To reinstall manually:\n  {INSTALLER_HINT}")
+    })?;
     let mut out = Vec::new();
-    if let Some(d) = stale {
-        out.push(format!("note: the release list could not be refreshed — using the one from {d}"));
-    }
-    let newest = list.iter().filter(|v| v.pre.is_none()).max().cloned().ok_or("the release list has no published release")?;
     if newest <= cur {
         out.push(format!("already up to date ({cur})"));
     } else {
