@@ -4,6 +4,13 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.8.1] - 2026-11-11
+
+### Changed
+- **`qa` preset: a shorter `AGENTS.md`.** The rules are the same; the Korean file is about a quarter shorter and the
+  English one about 28% (5,807 characters), with repeated sentences merged and examples made general. `elf update`
+  refreshes it.
+
 ## [3.8.0] - 2026-11-11
 
 ### Changed
