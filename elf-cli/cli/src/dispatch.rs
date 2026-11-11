@@ -121,6 +121,17 @@ pub fn decide(args: &[OsString], cwd: &Path, launcher: &str) -> Decision {
 /// 실제 이유.
 pub fn resolve_line(line: Line, pinned: Option<&Ver>) -> Result<(Ver, PathBuf, bool), String> {
     let stored = store::newest_installed(line);
+    // 같은 줄의 새 patch = 하루 한 번 묻는 latest(S061, 수 KB) — 발행이 한 줄로 이어지므로 latest가 다른 줄이면 이 줄에
+    // 새 patch는 없음. 보관된 것이 있거나 latest가 이 줄이면 발행 목록을 쓰지 않음.
+    let latest = store::latest_daily().filter(|l| store::is_of_line(l, line));
+    if stored.is_some() || latest.is_some() {
+        let (version, fetch) = choose(stored.as_ref().map(|s| &s.0), latest.as_ref()).expect("one of them is known");
+        if !fetch {
+            return Ok((version, stored.map(|s| s.1).unwrap_or_default(), false));
+        }
+        return install_or_stored(line, version);
+    }
+    // 보관된 것도 없고 latest도 이 줄이 아님 = 이전 줄을 처음 씀, 또는 더 높은 줄 — 그 줄의 마지막 patch는 발행 목록으로
     let mut list = store::releases_daily();
     // 오래된 목록(S053): 보관된 것이 없고, 고정 판이나 그 줄이 목록에 없으면 같은 날이라도 다시 받음(간격 제한)
     let missing = |l: &Option<Vec<Ver>>| match l {
@@ -149,6 +160,11 @@ pub fn resolve_line(line: Line, pinned: Option<&Ver>) -> Result<(Ver, PathBuf, b
     if !fetch {
         return Ok((version, stored.map(|s| s.1).unwrap_or_default(), false));
     }
+    install_or_stored(line, version)
+}
+
+/// 판을 받아 설치(받는 동안 표준 오류에 한 줄). 받지 못하면 보관된 그 줄 최신으로, 그것도 없으면 Err.
+fn install_or_stored(line: Line, version: Ver) -> Result<(Ver, PathBuf, bool), String> {
     eprintln!("[elf] line {line}: installing {version} into the version store …");
     match store::install(&version) {
         Ok(i) => Ok((version, i.exe, i.fresh)),

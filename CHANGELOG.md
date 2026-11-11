@@ -4,6 +4,15 @@ User-facing highlights for the `elf` CLI — new features, new options, and chan
 that affect your projects. (Exhaustive internal history is kept separately by the
 maintainer.) The matching section is shown on each GitHub Release.
 
+## [3.9.3] - 2026-11-11
+
+### Fixed
+- **The daily patch check uses the latest release instead of the 2 MB release list.** Once a day `elf` asks GitHub
+  which release is the latest (a few kilobytes) and downloads it when it is a newer patch of the project's line.
+  Releases follow one line at a time, so an older line gets no new patches; the full list is read only when an
+  older line that is not stored is needed for the first time. On a slow network the check used to time out almost
+  every day.
+
 ## [3.9.2] - 2026-11-11
 
 ### Fixed

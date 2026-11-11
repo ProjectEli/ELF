@@ -169,16 +169,27 @@ fn first_use_installs_the_newest_patch_and_picks_up_a_newer_one_daily() {
     let (_, _, err) = run(&root, &e, &[TRACE], &["log"]);
     assert!(!err.contains("installing") && err.contains("→ v9.8.3"), "stored now: {err}");
 
-    // 새 patch: 목록은 하루 한 번 — 캐시 날짜를 옛날로 돌려 다음 실행이 다시 묻게 함
-    publish(&e, "v9.8.4", b"not an executable");
-    list(&e, &["v9.8.4", "v9.8.3"]);
-    let cache = e.home.join("versions/releases.json");
-    let c = fs::read_to_string(&cache).unwrap();
+    // 새 patch(S061): 하루 한 번 묻는 latest — 캐시 날짜를 옛날로 돌려 다음 실행이 다시 묻게 함
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-    fs::write(&cache, c.replace(&today, "2000-01-01")).unwrap();
+    let age = |e: &Env| {
+        let cache = e.home.join("versions/latest.json");
+        let c = fs::read_to_string(&cache).unwrap();
+        fs::write(&cache, c.replace(&today, "2000-01-01")).unwrap();
+    };
+    // latest가 다른 줄(9.9.1)이면 이 줄(9.8)의 새 patch는 찾지 않음 — 발행은 한 줄로 이어짐(이전 줄 patch 없음)
+    publish(&e, "v9.8.4", b"not an executable");
+    list(&e, &["v9.9.1", "v9.8.4", "v9.8.3"]);
+    age(&e);
+    let (_, _, err) = run(&root, &e, &[TRACE], &["log"]);
+    assert!(!err.contains("installing") && err.contains("→ v9.8.3"), "{err}");
+    // latest가 이 줄의 새 patch(9.8.4)면 받음
+    list(&e, &["v9.8.4", "v9.8.3"]);
+    age(&e);
     let (code, _, err) = run(&root, &e, &[TRACE], &["log"]);
     assert!(err.contains("installing v9.8.4") && err.contains("→ v9.8.4"), "{err}");
     assert!(code != 0 && err.contains("cannot run"), "the fake 9.8.4 cannot start: {err}");
+    let latest = fs::read_to_string(e.home.join("versions/latest.json")).unwrap();
+    assert!(latest.contains(&today) && latest.contains("v9.8.4"), "checked once a day: {latest}");
 }
 
 #[test]

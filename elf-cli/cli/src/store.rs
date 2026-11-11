@@ -21,6 +21,7 @@ pub const ENV_RELEASES: &str = "ELF_RELEASES";
 const MAX_ASSET: u64 = 64 * 1024 * 1024;
 const INSTALL_INFO: &str = "install.json";
 const LIST_CACHE: &str = "releases.json";
+const LATEST_CACHE: &str = "latest.json";
 
 // ── 위치 ──────────────────────────────────────────────────────────
 
@@ -568,16 +569,46 @@ pub fn install(v: &Ver) -> Result<Installed, String> {
 /// latest는 초안과 pre-release 제외), 로컬 폴더(`ELF_RELEASES`, 시험) = 그 폴더 `releases.json`의 최신 정식 판.
 /// 찾지 못하면 Err — 옛 목록으로 대신 판단하지 않음.
 pub fn latest_release() -> Result<Ver, String> {
+    latest_with(30).or_else(|_| latest_with(30))
+}
+
+/// 최신 정식 판 한 번 묻기(`secs` 상한): 원격 = `releases/latest` 리다이렉트, 로컬 폴더 = `releases.json`의 최신.
+fn latest_with(secs: u64) -> Result<Ver, String> {
     let base = releases_base();
     if !is_remote(&base) {
         let list = fetch(&format!("{base}/{LIST_CACHE}")).and_then(|b| parse_release_list(&String::from_utf8_lossy(&b)))?;
         return list.into_iter().filter(|v| v.pre.is_none()).max().ok_or_else(|| "the release list has no published release".into());
     }
-    let url = latest_url(&base);
-    match latest_from(&url, 30) {
-        Ok(v) => Ok(v),
-        Err(_) => latest_from(&url, 30),
+    latest_from(&latest_url(&base), secs)
+}
+
+/// 실행 위임의 하루 한 번 patch 확인용 최신 정식 판(S061): 발행이 한 줄로 이어지므로(새 줄이 나온 뒤 이전 줄 patch를
+/// 낸 적 없음) latest와 같은 줄의 최신 patch = latest, 이전 줄은 새 patch 없음. 2 MB 발행 목록 대신 수 KB 리다이렉트를
+/// 4초 상한으로 하루 한 번, 결과는 `versions/latest.json`(확인한 날, 실패한 날, 판). 실패한 날은 다시 묻지 않고,
+/// 받은 적이 있으면 마지막으로 안 판(날짜와 무관).
+pub fn latest_daily() -> Option<Ver> {
+    let dir = versions_dir()?;
+    let path = dir.join(LATEST_CACHE);
+    let today = today();
+    let cached: serde_json::Value =
+        fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_else(|| serde_json::json!({}));
+    let known = cached["version"].as_str().and_then(pin::parse);
+    if cached["checked"].as_str() == Some(today.as_str()) || cached["attempted"].as_str() == Some(today.as_str()) {
+        return known;
     }
+    let fresh = latest_with(4);
+    let body = match &fresh {
+        Ok(v) => serde_json::json!({ "checked": today, "version": v.to_string() }),
+        Err(_) => serde_json::json!({ "checked": cached["checked"], "attempted": today, "version": cached["version"] }),
+    };
+    let _ = fs::create_dir_all(&dir);
+    let _ = fs::write(&path, serde_json::to_string_pretty(&body).unwrap_or_default());
+    fresh.ok().or(known)
+}
+
+/// `v`가 줄 `line`을 실행하는 정식 판인가(2.28.x는 3.0 줄로 해석되지만 3.0 줄을 실행하지 않음).
+pub fn is_of_line(v: &Ver, line: Line) -> bool {
+    runs_line(v, line)
 }
 
 /// Release 기준 주소(`…/releases/download`) → `…/releases/latest`.
